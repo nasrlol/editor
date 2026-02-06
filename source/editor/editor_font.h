@@ -217,9 +217,7 @@ DrawTextInBox(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font,
     
     // TODO(luca): UTF8 support
     // e.g. (https://en.wikipedia.org/wiki/Whitespace_character) these are all whitespace characters that we might want to support.
-    for(u32 TextIndex = 0;
-        TextIndex < Text.Size;
-        TextIndex++)
+    for EachIndex(TextIndex, Text.Size)
     {
         u8 CharAt = Text.Data[TextIndex];
         
@@ -305,9 +303,7 @@ DrawTextInBox(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font,
     }
     
     u32 Start = 0;
-    for(u32 WrapIndex = 0;
-        WrapIndex < WrapPositionsCount;
-        WrapIndex++)
+    for EachIndex(WrapIndex, WrapPositionsCount)
     {
         u32 Position = WrapPositions[WrapIndex];
         

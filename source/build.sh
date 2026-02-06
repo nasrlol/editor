@@ -92,7 +92,7 @@ printf '[%s compile]\n' "$Compiler"
 if [ "$editor" = 1 ]
 then
  AppFlags="-fPIC --shared" 
-
+ 
  LibsFile="../build/editor_libs.o"
 
  # Faster compilation times by compiling all libraries in a separate translation unit.

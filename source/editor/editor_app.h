@@ -5,8 +5,12 @@
 
 struct app_state
 {
-    u64 PlaceHolder;
     app_font Font;
+    
+    u64 TextCount;
+    rune Text[1024];
+    
+    s32 CursorLinePos;
 };
 
 #endif //EDITOR_APP_H

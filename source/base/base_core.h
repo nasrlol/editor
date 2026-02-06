@@ -145,9 +145,9 @@ do { if(!(Expression)) TrapMsg(Format, ##__VA_ARGS__); } while(0)
 
 //- 
 #define EachIndexType(t, Index, Count) (t Index = 0; Index < (Count); Index += 1)
-#define EachIndex(Index, Count)           EachIndexType(umm, Index, Count)
-#define EachElement(Index, Array)         EachIndexType(umm, Index, ArrayCount(Array))
-#define EachInRange(Index, Range)         (umm Index = (Range).Min; Index < (Range).Max; Index += 1)
+#define EachIndex(Index, Count)           EachIndexType(u64, Index, Count)
+#define EachElement(Index, Array)         EachIndexType(u64, Index, ArrayCount(Array))
+#define EachInRange(Index, Range)         (u64 Index = (Range).Min; Index < (Range).Max; Index += 1)
 #define EachNode(Index, t, First)      (t *Index = First; Index != 0; Index = Index->next)
 
 #define MemoryCopy(Dest, Source, Count) memmove(Dest, Source, Count)

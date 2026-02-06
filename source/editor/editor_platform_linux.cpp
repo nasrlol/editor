@@ -81,7 +81,6 @@ ConvertUTF8StringToRune(u8 UTF8String[4])
     return Codepoint;
 }
 
-
 // Check for extension string presence.  Adapted from: http://www.opengl.org/resources/features/OGLextensions/
 internal b32
 IsExtensionSupported(const char *ExtList, char *Extension)
@@ -117,6 +116,23 @@ IsExtensionSupported(const char *ExtList, char *Extension)
     }
     
     return Result;
+}
+
+internal void 
+LinuxSetSizeHint(Display *DisplayHandle, Window WindowHandle,
+                 int MinWidth, int MinHeight,
+                 int MaxWidth, int MaxHeight)
+{
+    XSizeHints Hints = {};
+    if(MinWidth > 0 && MinHeight > 0) Hints.flags |= PMinSize;
+    if(MaxWidth > 0 && MaxHeight > 0) Hints.flags |= PMaxSize;
+    
+    Hints.min_width = MinWidth;
+    Hints.min_height = MinHeight;
+    Hints.max_width = MaxWidth;
+    Hints.max_height = MaxHeight;
+    
+    XSetWMNormalHints(DisplayHandle, WindowHandle, &Hints);
 }
 
 internal void
@@ -280,8 +296,8 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                     
                     // NOTE(luca): If we set the MaxWidth and MaxHeigth to the same values as MinWidth and MinHeight there is a bug on dwm where it won't update the window decorations when trying to remove them.
                     // In the future we will allow resizing to any size so this does not matter that much.
-#if 0                    
-                    LinuxSetSizeHint(DisplayHandle, WindowHandle, 0, 0, 0, 0);
+#if 1               
+                    LinuxSetSizeHint(DisplayHandle, WindowHandle, Buffer->Width, Buffer->Height, Buffer->Width, Buffer->Height);
 #endif
                     
                     // NOTE(luca): Tiling window managers should treat windows with the WM_TRANSIENT_FOR property as pop-up windows.  This way we ensure that we will be a floating window.  This works on my setup (dwm). 
@@ -492,7 +508,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                         if(IsDown && !FilteredEvent)
                         {
                             // TODO(luca): Choose a better error value.
-                            rune Codepoint = L'ù';
+                            rune Codepoint = L'\b';
                             u8 LookupBuffer[4] = {};
                             Status LookupStatus = {};
                             
@@ -520,6 +536,12 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                     Assert(Input->Text.Count < ArrayCount(Input->Text.Buffer));
                                     
                                     Codepoint = ConvertUTF8StringToRune(LookupBuffer);
+                                    
+                                    b32 IsControlChar = (Control && BytesLookepdUp == 1 && Codepoint < ' ');
+                                    if(IsControlChar)
+                                    {
+                                        Codepoint = (rune)((u8)(Symbol - XK_a) + 'a');
+                                    }
                                     
                                     // NOTE(luca): Input methods might produce non printable characters (< ' '). 
                                     if(Codepoint >= ' ' || Codepoint < 0)
