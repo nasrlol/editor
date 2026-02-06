@@ -173,128 +173,66 @@ UPDATE_AND_RENDER(UpdateAndRender)
         f32 HeightPx = 24.0f;;
         f32 FontScale = stbtt_ScaleForPixelHeight(&App->Font.Info, HeightPx);
         f32 Baseline = GetBaseLine(&App->Font, FontScale);
+        s32 AdvanceWidth, LeftSideBearing;
+        stbtt_GetCodepointHMetrics(&App->Font.Info, ' ', &AdvanceWidth, &LeftSideBearing);
+        // NOTE(luca): Since we work on monospace fonts, we can assume all the characters will have th e same width.
+        s32 CharWidth = (s32)roundf(FontScale*(f32)AdvanceWidth);
+        
+        v2 Offset = V2(0.0f, Baseline);
         str8 Text = {.Data = (u8 *)App->Text, .Size = App->TextCount};
         
-#if 1        
-        s32 *CharacterPixelWidths = PushArray(FrameArena, s32, App->TextCount);
-        u64 MaxWrapPositionsCount = App->TextCount;
-        u32 *WrapPositions = PushArray(FrameArena, u32, MaxWrapPositionsCount);
-        u32 WrapPositionsCount = 0;
-        
-        // 1. First pass where we save characters' widths.
-        // 2. Find positions where we need to wrap.
-        // Wrapping algorithm
-        // 1. When a character exceeds the box maximum width search backwards for whitespace.
-        //    I. Whitespace found?
-        //       Y -> Length of string until whitespace would fit?
-        //            Y -> Save whitespace's position.  This becomes the new searching start position.
-        //            N -> Break on the character that exceeds the maximum width.
-        //       N -> Break on the character that exceeds the maximum width.
-        //    II. Continue until end of string.
-        
-        // Save widths 
-        for EachIndex(Idx, App->TextCount)
-        {
-            rune CharAt = App->Text[Idx];
-            
-            s32 AdvanceWidth, LeftSideBearing;
-            stbtt_GetCodepointHMetrics(&App->Font.Info, CharAt, &AdvanceWidth, &LeftSideBearing);
-            
-            CharacterPixelWidths[Idx] = (s32)roundf(FontScale*(f32)AdvanceWidth);
-        }
-        
         s32 MaxWidth = Buffer->Width;
-        Assert(MaxWidth >= 0);
-        
-        // Find positions 
-        u32 SearchStart = 0;
-        while(SearchStart < App->TextCount)
+        s32 CumulatedWidth = 0;
+        u32 StartIdx = 0;
+        for EachIndexType(u32, Idx, App->TextCount)
         {
-            s32 CumulatedWidth = 0;
-            u32 SearchIndex = SearchStart;
-            for(;
-                ((SearchIndex < App->TextCount) &&
-                 (CumulatedWidth <= MaxWidth));
-                SearchIndex++)
+            CumulatedWidth += CharWidth;
+            
+            if(App->Text[Idx] == L'\n')
             {
-                s32 Width = CharacterPixelWidths[SearchIndex];
-                CumulatedWidth += Width;
-                
-                if(App->Text[SearchIndex] == '\n')
-                {
-                    WrapPositions[WrapPositionsCount] = SearchIndex;
-                    WrapPositionsCount += 1;
-                    SearchStart = SearchIndex + 1;
-                    break;
-                }
-                
+                CumulatedWidth = 0;
+                Offset.X = 0.0f;
+                Offset.Y += Baseline;
+                StartIdx = Idx + 1;
             }
-            
-            if(SearchIndex < App->TextCount && 
-               App->Text[SearchIndex] == '\n') continue;
-            
-            if(CumulatedWidth > MaxWidth)
+            else if(CumulatedWidth > MaxWidth)
             {
-                // Search backwards for a space.
-                SearchIndex--;
-                u32 SearchIndexStop = SearchIndex;
-                
-                while(SearchIndex > SearchStart)
-                {
-                    if(App->Text[SearchIndex] == ' ')
-                    {
-                        WrapPositions[WrapPositionsCount] = SearchIndex;
-                        WrapPositionsCount += 1;
-                        break;
-                    }
-                    
-                    SearchIndex--;
-                }
-                
-                if(SearchIndex > SearchStart)
-                {
-                    // NOTE(luca): We have wrapped.
-                    Assert(SearchIndex > SearchStart);
-                    SearchStart = SearchIndex + 1;
-                }
-                else if(SearchIndex == SearchStart)
-                {
-                    // NOTE(luca): We have to wrap on the last character even though it isn't a space.
-                    Assert(SearchIndexStop > SearchStart);
-                    WrapPositions[WrapPositionsCount] = SearchIndex;
-                    WrapPositionsCount += 1;
-                    SearchStart = SearchIndexStop;
-                }
-                else
-                {
-                    InvalidPath;
-                }
-                
+#if 1
+                CumulatedWidth = 0;
+                Offset.X = 0.0f;
+                Offset.Y += Baseline;
+                // We go back one to draw the character we wrapped on.
+                StartIdx = Idx;
+                Idx -= 1;
+#else
+                // TODO(luca): We should search backwards for a whitespace.
+#endif
             }
             else
             {
-                // NOTE(luca): We don't need to wrap, we've reached the end of the text.
-                break;
+                // Draw Character
+                {                
+                    s32 FontWidth, FontHeight;
+                    s32 X0, Y0, X1, Y1;
+                    u8 *FontBitmap = 0;
+                    stbtt_GetCodepointBitmapBox(&App->Font.Info, App->Text[Idx], 
+                                                FontScale, FontScale, 
+                                                &X0, &Y0, &X1, &Y1);
+                    FontWidth = (X1 - X0);
+                    FontHeight = (Y1 - Y0);
+                    FontBitmap = PushArray(FrameArena, u8, (FontWidth*FontHeight));
+                    stbtt_MakeCodepointBitmap(&App->Font.Info, FontBitmap, 
+                                              FontWidth, FontHeight, FontWidth, 
+                                              FontScale, FontScale, App->Text[Idx]);
+                    
+                    s32 XOffset = (s32)floorf(Offset.X + (f32)LeftSideBearing*FontScale);
+                    s32 YOffset = (s32)Offset.Y + Y0;
+                    
+                    DrawCharacter(FrameArena, Buffer, FontBitmap, FontWidth, FontHeight, XOffset, YOffset, ColorU32_Text);
+                    
+                    Offset.X += roundf((f32)AdvanceWidth*FontScale);
+                }
             }
-        }
-#endif
-        
-        u32 LastStart = 0;
-        for EachIndex(Idx, WrapPositionsCount + 1)
-        {
-            u32 Start = LastStart;
-            
-            u32 End = WrapPositions[Idx];
-            if(Idx == WrapPositionsCount)
-            {
-                End = (u32)App->TextCount;
-            }
-            
-            str8 Line = {.Data = (u8 *)(App->Text + Start), .Size = (End - Start)};
-            v2 TextPos = V2(0.0f, Baseline*(1.0f + (f32)Idx));
-            DrawText(FrameArena, Buffer, &App->Font, HeightPx, TextPos, true, ColorU32_Text, Line);
-            
-            LastStart = End + 1;
         }
         
         s32 Count = 6;

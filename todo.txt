@@ -1,2 +1,4 @@
 platform
 - resizing & (wrapping)
+- fix keyboard input (pressing & holding, vs text)
+- loop editing
