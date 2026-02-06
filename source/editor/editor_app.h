@@ -6,6 +6,7 @@
 struct app_state
 {
     u64 PlaceHolder;
+    app_font Font;
 };
 
 #endif //EDITOR_APP_H

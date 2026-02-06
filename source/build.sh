@@ -16,18 +16,15 @@ release=0
 personal=0
 slow=0
 asan=0
-
-# Targets
 clean=0
 
 editor=0
 windows=0
-Targets="clean/editor"
 
 # Default
 [ "$#" = 0 ] && editor=1
 
-for Arg in "$@"; do eval "$Arg=1"; done
+for Arg in "$@"; do eval "$Arg=1" 2>/dev/null || :; done
 # Exclusive flags
 [ "$release" = 1 ] && debug=0
 [ "$gcc"     = 1 ] && clang=0
@@ -128,7 +125,7 @@ fi
 if [ "$DidWork" = 0 ]
 then
  printf 'ERROR: No valid build target provided.\n'
- printf 'Usage: %s <%s>\n' "$0" "$Targets"
+ printf 'Usage: %s <editor [clean/asan/debug/release/gcc/clang/slow]>\n' "$0"
 else
  printf 'Done.\n' # 4coder bug
 fi

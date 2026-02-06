@@ -2,6 +2,7 @@
 #include "base/base.h"
 #include "base/base.c"
 #include "editor_platform.h"
+#include "editor_font.h"
 #include "editor_random.h"
 #include "editor_math.h"
 #include "editor_libs.h"
@@ -77,6 +78,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
         Memory->AppState = PushStruct(PermanentArena, app_state);
         app_state *App = (app_state *)Memory->AppState;
         
+        char *FontPath = PathFromExe(FrameArena, Memory->ExeDirPath, S8("../data/font_regular.ttf"));
+        InitFont(&App->Font, FontPath);
+        
         Memory->Initialized = true;
     }
     
@@ -107,19 +111,73 @@ UPDATE_AND_RENDER(UpdateAndRender)
     gl_handle VAOs[1] = {};
     gl_handle VBOs[2] = {};
     gl_handle Textures[1] = {};
+    gl_handle TextShader;
     glGenVertexArrays(ArrayCount(VAOs), &VAOs[0]);
     glGenBuffers(ArrayCount(VBOs), &VBOs[0]);
     glGenTextures(ArrayCount(Textures), &Textures[0]);
     glBindVertexArray(VAOs[0]);
+    TextShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath, 
+                                       S8("../source/shaders/text_vert.glsl"),
+                                       S8("../source/shaders/text_frag.glsl"));
+    glUseProgram(TextShader);
     
     glViewport(0, 0, Buffer->Width, Buffer->Height);
     glClearColor(U32ToV3Arg(ColorU32_BackgroundSecond), 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
+    // Render text (rasterized on CPU)
+    {    
+        // TODO(luca): Use font atlas + cache for rendering on the GPU.
+        app_offscreen_buffer TextImage = {};
+        TextImage.Width = 1920/2;
+        TextImage.Height = 1080/2;
+        TextImage.BytesPerPixel = 4;
+        TextImage.Pitch = TextImage.BytesPerPixel*TextImage.Width;
+        umm Size = TextImage.BytesPerPixel*(TextImage.Height*TextImage.Width);
+        TextImage.Pixels = PushArray(FrameArena, u8, Size);
+        MemorySet(TextImage.Pixels, 0, Size);
+        
+        f32 HeightPx = (f32)(Buffer->Width/30);
+        
+        f32 FontScale = stbtt_ScaleForPixelHeight(&App->Font.Info, HeightPx);
+        f32 Baseline = GetBaseLine(&App->Font, FontScale);
+        
+        DrawText(FrameArena, &TextImage, &App->Font, HeightPx, V2(0.0f, Baseline), false, 
+                 ColorU32_Text, S8("Hello, world!")); 
+        
+        s32 Count = 6;
+        v3 *Vertices = PushArray(FrameArena, v3, Count);
+        v2 *TexCoords = PushArray(FrameArena, v2, Count);
+        
+        MakeQuadV3(Vertices, V2(-1.0f, -1.0f), V2(1.0f, 1.0f), -1.0f);
+        for EachIndex(Idx, Count) 
+        {
+            V2Math
+            {
+                TexCoords[Idx].E = (Vertices[Idx].E + 1.0f)*0.5f;
+            }
+            TexCoords[Idx].Y = (1.0f - TexCoords[Idx].Y);
+        }
+        
+        gl_LoadTextureFromImage(Textures[0], TextImage.Width, TextImage.Height, TextImage.Pixels, GL_RGBA,  TextShader);
+        
+        gl_LoadFloatsIntoBuffer(VBOs[0], TextShader, "pos", Count, 3, Vertices);
+        gl_LoadFloatsIntoBuffer(VBOs[1], TextShader, "tex", Count, 2, TexCoords);
+        
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
+        glEnable(GL_MULTISAMPLE);
+        glEnable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST);
+        
+        glDrawArrays(GL_TRIANGLES, 0, Count);
+    }
+    
     // Cleanup
     {    
         glDeleteTextures(ArrayCount(Textures), &Textures[0]);
         glDeleteBuffers(ArrayCount(VBOs), &VBOs[0]);
+        glDeleteProgram(TextShader);
     }
     
     return ShouldQuit;

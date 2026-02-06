@@ -178,12 +178,12 @@ DrawText(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font,
             
             stbtt_GetCodepointHMetrics(&Font->Info, CharAt, &AdvanceWidth, &LeftSideBearing);
             
-            s32 XOffset = floorf(Offset.X + LeftSideBearing*FontScale);
-            s32 YOffset = Offset.Y + Y0;
+            s32 XOffset = (s32)floorf(Offset.X + (f32)LeftSideBearing*FontScale);
+            s32 YOffset = (s32)Offset.Y + Y0;
             
             DrawCharacter(Arena, Buffer, FontBitmap, FontWidth, FontHeight, XOffset, YOffset, Color);
             
-            Offset.X += roundf(AdvanceWidth*FontScale);
+            Offset.X += roundf((f32)AdvanceWidth*FontScale);
         }
     }
     else
@@ -226,10 +226,10 @@ DrawTextInBox(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font,
         s32 AdvanceWidth, LeftSideBearing;
         stbtt_GetCodepointHMetrics(&Font->Info, CharAt, &AdvanceWidth, &LeftSideBearing);
         
-        CharacterPixelWidths[TextIndex] = roundf(FontScale*AdvanceWidth);
+        CharacterPixelWidths[TextIndex] = (s32)roundf(FontScale*(f32)AdvanceWidth);
     }
     
-    s32 MaxWidth = BoxMax.X - BoxMin.X;
+    s32 MaxWidth = (s32)(BoxMax.X - BoxMin.X);
     Assert(MaxWidth >= 0);
     
     u32 SearchStart = 0;
@@ -296,11 +296,11 @@ DrawTextInBox(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font,
     
     if(Centered)
     {
-        s32 TextHeight = YAdvance * (WrapPositionsCount + 1);
-        s32 CenterHOffset = ((BoxMax.Y - BoxMin.Y) - TextHeight)/2;
+        s32 TextHeight = (s32)(YAdvance * (f32)(WrapPositionsCount + 1));
+        s32 CenterHOffset = ((s32)(BoxMax.Y - BoxMin.Y) - TextHeight)/2;
         if(CenterHOffset >= 0)
         {
-            TextOffset.Y += CenterHOffset;
+            TextOffset.Y += (f32)CenterHOffset;
         }
     }
     
@@ -311,7 +311,7 @@ DrawTextInBox(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font,
     {
         u32 Position = WrapPositions[WrapIndex];
         
-        if(TextOffset.Y - FontScale*Font->Descent < BoxMax.Y)
+        if(TextOffset.Y - FontScale*((f32)Font->Descent) < BoxMax.Y)
         {
             
             b32 DoCenter = (Centered && 
@@ -326,7 +326,7 @@ DrawTextInBox(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font,
                 {
                     TextWidth += CharacterPixelWidths[WidthIndex];
                 }
-                TextOffset.X = BoxMin.X + ((MaxWidth - TextWidth)/2);
+                TextOffset.X = BoxMin.X + (f32)((MaxWidth - TextWidth)/2);
             }
             
             DrawText(Arena, Buffer, Font, HeightPx, 
@@ -353,10 +353,10 @@ DrawTextInBox(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font,
         {
             TextWidth += CharacterPixelWidths[Idx];
         }
-        TextOffset.X = BoxMin.X + ((MaxWidth - TextWidth)/2);
+        TextOffset.X = BoxMin.X + (f32)((MaxWidth - TextWidth)/2);
     }
     
-    if(TextOffset.Y - FontScale*Font->Descent < BoxMax.Y)
+    if(TextOffset.Y - FontScale*((f32)Font->Descent) < BoxMax.Y)
     {
         DrawText(Arena, Buffer, Font, HeightPx, TextOffset, false, Color, S8From(Text, Start)); 
     }
