@@ -197,21 +197,24 @@ UPDATE_AND_RENDER(UpdateAndRender)
             }
             else if(CumulatedWidth > MaxWidth)
             {
-#if 1
+#if 0
+                // TODO(luca): We should search backwards for a whitespace.
+#else
                 CumulatedWidth = 0;
                 Offset.X = 0.0f;
                 Offset.Y += Baseline;
                 // We go back one to draw the character we wrapped on.
                 StartIdx = Idx;
                 Idx -= 1;
-#else
-                // TODO(luca): We should search backwards for a whitespace.
 #endif
             }
             else
             {
                 // Draw Character
-                {                
+                {
+                    s32 AdvanceWidth, LeftSideBearing;
+                    stbtt_GetCodepointHMetrics(&App->Font.Info, App->Text[Idx], &AdvanceWidth, &LeftSideBearing);
+                    
                     s32 FontWidth, FontHeight;
                     s32 X0, Y0, X1, Y1;
                     u8 *FontBitmap = 0;
