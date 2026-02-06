@@ -1,0 +1,71 @@
+#include "base_arenas.h"
+
+internal void 
+ThreadContextSelect(thread_context *Context)
+{
+    ThreadContext = Context;
+}
+
+internal arena *
+GetScratch()
+{
+    arena *Arena = ThreadContext->Arena; 
+    return Arena;
+}
+
+internal void 
+LaneIceberg(void)
+{
+    OS_BarrierWait(ThreadContext->Barrier);
+}
+
+internal void 
+LaneSyncU64(u64 *Value, s64 SourceIdx)
+{
+    if(LaneIdx() == SourceIdx)
+    {
+        *(u64 *)ThreadContext->SharedStorage = *(u64 *)Value;
+    }
+    LaneIceberg();
+    
+    if(LaneIdx() != SourceIdx)
+    {
+        *(u64 *)Value = *(u64 *)ThreadContext->SharedStorage;
+    }
+    LaneIceberg();
+}
+
+internal range_s64 
+LaneRange(s64 ValuesCount)
+{
+    range_s64 Result = {0};
+    
+    s64 ValuesPerThread = ValuesCount/LaneCount();
+    
+    s64 LeftoverValuesCount = ValuesCount%LaneCount();
+    b32 ThreadHasLeftover = (LaneIdx() < LeftoverValuesCount);
+    s64 LeftoversBeforeThisThreadIdx = ((ThreadHasLeftover) ? 
+                                        LaneIdx(): 
+                                        LeftoverValuesCount);
+    
+    Result.Min = (ValuesPerThread*LaneIdx()+
+                  LeftoversBeforeThisThreadIdx);
+    Result.Max = (Result.Min + ValuesPerThread + !!ThreadHasLeftover);
+    
+    return Result;
+}
+
+internal void 
+ThreadInit(thread_context *ContextToSelect)
+{
+    ThreadContextSelect(ContextToSelect);
+    
+    ThreadContext->Arena = ArenaAlloc();
+    
+    u8 ThreadNameBuffer[16] = {0};
+    str8 ThreadName = {0};
+    ThreadName.Data = ThreadNameBuffer;
+    ThreadName.Size = 1;
+    ThreadName.Data[0] = (u8)LaneIdx() + '0';
+    OS_SetThreadName(ThreadName);
+}
