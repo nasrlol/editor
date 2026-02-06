@@ -185,7 +185,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             u8 Codepoint = (u8)NewInput->Text.Buffer[0].Codepoint;
             
-#if 1            
+#if 0            
             Log("'%c' (%d, %d) 1:%c 2:%c 3:%c", 
                 ((Codepoint == 0) ?
                  '\a' : Codepoint),

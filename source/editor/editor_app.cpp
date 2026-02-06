@@ -101,18 +101,31 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         if(!Key.IsSymbol)
         {
-            if(0) {}
-            else if(Key.Modifiers & PlatformKeyModifier_Alt && Key.Codepoint == 'b')
+            if(Key.Modifiers & PlatformKeyModifier_Alt && Key.Codepoint == 'b')
             {
                 DebugBreak;
             }
-            else if(Key.Modifiers == PlatformKeyModifier_Control &&
-                    Key.Codepoint == 'h')
+            if(Key.Modifiers == PlatformKeyModifier_Control)
             {
-                if(App->TextCount) App->TextCount -= 1;
+                if(Key.Codepoint == 'h')
+                {
+                    if(App->TextCount) App->TextCount -= 1;
+                }
+                if(Key.Codepoint == 's')
+                {
+                    str8 File = PushS8(FrameArena, App->TextCount);
+                    for EachIndex(Idx, App->TextCount)
+                    {
+                        File.Data[Idx] = (u8)App->Text[Idx];
+                    }
+                    
+                    OS_WriteEntireFile("file.c", File);
+                    
+                    Log("Saved.\n");
+                }
             }
-            else if(Key.Modifiers == PlatformKeyModifier_None || 
-                    Key.Modifiers == PlatformKeyModifier_Shift)
+            if(Key.Modifiers == PlatformKeyModifier_None || 
+               Key.Modifiers == PlatformKeyModifier_Shift)
             {
                 AppendChar(App, Key.Codepoint);
             }
