@@ -10,7 +10,7 @@ struct app_state
     u64 TextCount;
     rune Text[1024];
     
-    s32 CursorLinePos;
+    s32 CursorPos;
 };
 
 #endif //EDITOR_APP_H

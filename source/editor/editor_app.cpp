@@ -67,7 +67,18 @@ AppendChar(app_state *App, rune Codepoint)
 {
     App->Text[App->TextCount] = Codepoint;
     App->TextCount += 1;
+    App->CursorPos += 1;
     Assert(App->TextCount < ArrayCount(App->Text));
+}
+
+void
+DeleteChar(app_state *App)
+{
+    if(App->TextCount) 
+    {
+        App->TextCount -= 1;
+        App->CursorPos -= 1;
+    }
 }
 
 C_LINKAGE
@@ -86,7 +97,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         Memory->AppState = PushStruct(PermanentArena, app_state);
         app_state *App = (app_state *)Memory->AppState;
         
-        char *FontPath = PathFromExe(FrameArena, Memory->ExeDirPath, S8("../data/font_regular.ttf"));
+        char *FontPath = PathFromExe(FrameArena, Memory->ExeDirPath, S8("../data/font_bold.ttf"));
         InitFont(&App->Font, FontPath);
         
         Memory->Initialized = true;
@@ -109,7 +120,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             {
                 if(Key.Codepoint == 'h')
                 {
-                    if(App->TextCount) App->TextCount -= 1;
+                    DeleteChar(App);
                 }
                 if(Key.Codepoint == 's')
                 {
@@ -135,7 +146,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             if(0) {}
             else if(Key.Codepoint == PlatformKey_BackSpace)
             {
-                if(App->TextCount) App->TextCount -= 1;
+                DeleteChar(App);
             }
             else if(Key.Codepoint == PlatformKey_Return)
             {
@@ -231,7 +242,24 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     s32 XOffset = (s32)floorf(Offset.X + (f32)LeftSideBearing*FontScale);
                     s32 YOffset = (s32)Offset.Y + Y0;
                     
-                    DrawCharacter(FrameArena, Buffer, FontBitmap, FontWidth, FontHeight, XOffset, YOffset, ColorU32_Text);
+                    DrawCharacter(FrameArena, Buffer, FontBitmap, FontWidth, FontHeight, XOffset, YOffset, 
+                                  ColorU32_Text);
+                    
+                    
+                    s32 MinX = (s32)(Offset.X + ((f32)AdvanceWidth*FontScale));
+                    s32 MinY = (s32)Offset.Y + 7;
+                    
+                    if(Idx == App->CursorPos - 1)
+                    {
+                        for(s32 Y = MinY - 25; Y < MinY; Y += 1)
+                        {
+                            for(s32 X = MinX; X < MinX + 11; X += 1)
+                            {
+                                u32 *Pixel = (u32 *)(Buffer->Pixels + Buffer->BytesPerPixel*(Y*Buffer->Width + X));
+                                *Pixel = ColorU32_Text;
+                            }
+                        }
+                    }
                     
                     Offset.X += roundf((f32)AdvanceWidth*FontScale);
                 }

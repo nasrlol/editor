@@ -16,6 +16,18 @@ typedef GLXContext (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, GLXC
 #include <X11/keysymdef.h>
 #include <X11/extensions/Xrandr.h>
 #include <X11/cursorfont.h>
+
+#define MWM_HINTS_DECORATIONS (1L << 1) 
+
+typedef struct XMotifWMHints XMotifWMHints;
+struct XMotifWMHints
+{
+    unsigned long flags;
+    unsigned long functions; 
+    unsigned long decorations;
+    unsigned long input_mode;
+};
+
 //- Linux 
 #include <sys/stat.h>
 #include <signal.h>
@@ -274,14 +286,17 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                                            ButtonPressMask | ButtonReleaseMask |
                                            EnterWindowMask | LeaveWindowMask |
                                            PointerMotionMask);
-            u64 WindowAttributeMask = CWBitGravity | CWBackPixel | CWColormap | CWEventMask;
+            
+            u64 WindowAttributeMask = CWBitGravity | CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
             
             // TODO(luca): Query information
             s32 ScreenWidth = 1920;
             s32 ScreenHeight = 1080;
-            // NOTE(luca): Align window with the right edge of the screen.
+            
             s32 X = ScreenWidth - Buffer->Width; 
             s32 Y = 0; 
+            
+            // NOTE(luca): Align window with the right edge of the screen.
             Window WindowHandle = XCreateWindow(DisplayHandle, RootWindow,
                                                 X, Y, Buffer->Width, Buffer->Height,
                                                 0,
@@ -294,11 +309,31 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                 {            
                     XRet = XStoreName(DisplayHandle, WindowHandle, WindowName);
                     
-                    // NOTE(luca): If we set the MaxWidth and MaxHeigth to the same values as MinWidth and MinHeight there is a bug on dwm where it won't update the window decorations when trying to remove them.
-                    // In the future we will allow resizing to any size so this does not matter that much.
-#if 1               
                     LinuxSetSizeHint(DisplayHandle, WindowHandle, Buffer->Width, Buffer->Height, Buffer->Width, Buffer->Height);
-#endif
+                    
+                    // Disable window decorations
+                    {
+                        Atom MotifWMHintsAtom = XInternAtom(DisplayHandle, "_MOTIF_WM_HINTS", false);
+                        if(MotifWMHintsAtom == None) 
+                        {
+                            ErrorLog("_MOTIF_WM_HINTS atom not supported by your WindowHandle manager.\n");
+                            // Proceed anyway; WindowHandle manager will ignore the hint
+                        }
+                        
+                        XMotifWMHints hints = 
+                        {
+                            .flags = MWM_HINTS_DECORATIONS,  
+                            .decorations = 0                 
+                        };
+                        
+                        XChangeProperty(DisplayHandle, WindowHandle,
+                                        MotifWMHintsAtom, MotifWMHintsAtom,
+                                        32,
+                                        PropModeReplace,      
+                                        (unsigned char *)&hints,  
+                                        sizeof(hints) / sizeof(long));
+                        
+                    }
                     
                     // NOTE(luca): Tiling window managers should treat windows with the WM_TRANSIENT_FOR property as pop-up windows.  This way we ensure that we will be a floating window.  This works on my setup (dwm). 
                     XRet = XSetTransientForHint(DisplayHandle, WindowHandle, RootWindow);
@@ -713,9 +748,12 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                 case ConfigureNotify:
                 {
                     XConfigureEvent *Event = (XConfigureEvent *)&WindowEvent;
+#if 0
                     Buffer->Width = Event->width;
                     Buffer->Height = Event->height;
                     Buffer->Pitch = Buffer->BytesPerPixel*Buffer->Width;
+#endif
+                    
                 } break;
                 
                 case DestroyNotify:
