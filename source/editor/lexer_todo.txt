@@ -1,0 +1,197 @@
+CST / LEXER / INCREMENTAL PARSING — TODO LIST
+===========================================
+
+PHASE 0 — CLARIFY SCOPE
+----------------------
+[ ] Decide explicit goal for CST:
+    - Editor-oriented (exact text, formatting, tokens preserved)
+    - NOT semantic analysis (no types, no name resolution)
+
+[ ] Define invariants:
+    - CST nodes always map to a contiguous token range
+    - Tokens are the source of truth
+    - CST must always be syntactically valid (or explicitly marked broken)
+
+------------------------------------------------------------
+
+PHASE 1 — INPUT & BUFFER MODEL
+------------------------------
+[ ] Decide parsing unit:
+    - Single file buffer only (initially)
+    - No multi-file CST yet
+
+[ ] Represent file buffer as:
+    - Immutable text buffer
+    - Separate token array referencing buffer slices (str8)
+
+[ ] Track for each token:
+    - byte offset
+    - length
+    - line
+    - column
+
+------------------------------------------------------------
+
+PHASE 2 — TOKENIZATION (FIX CURRENT CODE)
+-----------------------------------------
+[ ] Stop splitting only on spaces
+[ ] Implement character-class based lexer:
+    - identifiers
+    - numbers
+    - operators
+    - punctuation
+    - string literals
+    - char literals
+    - comments
+    - preprocessor directives
+
+[ ] Treat delimiters as tokens, not separators
+    - '(' ')' '{' '}' ';' ',' etc
+
+[ ] Handle newlines explicitly:
+    - track line/column
+    - newline is NOT syntax, but is trivia
+
+[ ] Store trivia:
+    - whitespace
+    - comments
+    - associate trivia with nearest token
+
+[ ] Remove pointer comparison bugs:
+    - ParsedWord.Data == '+' is invalid
+    - compare length + data
+
+------------------------------------------------------------
+
+PHASE 3 — TOKEN STREAM
+---------------------
+[ ] Build contiguous token array:
+    - tokens[i].kind
+    - tokens[i].lexeme
+    - tokens[i].range
+
+[ ] No tree yet
+[ ] Lexer must be deterministic and restartable
+
+------------------------------------------------------------
+
+PHASE 4 — CST NODE MODEL
+-----------------------
+[ ] Define CST node struct:
+    - kind
+    - first_token_index
+    - last_token_index
+    - parent pointer
+    - children array
+
+[ ] Node kinds (initial):
+    - TranslationUnit
+    - Declaration
+    - FunctionDefinition
+    - ParameterList
+    - CompoundStatement
+    - Statement
+    - Expression
+    - TokenLeaf (optional)
+
+[ ] Root node = TranslationUnit
+    - spans entire token array
+
+------------------------------------------------------------
+
+PHASE 5 — CST CONSTRUCTION (SINGLE PASS)
+---------------------------------------
+[ ] Build CST from token stream:
+    - stack-based (push on '{', '(', '[')
+    - pop on matching closing token
+
+[ ] Semicolon ';' ends a statement node
+[ ] Braces '{ }' create block nodes
+[ ] Parentheses '( )' create grouped nodes
+
+[ ] Preserve ALL tokens (no AST collapsing)
+
+------------------------------------------------------------
+
+PHASE 6 — VALIDATION
+-------------------
+[ ] Assert:
+    - every token belongs to exactly one CST node
+    - token ranges do not overlap incorrectly
+    - parent ranges strictly contain children ranges
+
+------------------------------------------------------------
+
+PHASE 7 — REMOVE FROM CST (CORE TASK)
+------------------------------------
+[ ] Define removal contract:
+    - removal operates on CST node, not text
+    - removal always produces a valid CST or marks error
+
+[ ] Implement:
+    RemoveNode(tree, node):
+
+    1. Locate node in parent children list
+    2. Determine context:
+        - list element?
+        - optional?
+        - required?
+
+    3. Compute token range to delete:
+        - node.first_token .. node.last_token
+        - include separator if list element
+
+    4. Remove tokens from token array
+    5. Update token indices for all following nodes
+    6. Remove node from parent's children list
+    7. Merge or normalize trivia
+
+[ ] Never delete required grammar constructs:
+    - replace with empty node instead
+
+------------------------------------------------------------
+
+PHASE 8 — INCREMENTAL EDIT SUPPORT
+---------------------------------
+[ ] Represent edits as:
+    - (start_offset, end_offset, inserted_text)
+
+[ ] On edit:
+    - re-lex only affected token range
+    - splice token array
+    - invalidate CST nodes overlapping range
+    - rebuild CST locally
+
+------------------------------------------------------------
+
+PHASE 9 — MULTI-FILE (LATER)
+----------------------------
+[ ] One CST per file
+[ ] Project index references CSTs
+[ ] No cross-file CST merging
+
+------------------------------------------------------------
+
+PHASE 10 — TOOLING
+------------------
+[ ] Debug dump:
+    - print CST as tree with token text
+[ ] Visualize token ranges
+[ ] Assert-heavy build
+
+------------------------------------------------------------
+
+STOP CONDITIONS
+---------------
+[ ] Can delete a statement node and text updates correctly
+[ ] Can delete parameter from parameter list
+[ ] Can delete function body and get `{}`
+
+------------------------------------------------------------
+
+NOT TODO (INTENTIONALLY)
+-----------------------
+- No semantic analysis
+- No type system
+- No AST lowering
+- No code generation

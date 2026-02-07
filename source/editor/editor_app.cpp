@@ -30,7 +30,7 @@ SET(Orange,           0xffd08770) \
 SET(Magenta,          0xffb48ead) \
 SET(Yellow,           0xffebcb8b)
 
-#define SET(Name, Value) u32 ColorU32_##Name = Value; 
+#define SET(Name, Value) u32 ColorU32_##Name = Value;
 ColorList
 #undef SET
 
@@ -38,7 +38,9 @@ ColorList
 ColorList
 #undef SET
 
-internal app_offscreen_buffer 
+
+
+internal app_offscreen_buffer
 LoadImage(arena *Arena, str8 ExeDirPath, str8 Path)
 {
     app_offscreen_buffer Result = {};
@@ -46,7 +48,7 @@ LoadImage(arena *Arena, str8 ExeDirPath, str8 Path)
     char *FilePath = PathFromExe(Arena, ExeDirPath, Path);
     str8 File = OS_ReadEntireFileIntoMemory(FilePath);
     if(File.Size)
-    {    
+    {
         s32 Width, Height, Components;
         s32 BytesPerPixel = 4;
         u8 *Image = stbi_load_from_memory(File.Data, (int)File.Size, &Width, &Height, &Components, BytesPerPixel);
@@ -65,6 +67,10 @@ LoadImage(arena *Arena, str8 ExeDirPath, str8 Path)
 void
 AppendChar(app_state *App, rune Codepoint)
 {
+    if (Codepoint == ' ')
+    {
+        // NOTE(nasr): do we check the space here?
+    }
     App->Text[App->TextCount] = Codepoint;
     App->TextCount += 1;
     App->CursorPos += 1;
@@ -74,7 +80,7 @@ AppendChar(app_state *App, rune Codepoint)
 void
 DeleteChar(app_state *App)
 {
-    if(App->TextCount) 
+    if(App->TextCount)
     {
         App->TextCount -= 1;
         App->CursorPos -= 1;
@@ -84,9 +90,10 @@ DeleteChar(app_state *App)
 C_LINKAGE
 UPDATE_AND_RENDER(UpdateAndRender)
 {
+    
     b32 ShouldQuit = false;
     
-#if EDITOR_INTERNAL    
+#if EDITOR_INTERNAL
     GlobalDebuggerIsAttached = Memory->IsDebuggerAttached;
 #endif
     
@@ -97,7 +104,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         Memory->AppState = PushStruct(PermanentArena, app_state);
         app_state *App = (app_state *)Memory->AppState;
         
-        char *FontPath = PathFromExe(FrameArena, Memory->ExeDirPath, S8("../data/font_bold.ttf"));
+        char *FontPath = PathFromExe(FrameArena, Memory->ExeDirPath, S8("../data/font_regular.ttf"));
         InitFont(&App->Font, FontPath);
         
         Memory->Initialized = true;
@@ -134,8 +141,20 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     
                     Log("Saved.\n");
                 }
+                /*
+                 * TODO(nasr): '+' doesnt work
+                 * */
+                if (Key.Codepoint == 'p')
+                {
+                    HeightPx++;
+                }
+                
+                if (Key.Codepoint == '-')
+                {
+                    HeightPx--;
+                }
             }
-            if(Key.Modifiers == PlatformKeyModifier_None || 
+            if(Key.Modifiers == PlatformKeyModifier_None ||
                Key.Modifiers == PlatformKeyModifier_Shift)
             {
                 AppendChar(App, Key.Codepoint);
@@ -167,7 +186,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     glGenBuffers(ArrayCount(VBOs), &VBOs[0]);
     glGenTextures(ArrayCount(Textures), &Textures[0]);
     glBindVertexArray(VAOs[0]);
-    TextShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath, 
+    TextShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
                                        S8("../source/shaders/text_vert.glsl"),
                                        S8("../source/shaders/text_frag.glsl"));
     glUseProgram(TextShader);
@@ -177,11 +196,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     // Render text (rasterized on CPU)
-    {    
+    {
         // TODO(luca): Use font atlas + cache for rendering on the GPU.
         MemorySet(Buffer->Pixels, 0, Buffer->Pitch*Buffer->Height);
         
-        f32 HeightPx = 24.0f;;
         f32 FontScale = stbtt_ScaleForPixelHeight(&App->Font.Info, HeightPx);
         f32 Baseline = GetBaseLine(&App->Font, FontScale);
         s32 AdvanceWidth, LeftSideBearing;
@@ -229,39 +247,38 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     s32 FontWidth, FontHeight;
                     s32 X0, Y0, X1, Y1;
                     u8 *FontBitmap = 0;
-                    stbtt_GetCodepointBitmapBox(&App->Font.Info, App->Text[Idx], 
-                                                FontScale, FontScale, 
+                    stbtt_GetCodepointBitmapBox(&App->Font.Info, App->Text[Idx],
+                                                FontScale, FontScale,
                                                 &X0, &Y0, &X1, &Y1);
                     FontWidth = (X1 - X0);
                     FontHeight = (Y1 - Y0);
                     FontBitmap = PushArray(FrameArena, u8, (FontWidth*FontHeight));
-                    stbtt_MakeCodepointBitmap(&App->Font.Info, FontBitmap, 
-                                              FontWidth, FontHeight, FontWidth, 
+                    stbtt_MakeCodepointBitmap(&App->Font.Info, FontBitmap,
+                                              FontWidth, FontHeight, FontWidth,
                                               FontScale, FontScale, App->Text[Idx]);
                     
                     s32 XOffset = (s32)floorf(Offset.X + (f32)LeftSideBearing*FontScale);
                     s32 YOffset = (s32)Offset.Y + Y0;
                     
-                    DrawCharacter(FrameArena, Buffer, FontBitmap, FontWidth, FontHeight, XOffset, YOffset, 
-                                  ColorU32_Text);
+                    DrawCharacter(FrameArena, Buffer, FontBitmap, FontWidth, FontHeight, XOffset, YOffset, ColorU32_Text);
                     
-                    
-                    s32 MinX = (s32)(Offset.X + ((f32)AdvanceWidth*FontScale));
-                    s32 MinY = (s32)Offset.Y + 7;
-                    
-                    if(Idx == App->CursorPos - 1)
-                    {
-                        for(s32 Y = MinY - 25; Y < MinY; Y += 1)
-                        {
-                            for(s32 X = MinX; X < MinX + 11; X += 1)
-                            {
-                                u32 *Pixel = (u32 *)(Buffer->Pixels + Buffer->BytesPerPixel*(Y*Buffer->Width + X));
-                                *Pixel = ColorU32_Text;
-                            }
-                        }
-                    }
                     
                     Offset.X += roundf((f32)AdvanceWidth*FontScale);
+                }
+            }
+        }
+        
+        // Draw cursor
+        {        
+            s32 MinX = (s32)Offset.X;
+            s32 MinY = (s32)Offset.Y + 7;
+            
+            for(s32 Y = MinY - 25; Y < MinY; Y += 1)
+            {
+                for(s32 X = MinX; X < MinX + 11; X += 1)
+                {
+                    u32 *Pixel = (u32 *)(Buffer->Pixels + Buffer->BytesPerPixel*(Y*Buffer->Width + X));
+                    *Pixel = ColorU32_Text;
                 }
             }
         }
@@ -271,7 +288,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         v2 *TexCoords = PushArray(FrameArena, v2, Count);
         
         MakeQuadV3(Vertices, V2(-1.0f, -1.0f), V2(1.0f, 1.0f), -1.0f);
-        for EachIndex(Idx, Count) 
+        for EachIndex(Idx, Count)
         {
             V2Math
             {
@@ -286,7 +303,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         gl_LoadFloatsIntoBuffer(VBOs[1], TextShader, "tex", Count, 2, TexCoords);
         
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glEnable(GL_MULTISAMPLE);
         glEnable(GL_BLEND);
         glEnable(GL_DEPTH_TEST);
@@ -295,7 +312,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     
     // Cleanup
-    {    
+    {
         glDeleteTextures(ArrayCount(Textures), &Textures[0]);
         glDeleteBuffers(ArrayCount(VBOs), &VBOs[0]);
         glDeleteProgram(TextShader);

@@ -72,18 +72,18 @@
 #define ERROR_FMT "%s(%d): ERROR: "
 #define ERROR_ARG __FILE__, __LINE__
 
-//- 
+//-
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 #define CeilIntegerDiv(A,B) (((A) + (B) - 1)/(B))
 
-//- 
+//-
 #define Stringify_(S) #S
 #define Stringify(S) Stringify_(S)
 
 #define Glue_(A,B) A##B
 #define Glue(A,B) Glue_(A,B)
 
-//- 
+//-
 #define Min(A, B) (((A) < (B)) ? (A) : (B))
 #define Max(A, B) (((A) > (B)) ? (A) : (B))
 #define ClampTop(A, X) Min(A,X)
@@ -93,11 +93,11 @@
 #if LANG_C
 # define Swap(A, B) do { typeof((A)) (temp) = (typeof((A)))(A); (A) = (B); (B) = (temp); } while(0)
 #else
-template <typename t> inline void 
+template <typename t> inline void
 Swap(t& A, t& B) { t T = A; A = B; B = T; }
 #endif
 
-//- 
+//-
 #define NoOp ((void)0)
 
 #if LANG_C
@@ -115,7 +115,11 @@ Swap(t& A, t& B) { t T = A; A = B; B = T; }
 #endif
 
 #if (COMPILER_CLANG || COMPILER_GNU)
-# define Trap() __asm__ volatile("int3");
+#if defined(__arm__) || defined(__aarch64__)
+# define Trap() __asm__ volatile("brk #0");
+#elif defined(__i386__) || defined(__x86_64__)
+#define Trap() __asm__ volatile("int3");
+#endif
 #elif COMPILER_MSVC
 # define Trap() __debugbreak();
 #else
@@ -123,7 +127,7 @@ Swap(t& A, t& B) { t T = A; A = B; B = T; }
 #endif
 
 #if COMPILER_MSVC
-# define ReadWriteBarrier _ReadBarrier(); _WriteBarrier(); 
+# define ReadWriteBarrier _ReadBarrier(); _WriteBarrier();
 #elif COMPILER_GNU || COMPILER_CLANG
 # define ReadWriteBarrier __asm__ __volatile__ ("" : : : "memory")
 #endif
@@ -143,7 +147,7 @@ do { if(!(Expression)) TrapMsg(Format, ##__VA_ARGS__); } while(0)
 #define InvalidPath    TrapMsg("Invalid Path!")
 #define StaticAssert(C, ID) global_variable u8 Glue(ID, __LINE__)[(C)?1:-1]
 
-//- 
+//-
 #define EachIndexType(t, Index, Count) (t Index = 0; Index < (Count); Index += 1)
 #define EachIndex(Index, Count)           EachIndexType(u64, Index, Count)
 #define EachElement(Index, Array)         EachIndexType(u64, Index, ArrayCount(Array))
@@ -154,8 +158,8 @@ do { if(!(Expression)) TrapMsg(Format, ##__VA_ARGS__); } while(0)
 #define MemorySet(Dest, Value, Count)  memset(Dest, Value, Count)
 
 //~ Attributes
-#define internal static 
-#define local_persist static 
+#define internal static
+#define local_persist static
 #define global_variable static
 
 #if COMPILER_MSVC
@@ -250,7 +254,7 @@ __asan_unpoison_memory_region((Address), (Size))
 #else
 # define AsanPoisonMemoryRegion(Address, Size) ((void)(Address), (void)(Size))
 # define AsanUnpoisonMemoryRegion(Address, Size) ((void)(Address), (void)(Size))
-#endif 
+#endif
 
 // Push/Pop warnings
 #if COMPILER_GNU
@@ -346,7 +350,7 @@ union v3
 typedef union v4 v4;
 union v4
 {
-    f32 e[4]; 
+    f32 e[4];
     struct { f32 X, Y, Z, W; };
 };
 #define V4Arg(Value) Value.X, Value.Y, Value.Z, Value.W
