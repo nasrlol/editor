@@ -1,4 +1,5 @@
 platform
 - resizing & (wrapping)
 - fix keyboard input (pressing & holding, vs text)
+- shift should not be a modifier.
 - loop editing

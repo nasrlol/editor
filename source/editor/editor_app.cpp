@@ -123,7 +123,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
             {
                 DebugBreak;
             }
-            if(Key.Modifiers == PlatformKeyModifier_Control)
+            if(Key.Modifiers == PlatformKeyModifier_Control ||
+               (Key.Modifiers == (PlatformKeyModifier_Control | PlatformKeyModifier_Shift)))
             {
                 if(Key.Codepoint == 'h')
                 {
@@ -137,14 +138,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         File.Data[Idx] = (u8)App->Text[Idx];
                     }
                     
-                    OS_WriteEntireFile("file.c", File);
+                    char *OutPath = PathFromExe(FrameArena, Memory->ExeDirPath, S8("file.c"));
+                    OS_WriteEntireFile(OutPath, File);
                     
                     Log("Saved.\n");
                 }
-                /*
-                 * TODO(nasr): '+' doesnt work
-                 * */
-                if (Key.Codepoint == 'p')
+                if (Key.Codepoint == '+')
                 {
                     HeightPx++;
                 }
@@ -152,6 +151,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 if (Key.Codepoint == '-')
                 {
                     HeightPx--;
+                }
+                if(Key.Codepoint == '0')
+                {
+                    HeightPx = DefaultHeightPx;
                 }
             }
             if(Key.Modifiers == PlatformKeyModifier_None ||
