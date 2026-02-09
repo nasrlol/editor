@@ -1,3 +1,7 @@
+#include "base/base_core.h"
+#include "base/base_os.h"
+#include "base/base_strings.h"
+#include "base/base_arenas.h"
 #define BASE_NO_ENTRYPOINT 1
 #include "editor_lexer.h"
 
@@ -23,7 +27,14 @@
  * complete buffer, seperate words on spaces and other general delimters
  * and get a list of tokens out of this so i can run the tokenizer of a list
  * */
-internal str8 *ParseBuffer(app_state *app)
+
+/**
+ * NOTE(nasr): new idea, make a parse -> lexing pipeline
+ * we make continous parsing for the continous input
+ * and then we do a search on the nodes of the cst
+ **/
+
+internal Token *ParseBuffer(app_state *app, arena *Arena)
 {
 
     /*
@@ -43,125 +54,252 @@ internal str8 *ParseBuffer(app_state *app)
      *
      * do we handle it or not?
      * */
+    /**
+     * I think i misunderstood the difference between a parser and a lexer
+     **/
 
-    str8 *tokens = {0};
+    Token *FirstToken = 0;
+    Token *LastToken = 0;
 
-    s32 start = -1;
-    s32 end   = 0;
+    s32 TextIndex = 0;
+    s32 Line = 1;
+    s32 Column = 1;
 
-    for (s32 TextIndex = 0;
-            TextIndex < app->TextCount;
-            ++TextIndex)
+    while(TextIndex < app->TextCount)
     {
-        char CurrentChar = app->Text[TextIndex];
+        rune CurrentChar = app->Text[TextIndex];
+
+        // NOTE(nasr): skip whitespace but track position
+#if !defined(OS_WINDOWS)
+        while(TextIndex < app->TextCount &&
+              (CurrentChar == ' ' || CurrentChar == '\t' || CurrentChar == '\n' || CurrentChar == '\r' /*windows support*/))
+#endif
+#if defined(__linux__)
+        while(TextIndex < app->TextCount &&
+              (CurrentChar == ' ' || CurrentChar == '\t' || CurrentChar == '\n'))
+#endif
         {
-
-            if ((( CurrentChar != ' ' || CurrentChar == '\t' /* || CurrentChar  == '\n' */ ))  && start < 0)
+            if(CurrentChar == '\n')
             {
-                start = TextIndex;
+                ++Line;
+                Column = 1;
             }
-            else if ((( CurrentChar == ' ' ||
-                            CurrentChar  == '\t' ||
-                            TextIndex == app->TextCount - 1))
-                    && start >= 0)
-            {
-                if (CurrentChar == ' ' || CurrentChar == '\t')
-                {
-                    end = TextIndex;
-                }
-                else
-                {
-                    end = TextIndex + 1;
-                }
-                break;
-            }
-
             else
             {
-                for (s32 DelimiterIndex = 0;
-                        DelimiterIndex < ArrayCount(Delimiters);
-                        ++DelimiterIndex)
-                {
-                    if (Delimiters[DelimiterIndex] == CurrentChar)
-                    {
-                        start = DelimiterIndex;
-
-                    }
-                }
+                ++Column;
             }
-
-            if (start < 0)
-            {
-                *tokens = (str8){0};
-            }
-
+            TextIndex += 1;
+            if(TextIndex < app->TextCount) { CurrentChar = app->Text[TextIndex]; }
         }
 
-                *tokens = S8FromTo(S8(app->Text) , start, end);
-                ++tokens;
+        if(TextIndex >= app->TextCount)
+        {
+            break;
+        }
+
+        s32 TokenStart = TextIndex;
+        s32 TokenStartColumn = Column;
+        b32 IsDelimiter = false;
+
+        // NOTE(nasr): check if current char is a delimiter
+        for(s32 DelimiterIndex = 0; DelimiterIndex < ArrayCount(Delimiters); ++DelimiterIndex)
+        {
+            if(Delimiters[DelimiterIndex] == (char)CurrentChar)
+            {
+                IsDelimiter = true;
+                break;
+            }
+        }
+
+        s32 TokenEnd = TextIndex;
+
+        if(IsDelimiter)
+        {
+            TokenEnd = TextIndex + 1;
+            Column += 1;
+        }
+        else
+        {
+            // NOTE(nasr): scan until we hit whitespace or delimiter
+            while(TextIndex < app->TextCount)
+            {
+                CurrentChar = app->Text[TextIndex];
+
+                if(CurrentChar == ' ' || CurrentChar == '\t' || CurrentChar == '\n' || CurrentChar == '\r')
+                {
+                    break;
+                }
+
+                b32 IsDelimiter = false;
+                for(s32 DelimiterIndex = 0; DelimiterIndex < ArrayCount(Delimiters); ++DelimiterIndex)
+                {
+                    if(Delimiters[DelimiterIndex] == (char)CurrentChar)
+                    {
+                        IsDelimiter = true;
+                        break;
+                    }
+                }
+
+                if(IsDelimiter)
+                {
+                    break;
+                }
+
+                TextIndex += 1;
+                Column += 1;
+            }
+
+            TokenEnd = TextIndex;
+        }
+
+        s32 TokenSize = TokenEnd - TokenStart;
+        if(TokenSize > 0)
+        {
+            Token *NewToken = PushStruct(Arena, Token);
+
+            u8 *TokenStr = PushArray(Arena, u8, TokenSize + 1);
+            for(s32 i = 0; i < TokenSize; ++i)
+            {
+                TokenStr[i] = (u8)app->Text[TokenStart + i];
+            }
+            TokenStr[TokenSize] = 0;
+
+            NewToken->Lexeme.Data = TokenStr;
+            NewToken->Lexeme.Size = TokenSize;
+            NewToken->Line = Line;
+            NewToken->Column = TokenStartColumn;
+            NewToken->Type = TokenInvalid;
+            NewToken->Next = 0;
+
+            if(LastToken)
+            {
+                LastToken->Next = NewToken;
+                LastToken = NewToken;
+            }
+            else
+            {
+                FirstToken = NewToken;
+                LastToken = NewToken;
+            }
+        }
+
+        TextIndex = TokenEnd;
     }
 
-    return tokens;
+    return FirstToken;
 }
+
 /**
  * NOTE(nasr): The tokenize function takes the parsed buffer and tokenizes
  * every element in the list
  * We try to identify the leximes, that were previously split up;
  * */
 
-
-
-
-
-internal Token *Tokenize(str8 ParsedWord)
+internal Token *Tokenize(str8 ParsedWord, arena *Arena)
 {
 
     /* NOTE(nasr):
      * maybe put the tokenizing in a seperate function
      * no need for doing that at the moment */
 
-    Token TokenOut = {sizeof(Token)};
+    Token *TokenOut = PushStruct(Arena, Token);
 
-    TokenOut.Type   = Token_Invalid;
-    TokenOut.Lexeme = ParsedWord;
-    TokenOut.Line   = 0;
-    TokenOut.Column = 0;
+    TokenOut->Type   = TokenInvalid;
+    TokenOut->Lexeme = ParsedWord;
+    TokenOut->Line   = 0;
+    TokenOut->Column = 0;
+    TokenOut->Next   = 0;
 
-    for (umm KeywordIndex = 0;
-            KeywordIndex < ArrayCount(Keywords);
-            ++KeywordIndex)
+    // NOTE(nasr): check for keywords
+    for(umm KeywordIndex = 0; KeywordIndex < ArrayCount(Keywords); ++KeywordIndex)
     {
-        if (S8Match(ParsedWord, Keywords[KeywordIndex], false))
+        if(S8Match(ParsedWord, Keywords[KeywordIndex], false))
         {
-            TokenOut.Type = Token_Keyword;
-            break;
+            TokenOut->Type = TokenKeyword;
+            return TokenOut;
         }
     }
 
-    /*
-     * TODO(nasr): how do we handle unary expressions?
-     * */
-    if (ParsedWord.Data == (u8 *)'+' || ParsedWord.Data == (u8 *)'-' ||
-            ParsedWord.Data == (u8 *)'*' || ParsedWord.Data == (u8 *) '/')
+    // NOTE(nasr): check for single-character tokens
+    if(ParsedWord.Size == 1)
     {
-        TokenOut.Type = Token_Operator;
+        char c = (char)ParsedWord.Data[0];
+
+        /*
+         * TODO(nasr): how do we handle unary expressions?
+         * */
+        if(c == '+' || c == '-' || c == '*' || c == '/')
+        {
+            TokenOut->Type = TokenOperator;
+            return TokenOut;
+        }
+
+        /*
+         * for preprocessor stuff
+         * #include #endif
+         * */
+        if(c == '#')
+        {
+            TokenOut->Type = TokenDirective;
+            return TokenOut;
+        }
+
+        if(c == ';')
+        {
+            TokenOut->Type = TokenSemicolon;
+            return TokenOut;
+        }
+
+        if(c == '(' || c == ')' || c == '{' || c == '}' || c == '[' || c == ']')
+        {
+            TokenOut->Type = TokenDelimiter;
+            return TokenOut;
+        }
+
+        if(c == ',' || c == '.')
+        {
+            TokenOut->Type = TokenPunctuation;
+            return TokenOut;
+        }
     }
 
-
-    /*
-     * for preprocessor stuff
-     * #include #endif
-     * */
-    if (ParsedWord.Data == (u8 *)'#' )
+    // NOTE(nasr): check if it's a number literal
+    if(ParsedWord.Size > 0)
     {
-        TokenOut.Type = Token_Directive;
+        char FirstChar = (char)ParsedWord.Data[0];
+        if(FirstChar >= '0' && FirstChar <= '9')
+        {
+            TokenOut->Type = TokenNumber;
+            return TokenOut;
+        }
     }
 
-    if (ParsedWord.Data == (u8 *)';' )
+    // NOTE(nasr): check if it's a string literal
+    if(ParsedWord.Size >= 2)
     {
-        TokenOut.Type = Token_Semicolon;
+        char FirstChar = (char)ParsedWord.Data[0];
+        char LastChar = (char)ParsedWord.Data[ParsedWord.Size - 1];
+        if((FirstChar == '"' && LastChar == '"') || (FirstChar == '\'' && LastChar == '\''))
+        {
+            TokenOut->Type = TokenString;
+            return TokenOut;
+        }
     }
-    return &TokenOut;
+
+    // NOTE(nasr): if nothing else, it's probably an identifier
+    if(ParsedWord.Size > 0)
+    {
+        /* TODO(nasr): what are the possible identifier starters? */
+        char FirstChar = (char)ParsedWord.Data[0];
+        if((FirstChar >= 'a' && FirstChar <= 'z') ||
+           (FirstChar >= 'A' && FirstChar <= 'Z'))
+        {
+            TokenOut->Type = TokenIdentifier;
+            return TokenOut;
+        }
+    }
+
+    return TokenOut;
 }
 
 
@@ -192,16 +330,28 @@ internal void AddToCST(ConcreteSyntaxTree *tree, SyntaxNode *node)
     /**
      * check if a token is a sort of token
      * does that token take children or something else
-     *
-     * */
-        ConcreteSyntaxTree
-
-    if (node->type == Function)
-    if (node->child_count == 0)
+     **/
+    if(tree->root == 0)
     {
-        tree->node = node;
+        tree->root = node;
+        tree->current = node;
     }
 
+    else
+    {
+        if(tree->current->child_count < tree->current->child_capacity)
+        {
+            tree->current->children[tree->current->child_count] = node;
+            tree->current->child_count += 1;
+            node->parent = tree->current;
+        }
+        else
+        {
+            Log("max tree");
+
+            /* TODO(nasr): expand tree or something */
+        }
+    }
 }
 
 
