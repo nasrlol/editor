@@ -23,6 +23,20 @@ ArenaAlloc_(arena_alloc_params Params)
     return Arena;
 }
 
+internal arena *
+PushArena(arena *Arena, u64 Size)
+{
+    arena *Result = 0;
+    
+    Result = PushStruct(Arena, arena);
+    Result->Size = Size;
+    Result->Base = ArenaPush(Arena, Result->Size, false);
+    Result->Pos = 0;
+    AsanPoisonMemoryRegion(Result->Base, Result->Size);
+    
+    return Result;
+}
+
 internal void *
 ArenaPush(arena *Arena, u64 Size, b32 Zero)
 {

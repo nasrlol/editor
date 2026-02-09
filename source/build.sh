@@ -44,7 +44,7 @@ C_Compile()
  CommonWarningFlags="-Wall -Wextra -Wconversion -Wdouble-promotion -Wno-sign-conversion -Wno-sign-compare -Wno-double-promotion -Wno-unused-but-set-variable -Wno-unused-variable -Wno-write-strings -Wno-pointer-arith -Wno-unused-parameter -Wno-unused-function -Wno-missing-field-initializers"
  LinkerFlags="-lm -ldl -lpthread"
 
- DebugFlags="-g -ggdb -g3 -fno-omit-frame-pointer"
+ DebugFlags="-g -ggdb -g3"
  ReleaseFlags="-O3"
 
  ClangFlags="-fno-omit-frame-pointer -fdiagnostics-absolute-paths -fsanitize-undefined-trap-on-error -ftime-trace

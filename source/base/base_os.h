@@ -19,6 +19,12 @@ struct OS_profiler
     s64 End;
 };
 
+typedef struct os_file_handle os_file_handle;
+struct os_file_handle
+{
+    u64 Handle;
+};
+
 //~ Globals
 global_variable u8 LogBuffer[KB(64)];
 global_variable OS_profiler GlobalProfiler = {}; 

@@ -1,5 +1,6 @@
-platform
-- resizing & (wrapping)
-- fix keyboard input (pressing & holding, vs text)
-- shift should not be a modifier.
+platform:
 - loop editing
+- fix keyboard input (pressing & holding, vs text)
+  - easier query of keys & modifiers.
+- linux: investigate startup time.
+- resizing & (wrapping)

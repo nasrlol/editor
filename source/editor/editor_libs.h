@@ -7,6 +7,7 @@
 C_LINKAGE_BEGIN
 # define GLAD_GL_IMPLEMENTATION
 # define STB_IMAGE_IMPLEMENTATION
+# define STB_IMAGE_WRITE_IMPLEMENTATION
 # define STB_TRUETYPE_IMPLEMENTATION
 # define STB_SPRINTF_IMPLEMENTATION
 # define EDITOR_FONT_IMPLEMENTATION
@@ -18,6 +19,7 @@ void GLADEnableCallbacks();
 NO_WARNINGS_BEGIN
 # include "lib/gl_core_3_3_debug.h"
 # include "lib/stb_image.h"
+# include "lib/stb_image_write.h"
 # include "lib/stb_sprintf.h"
 # include "lib/stb_truetype.h"
 NO_WARNINGS_END

@@ -136,12 +136,15 @@ struct app_input
     } Text;
     
     f32 dtForFrame;
+    
+    b32 WindowIsFocused;
 };
 
 typedef struct app_memory app_memory;
 struct app_memory
 {
-    void *AppState;
+    void *Memory;
+    u64 MemorySize;
     
     str8 ExeDirPath;
 #if EDITOR_INTERNAL
@@ -152,7 +155,7 @@ struct app_memory
     b32 Initialized;
 };
 
-#define UPDATE_AND_RENDER(Name) b32 Name(thread_context *Context, app_memory *Memory, arena *PermanentArena, arena *FrameArena, app_offscreen_buffer *Buffer, app_input *Input, app_input *OldInput)
+#define UPDATE_AND_RENDER(Name) b32 Name(thread_context *Context, app_memory *Memory, app_offscreen_buffer *Buffer, app_input *Input, app_input *OldInput)
 typedef UPDATE_AND_RENDER(update_and_render);
 
 UPDATE_AND_RENDER(UpdateAndRenderStub) { return false; }

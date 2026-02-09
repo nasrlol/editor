@@ -14,8 +14,12 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
 {
     if(LaneIdx() == 0)
     {
-        arena *PermanentArena = ArenaAlloc(.Size = GB(3));
-        arena *FrameArena = ArenaAlloc(.Size = GB(1));
+        u64 PlatformMemorySize = GB(4);
+        u64 AppMemorySize = GB(1);
+        
+        // NOTE(luca): Total memory also for game.
+        arena *PermanentArena = ArenaAlloc(.Size = PlatformMemorySize);
+        arena *FrameArena = ArenaAlloc();
         
         b32 *Running = PushStruct(PermanentArena, b32);
         *Running = true;
@@ -59,6 +63,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         }
         
         app_memory AppMemory = {};
+        AppMemory.MemorySize = AppMemorySize;
+        AppMemory.Memory = ArenaPush(PermanentArena, AppMemory.MemorySize, false);
         AppMemory.ExeDirPath = ExeDirPath;
 #if EDITOR_INTERNAL
         AppMemory.IsDebuggerAttached = GlobalDebuggerIsAttached;
@@ -87,6 +93,21 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         Code.LibraryPath = PathFromExe(PermanentArena, AppMemory.ExeDirPath, LibraryPath);
         
         b32 Paused = false;
+        b32 IsRecording = false;
+        b32 IsPlaying = false;
+        b32 Logging = false;
+        
+        u64 RecordingFileHandle = 0;
+        u64 MaxRecordingFramesCount = (u64)GameUpdateHz * 60 * 10;
+        u64 RecordingBufferMaxSize = AppMemory.MemorySize + (MaxRecordingFramesCount*sizeof(app_input));
+        void *RecordingBuffer = ArenaPush(PermanentArena, RecordingBufferMaxSize, false);
+        u64 RecordingBufferSize = 0;
+        u64 RecordingBufferPos = 0;
+        char *RecordingPath = PathFromExe(FrameArena, AppMemory.ExeDirPath, S8("loop_edit.edi"));
+        
+#if 1
+        RecordingPath = "loop_edit.edi";
+#endif
         
         OS_ProfileInit("P");
         while(*Running)
@@ -97,6 +118,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             P_LoadAppCode(FrameArena, &Code, &AppMemory);
             OS_ProfileAndPrint("Code");
+            
+            NewInput->WindowIsFocused = OldInput->WindowIsFocused;
             
             // Input
             { 
@@ -118,11 +141,96 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             OS_ProfileAndPrint("Messages");
             
-            if(CharPressed(NewInput, 'p', PlatformKeyModifier_Alt)) Paused = !Paused;
+            if(CharPressed(NewInput, 'p', PlatformKeyModifier_Alt)) 
+            {
+                Paused = !Paused;
+                Log("%s\n", (Paused) ? "Paused" : "Unpaused");
+            }
+            
+            if(CharPressed(NewInput, 'g', PlatformKeyModifier_Alt)) 
+            {
+                Logging = !Logging;
+            }
             
             if(!Paused)
             {
-                b32 ShouldQuit = Code.UpdateAndRender(ThreadContext, &AppMemory, PermanentArena, FrameArena, &Buffer, NewInput, OldInput);
+                if(CharPressed(NewInput, 'l', PlatformKeyModifier_Alt))
+                {
+#if OS_LINUX
+                    if(0) {}
+                    else if(!IsRecording && !IsPlaying)
+                    {
+                        // StartRecording()
+                        {
+                            RecordingBufferSize = 0;
+                            MemoryCopy(RecordingBuffer, AppMemory.Memory, AppMemory.MemorySize);
+                            RecordingBufferSize += AppMemory.MemorySize;
+                            
+                            IsRecording = true;
+                        }
+                    }
+                    else if(IsRecording)
+                    {
+                        // EndRecording()
+                        {
+                            IsRecording = false;
+                        }
+                        
+                        // StartPlaying()
+                        {
+                            RecordingBufferPos = 0;
+                            MemoryCopy(AppMemory.Memory, RecordingBuffer, AppMemory.MemorySize);
+                            RecordingBufferPos += AppMemory.MemorySize;
+                            
+                            IsPlaying = true;
+                        }
+                    }
+                    else if(IsPlaying)
+                    {
+                        // StopPlaying()
+                        {
+                            IsPlaying = false;
+                        }
+                        
+                    }
+                    else
+                    {
+                        InvalidPath;
+                    }
+#elif OS_WINDOWS
+                    NotImplemented;
+#endif
+                    Log("Playing/Recording %d/%d\n", IsPlaying, IsRecording);
+                    
+                }
+                
+                Assert((IsRecording != IsPlaying) ||
+                       (!IsPlaying  && !IsPlaying));
+                
+                if(IsRecording)
+                {
+                    MemoryCopy((u8 *)RecordingBuffer + RecordingBufferSize, NewInput, sizeof(*NewInput));
+                    RecordingBufferSize += sizeof(*NewInput);
+                    Assert(RecordingBufferSize < RecordingBufferMaxSize);
+                }
+                
+                if(IsPlaying)
+                {
+                    MemoryCopy(NewInput, (u8 *)RecordingBuffer + RecordingBufferPos, sizeof(*NewInput));
+                    RecordingBufferPos += sizeof(*NewInput);
+                    
+                    if(RecordingBufferPos >= RecordingBufferSize)
+                    {
+                        // StartPlaying()
+                        {
+                            RecordingBufferPos = 0;
+                            MemoryCopy(AppMemory.Memory, RecordingBuffer, AppMemory.MemorySize);
+                            RecordingBufferPos += AppMemory.MemorySize;
+                        }
+                    }
+                }
+                
+                b32 ShouldQuit = Code.UpdateAndRender(ThreadContext, &AppMemory, &Buffer, NewInput, OldInput);
                 // NOTE(luca): Since UpdateAndRender can take some time, there could have been a signal sent to INT the app.
                 ReadWriteBarrier;
                 *Running = *Running && !ShouldQuit;
@@ -185,18 +293,19 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             u8 Codepoint = (u8)NewInput->Text.Buffer[0].Codepoint;
             
-#if 0            
-            Log("'%c' (%d, %d) 1:%c 2:%c 3:%c", 
-                ((Codepoint == 0) ?
-                 '\a' : Codepoint),
-                NewInput->MouseX, NewInput->MouseY,
-                (NewInput->MouseButtons[PlatformMouseButton_Left  ].EndedDown ? 'x' : 'o'),
-                (NewInput->MouseButtons[PlatformMouseButton_Middle].EndedDown ? 'x' : 'o'),
-                (NewInput->MouseButtons[PlatformMouseButton_Right ].EndedDown ? 'x' : 'o')); 
-            
-            Log(" %.2fms/f", (f64)WorkMSPerFrame);
-            Log("\n");
-#endif
+            if(Logging)
+            {
+                Log("'%c' (%d, %d) 1:%c 2:%c 3:%c", 
+                    ((Codepoint == 0) ?
+                     '\a' : Codepoint),
+                    NewInput->MouseX, NewInput->MouseY,
+                    (NewInput->MouseButtons[PlatformMouseButton_Left  ].EndedDown ? 'x' : 'o'),
+                    (NewInput->MouseButtons[PlatformMouseButton_Middle].EndedDown ? 'x' : 'o'),
+                    (NewInput->MouseButtons[PlatformMouseButton_Right ].EndedDown ? 'x' : 'o')); 
+                
+                Log(" %.2fms/f", (f64)WorkMSPerFrame);
+                Log("\n");
+            }
             
             FlipWallClock = OS_GetWallClock();
             

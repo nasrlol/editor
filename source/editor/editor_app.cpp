@@ -1,10 +1,10 @@
 #define BASE_NO_ENTRYPOINT 1
 #include "base/base.h"
 #include "base/base.c"
+#include "editor_math.h"
 #include "editor_platform.h"
 #include "editor_font.h"
 #include "editor_random.h"
-#include "editor_math.h"
 #include "editor_libs.h"
 #include "editor_gl.h"
 #include "editor_app.h"
@@ -37,8 +37,6 @@ ColorList
 #define SET(Name, Value) v3 Color_##Name = {U32ToV3Arg(Value)};
 ColorList
 #undef SET
-
-
 
 internal app_offscreen_buffer
 LoadImage(arena *Arena, str8 ExeDirPath, str8 Path)
@@ -87,30 +85,88 @@ DeleteChar(app_state *App)
     }
 }
 
+internal inline b32
+EqualsWithEpsilon(f32 A, f32 B, f32 Epsilon)
+{
+    b32 Result = (A < (B + 0.001f) && 
+                  A > (B - 0.001f));
+    return Result;
+}
+
 C_LINKAGE
 UPDATE_AND_RENDER(UpdateAndRender)
 {
-    
     b32 ShouldQuit = false;
     
 #if EDITOR_INTERNAL
     GlobalDebuggerIsAttached = Memory->IsDebuggerAttached;
 #endif
     
+    arena *PermanentArena, *FrameArena;
+    app_state *App;
+    {    
+        PermanentArena = (arena *)Memory->Memory;
+        PermanentArena->Size = Memory->MemorySize - sizeof(arena);
+        PermanentArena->Base = (u8 *)Memory->Memory + sizeof(arena);
+        PermanentArena->Pos = 0;
+        AsanPoisonMemoryRegion(PermanentArena->Base, PermanentArena->Size);
+        
+        FrameArena = PushArena(PermanentArena, Memory->MemorySize/2);
+        
+        App = PushStruct(PermanentArena, app_state);
+    }
+    
+    // NOTE(luca): Will be rerun when reloaded.
     local_persist s32 GLADVersion = gladLoaderLoadGL();
     
     if(!Memory->Initialized)
     {
-        Memory->AppState = PushStruct(PermanentArena, app_state);
-        app_state *App = (app_state *)Memory->AppState;
-        
         char *FontPath = PathFromExe(FrameArena, Memory->ExeDirPath, S8("../data/font_regular.ttf"));
         InitFont(&App->Font, FontPath);
         
+        if(App->Font.Initialized)
+        {
+            rune CodepointOfFirstChar = ' ';
+            s32 CharsToInclude = (127 - CodepointOfFirstChar);
+            
+            u32 FontAtlasWidth = 1024;
+            u32 FontAtlasHeight = 1024;
+            u32 FontAtlasSize = (FontAtlasWidth*FontAtlasHeight);
+            
+            u8 *FontAtlasData = PushArray(PermanentArena, u8, FontAtlasWidth*FontAtlasHeight);
+            stbtt_packedchar *PackedChars = PushArray(PermanentArena, stbtt_packedchar, FontAtlasSize);
+            stbtt_aligned_quad *AlignedQuads = PushArray(PermanentArena, stbtt_aligned_quad, FontAtlasSize);
+            
+            stbtt_pack_context ctx;
+            {
+                stbtt_PackBegin(&ctx, 
+                                FontAtlasData,
+                                FontAtlasWidth, FontAtlasHeight,
+                                0, 1, 0);
+                
+                stbtt_PackFontRange(&ctx, App->Font.Info.data, 0, HeightPx, 
+                                    CodepointOfFirstChar, CharsToInclude, 
+                                    PackedChars);
+                stbtt_PackEnd(&ctx);
+            }
+            
+            char *OutPath = PathFromExe(FrameArena, Memory->ExeDirPath, S8("debug_font_atlas.png"));
+            stbi_write_png(OutPath, FontAtlasWidth, FontAtlasHeight, 1, FontAtlasData, FontAtlasWidth);
+            
+            for EachIndexType(s32, Idx, CharsToInclude)
+            {
+                float UnusedX, UnusedY;
+                stbtt_GetPackedQuad(PackedChars, FontAtlasWidth, FontAtlasHeight, 
+                                    Idx,
+                                    &UnusedX, &UnusedY,
+                                    &AlignedQuads[Idx], 0);
+            }
+            
+        }
+        
+        
         Memory->Initialized = true;
     }
-    
-    app_state *App = (app_state *)Memory->AppState;
     
     // Text input
     for EachIndex(Idx, Input->Text.Count)
@@ -195,20 +251,35 @@ UPDATE_AND_RENDER(UpdateAndRender)
     glUseProgram(TextShader);
     
     glViewport(0, 0, Buffer->Width, Buffer->Height);
-    glClearColor(U32ToV3Arg(ColorU32_BackgroundSecond), 1.0f);
+    
+    v3 BackgroundColor = ((Input->WindowIsFocused) ?
+                          Color_BackgroundSecond :
+                          Color_Background);
+    
+    glClearColor(BackgroundColor.X, BackgroundColor.Y, BackgroundColor.Z, 1.0f);
+    
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     // Render text (rasterized on CPU)
+    if(App->Font.Initialized)
     {
         // TODO(luca): Use font atlas + cache for rendering on the GPU.
         MemorySet(Buffer->Pixels, 0, Buffer->Pitch*Buffer->Height);
         
         f32 FontScale = stbtt_ScaleForPixelHeight(&App->Font.Info, HeightPx);
+        
         f32 Baseline = GetBaseLine(&App->Font, FontScale);
-        s32 AdvanceWidth, LeftSideBearing;
-        stbtt_GetCodepointHMetrics(&App->Font.Info, ' ', &AdvanceWidth, &LeftSideBearing);
-        // NOTE(luca): Since we work on monospace fonts, we can assume all the characters will have th e same width.
-        s32 CharWidth = (s32)roundf(FontScale*(f32)AdvanceWidth);
+        
+        s32 CharHeight;
+        s32 CharWidth;
+        {        
+            s32 AdvanceWidth, LeftSideBearing;
+            stbtt_GetCodepointHMetrics(&App->Font.Info, ' ', &AdvanceWidth, &LeftSideBearing);
+            Assert(EqualsWithEpsilon(Baseline, HeightPx, 0.0001f));
+            // NOTE(luca): Since we use monospaced fonts these are essentially for all characters.
+            CharHeight = (s32)roundf(Baseline);
+            CharWidth = (s32)roundf(FontScale*(f32)AdvanceWidth);
+        }
         
         v2 Offset = V2(0.0f, Baseline);
         str8 Text = {.Data = (u8 *)App->Text, .Size = App->TextCount};
@@ -264,7 +335,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     s32 YOffset = (s32)Offset.Y + Y0;
                     
                     DrawCharacter(FrameArena, Buffer, FontBitmap, FontWidth, FontHeight, XOffset, YOffset, ColorU32_Text);
-                    
                     
                     Offset.X += roundf((f32)AdvanceWidth*FontScale);
                 }

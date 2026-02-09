@@ -154,6 +154,28 @@ LinuxSigIntHandler(int Signal)
     *GlobalRunning = false;
 }
 
+internal void
+LinuxShowCursor(linux_x11_context *Linux, b32 Entered)
+{                
+    if(Entered)
+    {                            
+        XColor black = {};
+        char NoData[8] = {};
+        
+        Pixmap BitmapNoData = XCreateBitmapFromData(Linux->DisplayHandle, Linux->WindowHandle, NoData, 8, 8);
+        Cursor InvisibleCursor = XCreatePixmapCursor(Linux->DisplayHandle, BitmapNoData, BitmapNoData, 
+                                                     &black, &black, 0, 0);
+        XDefineCursor(Linux->DisplayHandle, Linux->WindowHandle, InvisibleCursor);
+        XFreeCursor(Linux->DisplayHandle, InvisibleCursor);
+        XFreePixmap(Linux->DisplayHandle, BitmapNoData);
+    }
+    else
+    {
+        XUndefineCursor(Linux->DisplayHandle, Linux->WindowHandle);
+    }
+}
+
+
 //~ Platform API
 internal P_context
 P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
@@ -285,6 +307,7 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                                            KeyPressMask | KeyReleaseMask | 
                                            ButtonPressMask | ButtonReleaseMask |
                                            EnterWindowMask | LeaveWindowMask |
+                                           FocusChangeMask |
                                            PointerMotionMask);
             
             u64 WindowAttributeMask = CWBitGravity | CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
@@ -360,8 +383,6 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                                                       NULL);
                     XSetICFocus(Context->InputContext);
                 }
-                
-                XRet = XMapWindow(DisplayHandle, WindowHandle);
                 
                 if(!OpenGLMode)
                 {            
@@ -443,8 +464,6 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                 }
                 
                 Context->DefaultGC = DefaultGC(DisplayHandle, ScreenHandle);
-                
-                XRet = XFlush(DisplayHandle);
                 
                 Context->WM_DELETE_WINDOW = XInternAtom(DisplayHandle, "WM_DELETE_WINDOW", False);
                 XRet = XSetWMProtocols(DisplayHandle, WindowHandle, 
@@ -748,6 +767,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                 case ConfigureNotify:
                 {
                     XConfigureEvent *Event = (XConfigureEvent *)&WindowEvent;
+                    // TODO(luca): Implement smooth resizing.
 #if 0
                     Buffer->Width = Event->width;
                     Buffer->Height = Event->height;
@@ -775,14 +795,44 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                     }
                 } break;
                 
-                case EnterNotify:
+                // TODO(luca): Collapse with Enter- and LeaveNotify
+                // TODO(luca): Check if window is focused at startup as well.
+                case FocusIn:
+                case FocusOut:
                 {
-                    //LinuxHideCursor(DisplayHandle, WindowHandle);
+                    XFocusChangeEvent *Event = (XFocusChangeEvent *)&WindowEvent;
+                    b32 IsFocused = (Event->type == FocusIn); 
+                    
+                    s32 Mode = Event->mode;
+                    
+                    if(Mode == NotifyWhileGrabbed ||
+                       Mode == NotifyNormal)
+                    {
+                        Input->WindowIsFocused = IsFocused;
+                        
+#if 0                        
+                        // TODO(luca): If cursor is inside window
+                        LinuxShowCursor(Linux, IsFocused);
+#endif
+                        
+                    }
+                    
                 } break;
                 
+                case EnterNotify:
                 case LeaveNotify:
                 {
-                    //LinuxShowCursor(DisplayHandle, WindowHandle);
+                    XCrossingEvent *Event = (XCrossingEvent *)&WindowEvent;
+                    
+                    b32 Entered = (Event->type = EnterNotify);
+                    
+#if 0                    
+                    if(Input->WindowIsFocused)
+                    {
+                        LinuxShowCursor(Linux, Entered);
+                    }
+#endif
+                    
                 } break;
                 
             }
@@ -796,6 +846,7 @@ P_UpdateImage(P_context Context, app_offscreen_buffer *Buffer)
     linux_x11_context *Linux = (linux_x11_context *)Context;
 	if(Linux)
 	{
+        
         if(!Linux->OpenGLMode)
         {
             XPutImage(Linux->DisplayHandle,
@@ -804,6 +855,12 @@ P_UpdateImage(P_context Context, app_offscreen_buffer *Buffer)
                       Linux->WindowImage, 0, 0, 0, 0, 
                       Buffer->Width, 
                       Buffer->Height);
+        }
+        
+        DoOnce
+        {
+            XMapWindow(Linux->DisplayHandle, Linux->WindowHandle);
+            XFlush(Linux->DisplayHandle);
         }
         
         if(Linux->OpenGLMode)

@@ -40,8 +40,8 @@ InitFont(app_font *Font, char *FilePath)
             
             s32 X0, Y0, X1, Y1;
             stbtt_GetFontBoundingBox(&Font->Info, &X0, &Y0, &X1, &Y1);
-            Font->BoundingBox[0] = v2{(f32)X0, (f32)Y0};
-            Font->BoundingBox[1] = v2{(f32)X1, (f32)Y1};
+            Font->BoundingBox[0] = V2S32(X0, Y0);
+            Font->BoundingBox[1] = V2S32(X1, Y1);
             stbtt_GetFontVMetrics(&Font->Info, &Font->Ascent, &Font->Descent, &Font->LineGap);
             Font->Initialized = true;
         }
