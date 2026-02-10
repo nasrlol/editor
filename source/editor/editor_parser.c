@@ -3,13 +3,13 @@
 #include "base/base_strings.h"
 #include "base/base_arenas.h"
 #define BASE_NO_ENTRYPOINT 1
-#include "editor_lexer.h"
+#include "editor_parser.h"
 
 internal Token *
 Lex(app_state *app, arena *Arena)
 {
-    Token *FirstToken = 0;
-    Token *LastToken  = 0;
+    Token *FirstToken = PushStruct(Arena, Token);
+    Token *LastToken  = PushStruct(Arena, Token);
 
     s32 TextIndex = 0;
     s32 Line      = 1;
@@ -19,8 +19,7 @@ Lex(app_state *app, arena *Arena)
     {
         rune c = app->Text[TextIndex];
 
-        while (TextIndex < app->TextCount &&
-               (c == ' ' || c == '\t' || c == '\n' || c == '\r'))
+        while ((c == ' ' || c == '\t' || c == '\n' || c == '\r'))
         {
             if (c == '\n')
             {
@@ -33,7 +32,7 @@ Lex(app_state *app, arena *Arena)
             }
 
             TextIndex += 1;
-            if (TextIndex < app->TextCount)
+            if (TextIndex <= app->TextCount)
             {
                 c = app->Text[TextIndex];
             }
@@ -45,32 +44,34 @@ Lex(app_state *app, arena *Arena)
         }
 
         s32 TokenStart       = TextIndex;
+        s32 TokenEnd         = TextIndex;
         s32 TokenStartColumn = Column;
-
-        s32 TokenEnd = TextIndex;
+        s32 TokenSize        = 0;
 
         c = app->Text[TextIndex];
 
         if (c == ' ' || c == '\t' || c == '\n' || c == '\r')
         {
-            break;
+            continue;
         }
 
-        TextIndex += 1;
-        Column += 1;
+        if (TokenEnd > TokenStart)
+        {
+            TokenSize = TokenEnd - TokenStart;
+        }
 
-        TokenEnd = TextIndex;
-
-        s32 TokenSize = TokenEnd - TokenStart;
         if (TokenSize > 0)
         {
             Token *NewToken = PushStruct(Arena, Token);
+            u8    *TokenStr = PushArray(Arena, u8, TokenSize + 1);
 
-            u8 *TokenStr = PushArray(Arena, u8, TokenSize + 1);
-            for (s32 i = 0; i < TokenSize; ++i)
+            for (s32 TokenSizeIndex = 0;
+            TokenSizeIndex < TokenSize;
+            ++TokenSizeIndex)
             {
-                TokenStr[i] = (u8)app->Text[TokenStart + i];
+                TokenStr[TokenSizeIndex] = (u8)app->Text[TokenStart + TokenSizeIndex];
             }
+
             TokenStr[TokenSize] = 0;
 
             NewToken->Lexeme.Data = TokenStr;
@@ -130,20 +131,12 @@ Lex(app_state *app, arena *Arena)
                 }
             }
 
-            if (NewToken->Lexeme.Size > 0)
-            {
-                char FirstChar = (char)NewToken->Lexeme.Data[0];
-                if (FirstChar >= '0' && FirstChar <= '9')
-                {
-                    NewToken->Type = TokenNumber;
-                }
-            }
-
             if (NewToken->Lexeme.Size >= 2)
             {
                 char FirstChar = (char)NewToken->Lexeme.Data[0];
                 char LastChar  = (char)NewToken->Lexeme.Data[NewToken->Lexeme.Size - 1];
-                if ((FirstChar == '"' && LastChar == '"') || (FirstChar == '\'' && LastChar == '\''))
+                if ((FirstChar == '"' && LastChar == '"') ||
+                    (FirstChar == '\'' && LastChar == '\''))
                 {
                     NewToken->Type = TokenString;
                 }
@@ -153,13 +146,14 @@ Lex(app_state *app, arena *Arena)
             {
                 char FirstChar = (char)NewToken->Lexeme.Data[0];
                 if ((FirstChar >= 'a' && FirstChar <= 'z') ||
-                    (FirstChar >= 'A' && FirstChar <= 'Z'))
+                    (FirstChar >= 'A' && FirstChar <= 'Z') ||
+                    (FirstChar >= '0' && FirstChar <= '9'))
                 {
                     NewToken->Type = TokenIdentifier;
                 }
             }
 
-            NewToken->Next = 0;
+            NewToken->Next = PushStruct(Arena, Token);
 
             if (LastToken)
             {
@@ -171,9 +165,11 @@ Lex(app_state *app, arena *Arena)
                 FirstToken = NewToken;
                 LastToken  = NewToken;
             }
+
+            TextIndex = TokenEnd;
         }
 
-        TextIndex = TokenEnd;
+        ++TextIndex;
     }
 
     return FirstToken;

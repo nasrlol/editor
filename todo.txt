@@ -5,16 +5,9 @@ platform
     - loop editing
 
 
+    =====================================================================
 
-
-
-
-
-
-
-
-
-    lexer notes: (extracted notes to clean up file)
+    parser notes: (extracted notes to clean up file)
 
     /**
      * NOTE(nasr): what are the steps we have to follow?
@@ -63,7 +56,7 @@ platform
      * do we handle it or not?
      * */
     /**
-     * I think i misunderstood the difference between a parser and a lexer
+     * I think i misunderstood the difference between a parser and a parser
      **/
 
 
@@ -87,7 +80,7 @@ platform
     // NOTE(nasr): check for keywords
     /**
      * NOTE(nasr): check for single-character tokens
-     * TODO(nasr): after talking with luca about lexer design
+     * TODO(nasr): after talking with luca about parser design
      * we will need to add white space accounting and more positioning information
      **/
 
@@ -142,3 +135,43 @@ platform
      * declarations is a must. So will try to check for what
      **/
 
+
+    /* NOTE(nasr): max children we can hold
+     * (not sure if this something we should account for?
+     * couldnt we work with checking the arena size
+     * and resizing that one instead of keeping trakc of the tree size?)
+     *
+     * at the same time it's also something to consider because it allows us to have
+     * a more defined control over the amount of nodes within a cst
+     *
+     * NOTE(nasr): nevermind i think it's usefull to have it because it's something
+     * per node, so per branch, and if a large branch get's deleted we could do
+     * a proper deletion of that entire branch which improves refactoring capabilities
+     */
+
+    /**
+     * NOTE(nasr): source location tracking for go-to-definition
+     * https://github.com/jqcorreia/lang/blob/main/lexer.odin
+     * l54
+     *
+     **/
+
+    /*
+     * NOTE(nasr): refactored the concrete syntax tree because the actual
+     * tree struct doesnt need to know information about the actual tree
+     * that information is contained within the struct
+     * */
+
+    /**
+     * NOTE(nasr): ** we should track the location of each node of the syntax tree
+     * in a file so that go to definitions are possible
+     * ** requires having a map of all files in the project?
+     * wouldnt this take lots of space?
+     * !! NO more like have something that maps the translation unit(s)
+     * and works on that?
+     **/
+
+    /*
+     * TODO(nasr): replace with byte offsets
+     * */
+    // NOTE(nasr): linked list of tokens for efficient traversal
