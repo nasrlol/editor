@@ -57,10 +57,7 @@ Lex(app_state *app, arena *Arena)
         {
             s32 TokenEnd         = 0;
 
-            if (TokenEnd > TokenStart)
-            {
-                TokenSize = TokenEnd - TokenStart;
-            }
+            TokenSize = TokenEnd - TokenStart;
 
             if (TokenSize > 0)
             {
