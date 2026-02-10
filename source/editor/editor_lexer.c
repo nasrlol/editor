@@ -186,34 +186,11 @@ internal Token *ParseBuffer(app_state *app, arena *Arena)
         TextIndex = TokenEnd;
     }
 
-    return FirstToken;
-}
-
-/**
- * NOTE(nasr): The tokenize function takes the parsed buffer and tokenizes
- * every element in the list
- * We try to identify the leximes, that were previously split up;
- * */
-
-internal Token *Tokenize(str8 ParsedWord, arena *Arena)
-{
-
-    /* NOTE(nasr):
-     * maybe put the tokenizing in a seperate function
-     * no need for doing that at the moment */
-
-    Token *TokenOut = PushStruct(Arena, Token);
-
-    TokenOut->Type   = TokenInvalid;
-    TokenOut->Lexeme = ParsedWord;
-    TokenOut->Line   = 0;
-    TokenOut->Column = 0;
-    TokenOut->Next   = 0;
 
     // NOTE(nasr): check for keywords
     for(umm KeywordIndex = 0; KeywordIndex < ArrayCount(Keywords); ++KeywordIndex)
     {
-        if(S8Match(ParsedWord, Keywords[KeywordIndex], false))
+        if(S8Match(Token->Lexeme, Keywords[KeywordIndex], false))
         {
             TokenOut->Type = TokenKeyword;
             return TokenOut;
@@ -301,6 +278,12 @@ internal Token *Tokenize(str8 ParsedWord, arena *Arena)
 
     return TokenOut;
 }
+
+/**
+ * NOTE(nasr): The tokenize function takes the parsed buffer and tokenizes
+ * every element in the list
+ * We try to identify the leximes, that were previously split up;
+ * */
 
 
 /*
