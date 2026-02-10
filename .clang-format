@@ -50,7 +50,7 @@ AlignAfterOpenBracket: false
 BinPackParameters: false
 BinPackArguments: false
 ReflowComments: false
-CommentPragmas: '^ dont touch:'
+CommentPragmas: 'ignore'
 KeepEmptyLinesAtTheStartOfBlocks: false
 MaxEmptyLinesToKeep: 1
 SortIncludes: Never

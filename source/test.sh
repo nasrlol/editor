@@ -111,7 +111,7 @@ then
  fi
 
  C_Compile "./editor/editor_app.cpp" editor_app.so "$AppFlags"
- C_Compile "./tests/lexer_test.cpp" editor
+ C_Compile "./tests/parser_test.cpp" editor
 fi
 
 if [ "$windows" = 1 ]
