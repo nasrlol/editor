@@ -67,10 +67,10 @@ void run()
     }
     test_app.TextCount = input_length;
 
-    Token *tokens = ParseBuffer(&test_app, Arena);
+    Token *tokens = Lex(&test_app, Arena);
     for(Token *token = tokens; token != 0; token = token->Next)
     {
-        printf("Type=%d ", token->Type);
+        printf("Type=%u ", (TokenType)token->Type);
         printf("Lexeme=\"");
         for(s32 LexemeIndex = 0;
                 LexemeIndex < token->Lexeme.Size;
