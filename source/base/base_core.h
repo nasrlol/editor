@@ -121,7 +121,7 @@ Swap(t& A, t& B) { t T = A; A = B; B = T; }
 #define Trap() __asm__ volatile("int3");
 #endif
 #elif COMPILER_MSVC
-# define Trap() __debugbreak();
+# define Trap() (__debugbreak());
 #else
 # define Trap() *(int *)0 = 0;
 #endif

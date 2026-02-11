@@ -31,7 +31,7 @@ internal umm  StringLength(char *String);
 #define S8Fmt "%.*s" 
 #define S8Arg(String) (int)((String).Size), (char *)(String).Data
 
-#define PushS8_(Arena, Count) (str8){.Data = (PushArray((Arena), u8, (Count))), .Size = (Count)} 
+#define PushS8_(Arena, Count) S8Cast{.Data = (PushArray((Arena), u8, (Count))), .Size = (Count)} 
 #define PushS8(Arena, Size) PushS8_(Arena, Size)
 
 #endif //BASE_STRINGS_H

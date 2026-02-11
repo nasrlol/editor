@@ -1,0 +1,23 @@
+// raddbg 0.9.24 project file
+
+recent_file: path: "source/editor/editor_platform_windows.cpp"
+recent_file: path: "source/base/base_arenas.c"
+recent_file: path: "source/editor/editor_app.cpp"
+recent_file: path: "source/editor/editor_platform.cpp"
+recent_file: path: "source/base/base_os_windows.c"
+target:
+{
+  executable: "build/editor_platform.exe"
+  working_directory: "build/"
+  enabled: 1
+}
+debug_info:
+{
+  path: "C:/Users/zebra/Projects/editor/build/editor_platform.pdb"
+  timestamp: 66206319897257
+}
+debug_info:
+{
+  path: "C:/Users/zebra/Projects/editor/build/editor_app.pdb"
+  timestamp: 66206319896478
+}

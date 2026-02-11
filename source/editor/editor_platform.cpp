@@ -158,7 +158,6 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 {
                     if(CharPressed(NewInput, 'l', PlatformKeyModifier_Alt))
                     {
-#if OS_LINUX
                         if(0) {}
                         else if(!IsRecording && !IsPlaying)
                         {
@@ -199,9 +198,6 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                         {
                             InvalidPath;
                         }
-#elif OS_WINDOWS
-                        NotImplemented;
-#endif
                         Log("Playing/Recording %d/%d\n", IsPlaying, IsRecording);
                     }
                     

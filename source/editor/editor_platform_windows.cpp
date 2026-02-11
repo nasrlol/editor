@@ -9,6 +9,42 @@ global_variable b32 *GlobalRunning;
 global_variable b32 GlobalShowCursor;
 global_variable s32 GlobalBufferWidth;
 global_variable s32 GlobalBufferHeight;
+global_variable b32 GlobalWindowIsFocused;
+
+internal rune
+ConvertUTF8StringToRune(u8 UTF8String[4])
+{
+    rune Codepoint = 0;
+    
+    if((UTF8String[0] & 0x80) == 0x00)
+    {
+        Codepoint = UTF8String[0];
+    }
+    else if((UTF8String[0] & 0xE0) == 0xC0)
+    {
+        Codepoint = (((UTF8String[0] & 0x1F) << 6*1) |
+                     ((UTF8String[1] & 0x3F) << 6*0));
+    }
+    else if((UTF8String[0] & 0xF0) == 0xE0)
+    {
+        Codepoint = (((UTF8String[0] & 0x0F) << 6*2) |
+                     ((UTF8String[1] & 0x3F) << 6*1) |
+                     ((UTF8String[2] & 0x3F) << 6*0));
+    }
+    else if((UTF8String[0] & 0xF8) == 0xF8)
+    {
+        Codepoint = (((UTF8String[0] & 0x0E) << 6*3) |
+                     ((UTF8String[1] & 0x3F) << 6*2) |
+                     ((UTF8String[2] & 0x3F) << 6*1) |
+                     ((UTF8String[3] & 0x3F) << 6*0));
+    }
+    else
+    {
+        Assert(0);
+    }
+    
+    return Codepoint;
+}
 
 internal LRESULT CALLBACK
 Win32MainWindowCallback(HWND Window,
@@ -20,6 +56,15 @@ Win32MainWindowCallback(HWND Window,
     
     switch(Message)
     {
+        case WM_SETFOCUS:
+        {
+            GlobalWindowIsFocused = true;
+        } break;
+        case WM_KILLFOCUS:
+        {
+            GlobalWindowIsFocused = false;
+        } break;
+        
         case WM_CLOSE:
         {
             // TODO(casey): Handle this with a message to the user?
@@ -28,8 +73,11 @@ Win32MainWindowCallback(HWND Window,
         
         case WM_SIZE:
         {
+#if 0
             GlobalBufferWidth = LOWORD(LParam);
             GlobalBufferHeight = HIWORD(LParam);
+#endif
+            
         } break;
         
         case WM_SETCURSOR:
@@ -88,18 +136,28 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
     WindowClass.lpszClassName = "HandmadeHeroWindowClass";
     if(RegisterClassA(&WindowClass))
     {
-        HWND Window = CreateWindowExA(0, // WS_EDITOR_TOPMOST|WS_EDITOR_LAYERED,
+        RECT WindowRect = { 0, 0, Buffer->Width, Buffer->Height };
+        DWORD Style = WS_OVERLAPPEDWINDOW;
+        
+        AdjustWindowRect(&WindowRect, Style, FALSE);
+        
+        int WindowWidth  = WindowRect.right - WindowRect.left;
+        int WindowHeight = WindowRect.bottom - WindowRect.top;
+        
+        HWND Window = CreateWindowExA(
+                                      0,
                                       WindowClass.lpszClassName,
                                       "Handmade Hero",
-                                      WS_OVERLAPPEDWINDOW|WS_VISIBLE,
+                                      Style | WS_VISIBLE,
                                       CW_USEDEFAULT,
                                       CW_USEDEFAULT,
-                                      Buffer->Width,
-                                      Buffer->Height,
+                                      WindowWidth,
+                                      WindowHeight,
                                       0,
                                       0,
                                       Instance,
                                       0);
+        
         if(Window)
         {
             HGLRC GLContext;
@@ -151,6 +209,8 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
 {
     win32_context *Win32Context = (win32_context *)Context;
     
+    Input->PlatformWindowIsFocused = GlobalWindowIsFocused;
+    
     if(Win32Context)
     {    
         MSG Message;
@@ -169,6 +229,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                 case WM_KEYUP:
                 {
                     u32 VKCode = (u32)Message.wParam;
+                    u32 ScanCode = (Message.lParam >> 16) & 0xFF;
                     
                     b32 WasDown = ((Message.lParam & (1 << 30)) != 0);
                     b32 IsDown = ((Message.lParam & (1 << 31)) == 0);
@@ -176,7 +237,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                     if(IsDown)
                     {
                         b32 Shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-                        
+                        b32 Ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
                         b32 Alt = (Message.lParam & (1 << 29));
                         
                         if((VKCode == VK_F4) && Alt)
@@ -190,10 +251,31 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                         
                         if(Alt)   Button->Modifiers |= PlatformKeyModifier_Alt;
                         if(Shift) Button->Modifiers |= PlatformKeyModifier_Shift;
+                        if(Ctrl)  Button->Modifiers |= PlatformKeyModifier_Control;
                         
-                        if((VKCode >= 'A') && (VKCode <= 'Z'))
+                        // Try to convert to Unicode character
+                        BYTE KeyboardState[256];
+                        GetKeyboardState(KeyboardState);
+                        
+                        WCHAR UnicodeBuffer[4] = {0};
+                        int CharCount = ToUnicode(VKCode, ScanCode, KeyboardState, UnicodeBuffer, 4, 0);
+                        
+                        if(CharCount > 0)
                         {
-                            Button->Codepoint = ((VKCode - 'A') + 'a');
+                            rune Codepoint = (rune)UnicodeBuffer[0];
+                            if(Codepoint >= ' ')
+                            {
+                                Button->Codepoint = Codepoint;
+                            }
+                            else
+                            {
+                                Button->IsSymbol = true;
+                                if(0) {}
+                                else if(Codepoint == '\b') Button->Symbol = PlatformKey_BackSpace;
+                                else if(Codepoint == '\t') Button->Symbol = PlatformKey_Tab;
+                                else if(Codepoint == 27) Button->Symbol = PlatformKey_Escape;
+                                else NotImplemented;
+                            }
                         }
                         else
                         {
@@ -215,8 +297,11 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
             }
         }
         
+#if 0       
+        // TODO(luca): Does not work when window is minimized.
         Buffer->Width = GlobalBufferWidth;
         Buffer->Height = GlobalBufferHeight;
+#endif
         
         // Mouse
         {        
