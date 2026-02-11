@@ -22,6 +22,7 @@ SET(Button,           0xff0172ad) \
 SET(ButtonHovered,    0xff017fc0) \
 SET(ButtonPressed,    0xff0987c8) \
 SET(ButtonText,       0xfffbfdfe) \
+SET(Foreground,       0xffd8dee9) \
 SET(Background,       0xff13171f) \
 SET(BackgroundSecond, 0xff3a4151) \
 SET(Red,              0xffbf616a) \
@@ -60,6 +61,13 @@ LoadImage(arena *Arena, str8 ExeDirPath, str8 Path)
     }
     
     return Result;
+}
+
+internal inline u32 *
+GetPixel(app_offscreen_buffer *Buffer, s32 X, s32 Y)
+{
+    u32 *Pixel = (u32 *)(Buffer->Pixels + Buffer->BytesPerPixel*(Y*Buffer->Width + X));
+    return Pixel;
 }
 
 void
@@ -252,19 +260,37 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     glViewport(0, 0, Buffer->Width, Buffer->Height);
     
-    v3 BackgroundColor = ((Input->WindowIsFocused) ?
-                          Color_BackgroundSecond :
-                          Color_Background);
+    v3 BackgroundColor = Color_BackgroundSecond;
     
     glClearColor(BackgroundColor.X, BackgroundColor.Y, BackgroundColor.Z, 1.0f);
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
+    
+    s32 BorderSize = 2;
+    
+    u32 BorderColor = 0;
+    
+    if(0) {}
+    else if(Input->PlatformIsRecording) BorderColor = ColorU32_Red;
+    else if(Input->PlatformIsPlaying) BorderColor = ColorU32_Green;
+    else if(Input->PlatformWindowIsFocused) BorderColor = ColorU32_Foreground;
+    else BorderColor = ColorU32_Background;
+    
     // Render text (rasterized on CPU)
+    
     if(App->Font.Initialized)
     {
         // TODO(luca): Use font atlas + cache for rendering on the GPU.
-        MemorySet(Buffer->Pixels, 0, Buffer->Pitch*Buffer->Height);
+        
+        app_offscreen_buffer TextImage;
+        TextImage.Width = Buffer->Width - BorderSize;
+        TextImage.Height = Buffer->Height - BorderSize;
+        TextImage.BytesPerPixel = Buffer->BytesPerPixel;
+        TextImage.Pitch = TextImage.BytesPerPixel*TextImage.Width;
+        u64 Size = TextImage.BytesPerPixel*(TextImage.Width*TextImage.Height);
+        TextImage.Pixels = PushArray(FrameArena, u8, Size);
+        MemorySet(TextImage.Pixels, 0, Size);
         
         f32 FontScale = stbtt_ScaleForPixelHeight(&App->Font.Info, HeightPx);
         
@@ -284,7 +310,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         v2 Offset = V2(0.0f, Baseline);
         str8 Text = {.Data = (u8 *)App->Text, .Size = App->TextCount};
         
-        s32 MaxWidth = Buffer->Width;
+        s32 MaxWidth = TextImage.Width;
         s32 CumulatedWidth = 0;
         u32 StartIdx = 0;
         for EachIndexType(u32, Idx, App->TextCount)
@@ -334,7 +360,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     s32 XOffset = (s32)floorf(Offset.X + (f32)LeftSideBearing*FontScale);
                     s32 YOffset = (s32)Offset.Y + Y0;
                     
-                    DrawCharacter(FrameArena, Buffer, FontBitmap, FontWidth, FontHeight, XOffset, YOffset, ColorU32_Text);
+                    DrawCharacter(FrameArena, &TextImage, FontBitmap, FontWidth, FontHeight, XOffset, YOffset, ColorU32_Text);
                     
                     Offset.X += roundf((f32)AdvanceWidth*FontScale);
                 }
@@ -350,11 +376,39 @@ UPDATE_AND_RENDER(UpdateAndRender)
             {
                 for(s32 X = MinX; X < MinX + 11; X += 1)
                 {
-                    u32 *Pixel = (u32 *)(Buffer->Pixels + Buffer->BytesPerPixel*(Y*Buffer->Width + X));
+                    
+                    u32 *Pixel = GetPixel(&TextImage, X, Y);
                     *Pixel = ColorU32_Text;
                 }
             }
         }
+        
+        // Draw borders
+        {
+            for(s32 X = 0; X < BorderSize; X += 1)
+            {
+                for(s32 Y = 0; Y < TextImage.Height; Y += 1)
+                {
+                    u32 *Left = GetPixel(&TextImage, X, Y);
+                    *Left = BorderColor;
+                    u32 *Right = GetPixel(&TextImage, TextImage.Width - 1 - X, Y);
+                    *Right = BorderColor;
+                }
+            }
+            
+            for(s32 Y = 0; Y < BorderSize; Y += 1)
+            {
+                for(s32 X = 0; X < TextImage.Width; X += 1)
+                {
+                    u32 *Top = GetPixel(&TextImage, X, Y);
+                    *Top = BorderColor;
+                    u32 *Bottom= GetPixel(&TextImage, X, TextImage.Height - 1 - Y);
+                    *Bottom = BorderColor;
+                }
+            }
+            
+        }
+        
         
         s32 Count = 6;
         v3 *Vertices = PushArray(FrameArena, v3, Count);
@@ -370,7 +424,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             TexCoords[Idx].Y = (1.0f - TexCoords[Idx].Y);
         }
         
-        gl_LoadTextureFromImage(Textures[0], Buffer->Width, Buffer->Height, Buffer->Pixels, GL_RGBA,  TextShader);
+        gl_LoadTextureFromImage(Textures[0], TextImage.Width, TextImage.Height, TextImage.Pixels, GL_RGBA,  TextShader);
         
         gl_LoadFloatsIntoBuffer(VBOs[0], TextShader, "pos", Count, 3, Vertices);
         gl_LoadFloatsIntoBuffer(VBOs[1], TextShader, "tex", Count, 2, TexCoords);

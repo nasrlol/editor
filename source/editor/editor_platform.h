@@ -137,7 +137,9 @@ struct app_input
     
     f32 dtForFrame;
     
-    b32 WindowIsFocused;
+    b32 PlatformWindowIsFocused;
+    b32 PlatformIsRecording;
+    b32 PlatformIsPlaying;
 };
 
 typedef struct app_memory app_memory;

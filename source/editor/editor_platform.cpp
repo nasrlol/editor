@@ -119,7 +119,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             P_LoadAppCode(FrameArena, &Code, &AppMemory);
             OS_ProfileAndPrint("Code");
             
-            NewInput->WindowIsFocused = OldInput->WindowIsFocused;
+            NewInput->PlatformWindowIsFocused = OldInput->PlatformWindowIsFocused;
             
             // Input
             { 
@@ -152,82 +152,88 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 Logging = !Logging;
             }
             
-            if(!Paused)
+            // Playback
             {
-                if(CharPressed(NewInput, 'l', PlatformKeyModifier_Alt))
+                if(!Paused)
                 {
+                    if(CharPressed(NewInput, 'l', PlatformKeyModifier_Alt))
+                    {
 #if OS_LINUX
-                    if(0) {}
-                    else if(!IsRecording && !IsPlaying)
-                    {
-                        // StartRecording()
+                        if(0) {}
+                        else if(!IsRecording && !IsPlaying)
                         {
-                            RecordingBufferSize = 0;
-                            MemoryCopy(RecordingBuffer, AppMemory.Memory, AppMemory.MemorySize);
-                            RecordingBufferSize += AppMemory.MemorySize;
+                            // StartRecording()
+                            {
+                                RecordingBufferSize = 0;
+                                MemoryCopy(RecordingBuffer, AppMemory.Memory, AppMemory.MemorySize);
+                                RecordingBufferSize += AppMemory.MemorySize;
+                                
+                                IsRecording = true;
+                            }
+                        }
+                        else if(IsRecording)
+                        {
+                            // EndRecording()
+                            {
+                                IsRecording = false;
+                            }
                             
-                            IsRecording = true;
+                            // StartPlaying()
+                            {
+                                RecordingBufferPos = 0;
+                                MemoryCopy(AppMemory.Memory, RecordingBuffer, AppMemory.MemorySize);
+                                RecordingBufferPos += AppMemory.MemorySize;
+                                
+                                IsPlaying = true;
+                            }
                         }
-                    }
-                    else if(IsRecording)
-                    {
-                        // EndRecording()
+                        else if(IsPlaying)
                         {
-                            IsRecording = false;
-                        }
-                        
-                        // StartPlaying()
-                        {
-                            RecordingBufferPos = 0;
-                            MemoryCopy(AppMemory.Memory, RecordingBuffer, AppMemory.MemorySize);
-                            RecordingBufferPos += AppMemory.MemorySize;
+                            // StopPlaying()
+                            {
+                                IsPlaying = false;
+                            }
                             
-                            IsPlaying = true;
                         }
-                    }
-                    else if(IsPlaying)
-                    {
-                        // StopPlaying()
+                        else
                         {
-                            IsPlaying = false;
+                            InvalidPath;
                         }
-                        
-                    }
-                    else
-                    {
-                        InvalidPath;
-                    }
 #elif OS_WINDOWS
-                    NotImplemented;
+                        NotImplemented;
 #endif
-                    Log("Playing/Recording %d/%d\n", IsPlaying, IsRecording);
+                        Log("Playing/Recording %d/%d\n", IsPlaying, IsRecording);
+                    }
                     
-                }
-                
-                Assert((IsRecording != IsPlaying) ||
-                       (!IsPlaying  && !IsPlaying));
-                
-                if(IsRecording)
-                {
-                    MemoryCopy((u8 *)RecordingBuffer + RecordingBufferSize, NewInput, sizeof(*NewInput));
-                    RecordingBufferSize += sizeof(*NewInput);
-                    Assert(RecordingBufferSize < RecordingBufferMaxSize);
-                }
-                
-                if(IsPlaying)
-                {
-                    MemoryCopy(NewInput, (u8 *)RecordingBuffer + RecordingBufferPos, sizeof(*NewInput));
-                    RecordingBufferPos += sizeof(*NewInput);
+                    Assert((IsRecording != IsPlaying) ||
+                           (!IsPlaying  && !IsPlaying));
                     
-                    if(RecordingBufferPos >= RecordingBufferSize)
+                    if(IsRecording)
                     {
-                        // StartPlaying()
+                        MemoryCopy((u8 *)RecordingBuffer + RecordingBufferSize, NewInput, sizeof(*NewInput));
+                        RecordingBufferSize += sizeof(*NewInput);
+                        Assert(RecordingBufferSize < RecordingBufferMaxSize);
+                    }
+                    
+                    if(IsPlaying)
+                    {
+                        MemoryCopy(NewInput, (u8 *)RecordingBuffer + RecordingBufferPos, sizeof(*NewInput));
+                        RecordingBufferPos += sizeof(*NewInput);
+                        
+                        if(RecordingBufferPos >= RecordingBufferSize)
                         {
-                            RecordingBufferPos = 0;
-                            MemoryCopy(AppMemory.Memory, RecordingBuffer, AppMemory.MemorySize);
-                            RecordingBufferPos += AppMemory.MemorySize;
+                            // StartPlaying()
+                            {
+                                RecordingBufferPos = 0;
+                                MemoryCopy(AppMemory.Memory, RecordingBuffer, AppMemory.MemorySize);
+                                RecordingBufferPos += AppMemory.MemorySize;
+                            }
                         }
                     }
+                    
+                    // NOTE(luca): Need to be overwritten.
+                    NewInput->PlatformIsRecording = IsRecording;
+                    NewInput->PlatformIsPlaying = IsPlaying;
                 }
                 
                 b32 ShouldQuit = Code.UpdateAndRender(ThreadContext, &AppMemory, &Buffer, NewInput, OldInput);

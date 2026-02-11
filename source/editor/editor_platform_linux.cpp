@@ -808,7 +808,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                     if(Mode == NotifyWhileGrabbed ||
                        Mode == NotifyNormal)
                     {
-                        Input->WindowIsFocused = IsFocused;
+                        Input->PlatformWindowIsFocused = IsFocused;
                         
 #if 0                        
                         // TODO(luca): If cursor is inside window
