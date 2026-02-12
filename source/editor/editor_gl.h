@@ -94,7 +94,8 @@ gl_LoadTextureFromImage(gl_handle Texture, s32 Width, s32 Height, u8 *Image, s32
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, Texture);
     
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Width, Height, 0, Format, GL_UNSIGNED_BYTE, Image);
+    s32 InternalFormat = GL_RGBA;
+    glTexImage2D(GL_TEXTURE_2D, 0, InternalFormat, Width, Height, 0, Format, GL_UNSIGNED_BYTE, Image);
     
     // NOTE(luca): Border might show up sometimes, so we use it to debug, but it isn't really desired.
 #if 0    

@@ -5,7 +5,7 @@
 #define v4 vec4 
 #define f32 float
 
-in v2 pos;
+in v3 pos;
 in v2 tex;
 
 centroid out v2 TexCoord;
@@ -13,5 +13,5 @@ centroid out v2 TexCoord;
 void main()
 {
     TexCoord = tex;
-    gl_Position = v4(pos.xy, -1.0f, 1.0);
+    gl_Position = v4(pos, 1.0);
 }

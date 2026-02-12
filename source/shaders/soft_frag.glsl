@@ -9,11 +9,9 @@ centroid in v2 TexCoord;
 
 out v4 FragColor;
 
-uniform v4 TextColor;
 uniform sampler2D Texture;
 
 void main()
 {
-    f32 Alpha = texture(Texture, TexCoord).r;
-    FragColor = v4(Alpha) * TextColor;
+    FragColor = texture(Texture, TexCoord);
 }

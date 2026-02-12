@@ -101,6 +101,45 @@ EqualsWithEpsilon(f32 A, f32 B, f32 Epsilon)
     return Result;
 }
 
+void
+InitAtlas(arena *Arena, app_font *Font, font_atlas *Atlas, f32 HeightPx)
+{
+    Atlas->FirstCodepoint = ' ';
+    Atlas->CodepointsCount = (127 - Atlas->FirstCodepoint);
+    
+    Atlas->Width = 1024;
+    Atlas->Height = 1024;
+    u32 Size = (Atlas->Width*Atlas->Height);
+    
+    Arena->Pos = 0;
+    Atlas->Data = PushArray(Arena, u8, Size);
+    Atlas->PackedChars = PushArray(Arena, stbtt_packedchar, Size);
+    Atlas->AlignedQuads = PushArray(Arena, stbtt_aligned_quad, Size);
+    
+    stbtt_pack_context ctx;
+    {
+        stbtt_PackBegin(&ctx, 
+                        Atlas->Data,
+                        Atlas->Width, Atlas->Height,
+                        0, 1, 0);
+        
+        stbtt_PackFontRange(&ctx, Font->Info.data, 0, HeightPx, 
+                            Atlas->FirstCodepoint, Atlas->CodepointsCount, 
+                            Atlas->PackedChars);
+        stbtt_PackEnd(&ctx);
+    }
+    
+    for EachIndexType(s32, Idx, Atlas->CodepointsCount)
+    {
+        float UnusedX, UnusedY;
+        stbtt_GetPackedQuad(Atlas->PackedChars, Atlas->Width, Atlas->Height, 
+                            Idx,
+                            &UnusedX, &UnusedY,
+                            &Atlas->AlignedQuads[Idx], 0);
+    }
+    
+}
+
 C_LINKAGE
 UPDATE_AND_RENDER(UpdateAndRender)
 {
@@ -124,6 +163,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
         App = PushStruct(PermanentArena, app_state);
     }
     
+    font_atlas *Atlas = &App->FontAtlas;
+    
     // NOTE(luca): Will be rerun when reloaded.
     local_persist s32 GLADVersion = gladLoaderLoadGL();
     
@@ -131,47 +172,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
     {
         char *FontPath = PathFromExe(FrameArena, Memory->ExeDirPath, S8("../data/font_regular.ttf"));
         InitFont(&App->Font, FontPath);
+        App->FontAtlasArena = PushArena(PermanentArena, MB(100));
+        App->PreviousHeightPx = DefaultHeightPx + 1.0f;
+        App->HeightPx = DefaultHeightPx;
         
-        if(App->Font.Initialized)
-        {
-            rune CodepointOfFirstChar = ' ';
-            s32 CharsToInclude = (127 - CodepointOfFirstChar);
-            
-            u32 FontAtlasWidth = 1024;
-            u32 FontAtlasHeight = 1024;
-            u32 FontAtlasSize = (FontAtlasWidth*FontAtlasHeight);
-            
-            u8 *FontAtlasData = PushArray(PermanentArena, u8, FontAtlasWidth*FontAtlasHeight);
-            stbtt_packedchar *PackedChars = PushArray(PermanentArena, stbtt_packedchar, FontAtlasSize);
-            stbtt_aligned_quad *AlignedQuads = PushArray(PermanentArena, stbtt_aligned_quad, FontAtlasSize);
-            
-            stbtt_pack_context ctx;
-            {
-                stbtt_PackBegin(&ctx, 
-                                FontAtlasData,
-                                FontAtlasWidth, FontAtlasHeight,
-                                0, 1, 0);
-                
-                stbtt_PackFontRange(&ctx, App->Font.Info.data, 0, HeightPx, 
-                                    CodepointOfFirstChar, CharsToInclude, 
-                                    PackedChars);
-                stbtt_PackEnd(&ctx);
-            }
-            
-            char *OutPath = PathFromExe(FrameArena, Memory->ExeDirPath, S8("debug_font_atlas.png"));
-            stbi_write_png(OutPath, FontAtlasWidth, FontAtlasHeight, 1, FontAtlasData, FontAtlasWidth);
-            
-            for EachIndexType(s32, Idx, CharsToInclude)
-            {
-                float UnusedX, UnusedY;
-                stbtt_GetPackedQuad(PackedChars, FontAtlasWidth, FontAtlasHeight, 
-                                    Idx,
-                                    &UnusedX, &UnusedY,
-                                    &AlignedQuads[Idx], 0);
-            }
-            
-        }
-        
+        App->TextCount = 0;
+        App->CursorPos = 0;
         
         Memory->Initialized = true;
     }
@@ -209,16 +215,16 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 }
                 if (Key.Codepoint == '+')
                 {
-                    HeightPx++;
+                    App->HeightPx++;
                 }
                 
                 if (Key.Codepoint == '-')
                 {
-                    HeightPx--;
+                    App->HeightPx--;
                 }
                 if(Key.Codepoint == '0')
                 {
-                    HeightPx = DefaultHeightPx;
+                    App->HeightPx = DefaultHeightPx;
                 }
             }
             if(Key.Modifiers == PlatformKeyModifier_None ||
@@ -248,27 +254,20 @@ UPDATE_AND_RENDER(UpdateAndRender)
     gl_handle VAOs[1] = {};
     gl_handle VBOs[2] = {};
     gl_handle Textures[1] = {};
-    gl_handle TextShader;
+    gl_handle SoftwareShader, TextShader;
     glGenVertexArrays(ArrayCount(VAOs), &VAOs[0]);
     glGenBuffers(ArrayCount(VBOs), &VBOs[0]);
     glGenTextures(ArrayCount(Textures), &Textures[0]);
     glBindVertexArray(VAOs[0]);
-    TextShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
-                                       S8("../source/shaders/text_vert.glsl"),
-                                       S8("../source/shaders/text_frag.glsl"));
-    glUseProgram(TextShader);
     
     glViewport(0, 0, Buffer->Width, Buffer->Height);
     
     v3 BackgroundColor = Color_BackgroundSecond;
     
     glClearColor(BackgroundColor.X, BackgroundColor.Y, BackgroundColor.Z, 1.0f);
-    
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    
     s32 BorderSize = 2;
-    
     u32 BorderColor = 0;
     
     if(0) {}
@@ -278,12 +277,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
     else BorderColor = ColorU32_Background;
     
     // Render text (rasterized on CPU)
-    
-    if(App->Font.Initialized)
-    {
-        // TODO(luca): Use font atlas + cache for rendering on the GPU.
-        
-        app_offscreen_buffer TextImage;
+    app_offscreen_buffer TextImage;
+    {    
         TextImage.Width = Buffer->Width - BorderSize;
         TextImage.Height = Buffer->Height - BorderSize;
         TextImage.BytesPerPixel = Buffer->BytesPerPixel;
@@ -291,23 +286,15 @@ UPDATE_AND_RENDER(UpdateAndRender)
         u64 Size = TextImage.BytesPerPixel*(TextImage.Width*TextImage.Height);
         TextImage.Pixels = PushArray(FrameArena, u8, Size);
         MemorySet(TextImage.Pixels, 0, Size);
+    }
+    
+    if(App->Font.Initialized)
+    {
+#if 1
+        // TODO(luca): Use font atlas + cache for rendering on the GPU.
         
-        f32 FontScale = stbtt_ScaleForPixelHeight(&App->Font.Info, HeightPx);
+        s32 CharWidth = 15;;
         
-        f32 Baseline = GetBaseLine(&App->Font, FontScale);
-        
-        s32 CharHeight;
-        s32 CharWidth;
-        {        
-            s32 AdvanceWidth, LeftSideBearing;
-            stbtt_GetCodepointHMetrics(&App->Font.Info, ' ', &AdvanceWidth, &LeftSideBearing);
-            Assert(EqualsWithEpsilon(Baseline, HeightPx, 0.0001f));
-            // NOTE(luca): Since we use monospaced fonts these are essentially for all characters.
-            CharHeight = (s32)roundf(Baseline);
-            CharWidth = (s32)roundf(FontScale*(f32)AdvanceWidth);
-        }
-        
-        v2 Offset = V2(0.0f, Baseline);
         str8 Text = {.Data = (u8 *)App->Text, .Size = App->TextCount};
         
         s32 MaxWidth = TextImage.Width;
@@ -320,8 +307,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
             if(App->Text[Idx] == L'\n')
             {
                 CumulatedWidth = 0;
-                Offset.X = 0.0f;
-                Offset.Y += Baseline;
+                
+                // Wrap()
+                {
+                    //Offset.X = 0.0f;
+                    //Offset.Y += Baseline;
+                }
+                
                 StartIdx = Idx + 1;
             }
             else if(CumulatedWidth > MaxWidth)
@@ -330,8 +322,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 // TODO(luca): We should search backwards for a whitespace.
 #else
                 CumulatedWidth = 0;
-                Offset.X = 0.0f;
-                Offset.Y += Baseline;
+                
+                // Wrap()
+                
                 // We go back one to draw the character we wrapped on.
                 StartIdx = Idx;
                 Idx -= 1;
@@ -339,47 +332,16 @@ UPDATE_AND_RENDER(UpdateAndRender)
             }
             else
             {
-                // Draw Character
+                // DrawCharacter()
                 {
-                    s32 AdvanceWidth, LeftSideBearing;
-                    stbtt_GetCodepointHMetrics(&App->Font.Info, App->Text[Idx], &AdvanceWidth, &LeftSideBearing);
-                    
-                    s32 FontWidth, FontHeight;
-                    s32 X0, Y0, X1, Y1;
-                    u8 *FontBitmap = 0;
-                    stbtt_GetCodepointBitmapBox(&App->Font.Info, App->Text[Idx],
-                                                FontScale, FontScale,
-                                                &X0, &Y0, &X1, &Y1);
-                    FontWidth = (X1 - X0);
-                    FontHeight = (Y1 - Y0);
-                    FontBitmap = PushArray(FrameArena, u8, (FontWidth*FontHeight));
-                    stbtt_MakeCodepointBitmap(&App->Font.Info, FontBitmap,
-                                              FontWidth, FontHeight, FontWidth,
-                                              FontScale, FontScale, App->Text[Idx]);
-                    
-                    s32 XOffset = (s32)floorf(Offset.X + (f32)LeftSideBearing*FontScale);
-                    s32 YOffset = (s32)Offset.Y + Y0;
-                    
-                    DrawCharacter(FrameArena, &TextImage, FontBitmap, FontWidth, FontHeight, XOffset, YOffset, ColorU32_Text);
-                    
-                    Offset.X += roundf((f32)AdvanceWidth*FontScale);
                 }
-            }
-        }
-        
-        // Draw cursor
-        {        
-            s32 MinX = (s32)Offset.X;
-            s32 MinY = (s32)Offset.Y + 7;
-            
-            for(s32 Y = MinY - 25; Y < MinY; Y += 1)
-            {
-                for(s32 X = MinX; X < MinX + 11; X += 1)
-                {
-                    
-                    u32 *Pixel = GetPixel(&TextImage, X, Y);
-                    *Pixel = ColorU32_Text;
+                
+                if(Idx == App->CursorPos)
+                {        
+                    // Draw Cursor
                 }
+                
+                //Offset.X += AdvanceWidth;
             }
         }
         
@@ -402,32 +364,103 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 {
                     u32 *Top = GetPixel(&TextImage, X, Y);
                     *Top = BorderColor;
-                    u32 *Bottom= GetPixel(&TextImage, X, TextImage.Height - 1 - Y);
+                    u32 *Bottom = GetPixel(&TextImage, X, TextImage.Height - 1 - Y);
                     *Bottom = BorderColor;
                 }
             }
-            
         }
         
+        if(App->PreviousHeightPx != App->HeightPx)
+        {
+            App->PreviousHeightPx = App->HeightPx;
+            InitAtlas(App->FontAtlasArena, &App->Font, &App->FontAtlas, App->HeightPx);
+        }
+        
+        // NOTE(luca): Should these be minus border size?
+        Atlas->PixelScaleHeight = (2.0f / (f32)(Buffer->Height));
+        Atlas->PixelScaleWidth  = (2.0f / (f32)(Buffer->Width));
+        
+#endif
+        
+        TextShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
+                                           S8("../source/shaders/text_vert.glsl"),
+                                           S8("../source/shaders/text_frag.glsl"));
+        glUseProgram(TextShader);
+        {        
+            s32 VerticesCount = 0;
+            s32 QuadCount = 6;
+            s32 MaxVerticesCount = QuadCount*1024;
+            v2 *Positions = PushArray(FrameArena, v2, MaxVerticesCount);
+            v2 *TexCoords = PushArray(FrameArena, v2, MaxVerticesCount);
+            
+            v2 CursorPos = V2(((f32)BorderSize*Atlas->PixelScaleWidth + -1.0f),
+                              (1.0f - 0.2f));
+            for EachIndexType(u32, Idx, App->TextCount)
+            {
+                v2 *Position = Positions + Idx*QuadCount;
+                v2 *TexCoord = TexCoords + Idx*QuadCount;
+                
+                rune CharIdx = App->Text[Idx] - Atlas->FirstCodepoint;
+                
+                stbtt_packedchar *PackedChar = &Atlas->PackedChars[CharIdx];
+                f32 Width = (PackedChar->x1 - PackedChar->x0)*Atlas->PixelScaleWidth;
+                f32 Height = (PackedChar->y1 - PackedChar->y0)*Atlas->PixelScaleHeight;
+                {
+                    v2 Min = CursorPos;
+                    Min.X += (PackedChar->xoff)*Atlas->PixelScaleWidth;
+                    Min.Y -= (PackedChar->yoff)*Atlas->PixelScaleHeight;
+                    v2 Max = V2(Min.X + Width, Min.Y - Height);
+                    MakeQuadV2(Position, Min, Max);
+                }
+                stbtt_aligned_quad *Quad = &Atlas->AlignedQuads[CharIdx]; // '!'
+                MakeQuadV2(TexCoord, V2(Quad->s0, Quad->t0), V2(Quad->s1, Quad->t1));
+                
+                CursorPos.X += (PackedChar->xadvance)*Atlas->PixelScaleWidth;
+                
+                VerticesCount += QuadCount;
+            }
+            
+            gl_LoadTextureFromImage(Textures[0], Atlas->Width, Atlas->Height, Atlas->Data, GL_RED, TextShader);
+            gl_LoadFloatsIntoBuffer(VBOs[0], TextShader, "pos", VerticesCount, 2, Positions);
+            gl_LoadFloatsIntoBuffer(VBOs[1], TextShader, "tex", VerticesCount, 2, TexCoords);
+            gl_handle UTextColor = glGetUniformLocation(TextShader, "TextColor"); 
+            glUniform4f(UTextColor, V3Arg(Color_Text), 1.0f);
+            
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            glDisable(GL_MULTISAMPLE);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glBlendEquation(GL_FUNC_ADD);
+            glDisable(GL_DEPTH_TEST);
+            
+            glDrawArrays(GL_TRIANGLES, 0, VerticesCount);
+        }
+    }
+    
+    // Software rendering
+    {
+        SoftwareShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
+                                               S8("../source/shaders/soft_vert.glsl"),
+                                               S8("../source/shaders/soft_frag.glsl"));
+        glUseProgram(SoftwareShader);
         
         s32 Count = 6;
-        v3 *Vertices = PushArray(FrameArena, v3, Count);
-        v2 *TexCoords = PushArray(FrameArena, v2, Count);
-        
-        MakeQuadV3(Vertices, V2(-1.0f, -1.0f), V2(1.0f, 1.0f), -1.0f);
-        for EachIndex(Idx, Count)
-        {
-            V2Math
+        {        
+            v3 *Positions = PushArray(FrameArena, v3, Count);
+            v2 *TexCoords = PushArray(FrameArena, v2, Count);
+            
+            MakeQuadV3(Positions, V2(-1.0f, -1.0f), V2(1.0f, 1.0f), -1.0f);
+            for EachIndex(Idx, Count)
             {
-                TexCoords[Idx].E = (Vertices[Idx].E + 1.0f)*0.5f;
+                V2Math TexCoords[Idx].E = (Positions[Idx].E + 1.0f)*0.5f;
+                TexCoords[Idx].Y = (1.0f - TexCoords[Idx].Y);
             }
-            TexCoords[Idx].Y = (1.0f - TexCoords[Idx].Y);
+            
+            gl_LoadTextureFromImage(Textures[0], TextImage.Width, TextImage.Height, TextImage.Pixels, GL_RGBA,  SoftwareShader);
+            
+            gl_LoadFloatsIntoBuffer(VBOs[0], SoftwareShader, "pos", Count, 3, Positions);
+            gl_LoadFloatsIntoBuffer(VBOs[1], SoftwareShader, "tex", Count, 2, TexCoords);
         }
-        
-        gl_LoadTextureFromImage(Textures[0], TextImage.Width, TextImage.Height, TextImage.Pixels, GL_RGBA,  TextShader);
-        
-        gl_LoadFloatsIntoBuffer(VBOs[0], TextShader, "pos", Count, 3, Vertices);
-        gl_LoadFloatsIntoBuffer(VBOs[1], TextShader, "tex", Count, 2, TexCoords);
         
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -442,6 +475,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     {
         glDeleteTextures(ArrayCount(Textures), &Textures[0]);
         glDeleteBuffers(ArrayCount(VBOs), &VBOs[0]);
+        glDeleteProgram(SoftwareShader);
         glDeleteProgram(TextShader);
     }
     

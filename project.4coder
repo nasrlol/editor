@@ -27,6 +27,7 @@ paths =
     { .path = "source",         .recursive = false, .relative = true, },
     { .path = "source/base",    .recursive = true,  .relative = true, },
     { .path = "source/lib",     .recursive = true,  .relative = true, },
+    { .path = "source/shaders", .recursive = true,  .relative = true, },
     { .path = "source/editor/", .recursive = false, .relative = true, },
 };
 
