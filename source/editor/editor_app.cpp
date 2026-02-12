@@ -105,7 +105,8 @@ void
 InitAtlas(arena *Arena, app_font *Font, font_atlas *Atlas, f32 HeightPx)
 {
     Atlas->FirstCodepoint = ' ';
-    Atlas->CodepointsCount = (127 - Atlas->FirstCodepoint);
+    // NOTE(luca): 2 bytes =>small alphabets.
+    Atlas->CodepointsCount = ((0xFFFF - 1) - Atlas->FirstCodepoint);
     
     Atlas->Width = 1024;
     Atlas->Height = 1024;
@@ -139,6 +140,28 @@ InitAtlas(arena *Arena, app_font *Font, font_atlas *Atlas, f32 HeightPx)
     }
     
 }
+
+void
+DrawChar(font_atlas *Atlas, v2 *Position, v2 *TexCoord, v2 Pos, rune Codepoint)
+{
+    rune CharIdx = Codepoint - Atlas->FirstCodepoint;
+    
+    stbtt_packedchar *PackedChar = &Atlas->PackedChars[CharIdx];
+    f32 Width = (PackedChar->x1 - PackedChar->x0)*Atlas->PixelScaleWidth;
+    f32 Height = (PackedChar->y1 - PackedChar->y0)*Atlas->PixelScaleHeight;
+    {
+        v2 Min = Pos;
+        Min.X += (PackedChar->xoff)*Atlas->PixelScaleWidth;
+        Min.Y -= (PackedChar->yoff)*Atlas->PixelScaleHeight;
+        v2 Max = V2(Min.X + Width, Min.Y - Height);
+        MakeQuadV2(Position, Min, Max);
+    }
+    stbtt_aligned_quad *Quad = &Atlas->AlignedQuads[CharIdx]; // '!'
+    MakeQuadV2(TexCoord, V2(Quad->s0, Quad->t0), V2(Quad->s1, Quad->t1));
+    
+    
+}
+
 
 C_LINKAGE
 UPDATE_AND_RENDER(UpdateAndRender)
@@ -288,30 +311,54 @@ UPDATE_AND_RENDER(UpdateAndRender)
         MemorySet(TextImage.Pixels, 0, Size);
     }
     
+    
+    v2 *TextTexCoords = 0;
+    v2 *TextPositions = 0;
+    s32 TextVerticesCount = 0;
+    
     if(App->Font.Initialized)
     {
-#if 1
-        // TODO(luca): Use font atlas + cache for rendering on the GPU.
+        s32 QuadCount = 6;
+        s32 MaxVerticesCount = QuadCount*1024;
+        TextPositions = PushArray(FrameArena, v2, MaxVerticesCount);
+        TextTexCoords = PushArray(FrameArena, v2, MaxVerticesCount);
         
-        s32 CharWidth = 15;;
+        if(App->PreviousHeightPx != App->HeightPx)
+        {
+            App->PreviousHeightPx = App->HeightPx;
+            InitAtlas(App->FontAtlasArena, &App->Font, &App->FontAtlas, App->HeightPx);
+        }
+        
+        // NOTE(luca): Should these be minus border size?
+        Atlas->PixelScaleHeight = (2.0f / (f32)(Buffer->Height));
+        Atlas->PixelScaleWidth  = (2.0f / (f32)(Buffer->Width));
+        
+        
+        
+        f32 StartX = ((f32)BorderSize*Atlas->PixelScaleWidth + -1.0f);
         
         str8 Text = {.Data = (u8 *)App->Text, .Size = App->TextCount};
         
-        s32 MaxWidth = TextImage.Width;
-        s32 CumulatedWidth = 0;
+        f32 MaxWidth = -StartX + 1.0f;
+        f32 CumulatedWidth = 0;
         u32 StartIdx = 0;
+        // NOTE(luca): Monospace, all widths will be the same.
+        f32 CharWidth = (Atlas->PackedChars[0].xadvance)*Atlas->PixelScaleWidth;
+        f32 CharHeight = (Atlas->PixelScaleHeight*App->HeightPx);
+        
+        v2 Offset = V2(StartX, (1.0f - CharHeight));
+        
         for EachIndexType(u32, Idx, App->TextCount)
         {
             CumulatedWidth += CharWidth;
             
             if(App->Text[Idx] == L'\n')
             {
-                CumulatedWidth = 0;
-                
+                CumulatedWidth = 0.0f;
                 // Wrap()
                 {
-                    //Offset.X = 0.0f;
-                    //Offset.Y += Baseline;
+                    Offset.X = StartX;
+                    Offset.Y -= CharHeight;
                 }
                 
                 StartIdx = Idx + 1;
@@ -324,6 +371,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 CumulatedWidth = 0;
                 
                 // Wrap()
+                {
+                    Offset.X = StartX;
+                    Offset.Y -= CharHeight;
+                }
                 
                 // We go back one to draw the character we wrapped on.
                 StartIdx = Idx;
@@ -333,18 +384,52 @@ UPDATE_AND_RENDER(UpdateAndRender)
             else
             {
                 // DrawCharacter()
-                {
-                }
+                v2 *Position = TextPositions + TextVerticesCount;
+                v2 *TexCoord = TextTexCoords + TextVerticesCount;
+                DrawChar(Atlas, Position, TexCoord, Offset, App->Text[Idx]);
+                TextVerticesCount += QuadCount;
                 
-                if(Idx == App->CursorPos)
-                {        
-                    // Draw Cursor
-                }
+                Offset.X += CharWidth;
                 
-                //Offset.X += AdvanceWidth;
             }
         }
         
+        v2 *Position = TextPositions + TextVerticesCount;
+        v2 *TexCoord = TextTexCoords + TextVerticesCount;
+        v2 Pos = Offset;
+        Pos.Y -= 0.0f;
+        DrawChar(Atlas, Position, TexCoord, Pos, L'_');
+        TextVerticesCount += QuadCount;
+        
+        
+    }
+    
+    // Text rendering
+    {
+        
+        TextShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
+                                           S8("../source/shaders/text_vert.glsl"),
+                                           S8("../source/shaders/text_frag.glsl"));
+        glUseProgram(TextShader);
+        
+        gl_LoadTextureFromImage(Textures[0], Atlas->Width, Atlas->Height, Atlas->Data, GL_RED, TextShader);
+        gl_LoadFloatsIntoBuffer(VBOs[0], TextShader, "pos", TextVerticesCount, 2, TextPositions);
+        gl_LoadFloatsIntoBuffer(VBOs[1], TextShader, "tex", TextVerticesCount, 2, TextTexCoords);
+        gl_handle UTextColor = glGetUniformLocation(TextShader, "TextColor"); 
+        glUniform4f(UTextColor, V3Arg(Color_Text), 1.0f);
+        
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDisable(GL_MULTISAMPLE);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendEquation(GL_FUNC_ADD);
+        glDisable(GL_DEPTH_TEST);
+        
+        glDrawArrays(GL_TRIANGLES, 0, TextVerticesCount);
+    }
+    
+    // Software rendering
+    {
         // Draw borders
         {
             for(s32 X = 0; X < BorderSize; X += 1)
@@ -370,75 +455,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
             }
         }
         
-        if(App->PreviousHeightPx != App->HeightPx)
-        {
-            App->PreviousHeightPx = App->HeightPx;
-            InitAtlas(App->FontAtlasArena, &App->Font, &App->FontAtlas, App->HeightPx);
-        }
-        
-        // NOTE(luca): Should these be minus border size?
-        Atlas->PixelScaleHeight = (2.0f / (f32)(Buffer->Height));
-        Atlas->PixelScaleWidth  = (2.0f / (f32)(Buffer->Width));
-        
-#endif
-        
-        TextShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
-                                           S8("../source/shaders/text_vert.glsl"),
-                                           S8("../source/shaders/text_frag.glsl"));
-        glUseProgram(TextShader);
-        {        
-            s32 VerticesCount = 0;
-            s32 QuadCount = 6;
-            s32 MaxVerticesCount = QuadCount*1024;
-            v2 *Positions = PushArray(FrameArena, v2, MaxVerticesCount);
-            v2 *TexCoords = PushArray(FrameArena, v2, MaxVerticesCount);
-            
-            v2 CursorPos = V2(((f32)BorderSize*Atlas->PixelScaleWidth + -1.0f),
-                              (1.0f - 0.2f));
-            for EachIndexType(u32, Idx, App->TextCount)
-            {
-                v2 *Position = Positions + Idx*QuadCount;
-                v2 *TexCoord = TexCoords + Idx*QuadCount;
-                
-                rune CharIdx = App->Text[Idx] - Atlas->FirstCodepoint;
-                
-                stbtt_packedchar *PackedChar = &Atlas->PackedChars[CharIdx];
-                f32 Width = (PackedChar->x1 - PackedChar->x0)*Atlas->PixelScaleWidth;
-                f32 Height = (PackedChar->y1 - PackedChar->y0)*Atlas->PixelScaleHeight;
-                {
-                    v2 Min = CursorPos;
-                    Min.X += (PackedChar->xoff)*Atlas->PixelScaleWidth;
-                    Min.Y -= (PackedChar->yoff)*Atlas->PixelScaleHeight;
-                    v2 Max = V2(Min.X + Width, Min.Y - Height);
-                    MakeQuadV2(Position, Min, Max);
-                }
-                stbtt_aligned_quad *Quad = &Atlas->AlignedQuads[CharIdx]; // '!'
-                MakeQuadV2(TexCoord, V2(Quad->s0, Quad->t0), V2(Quad->s1, Quad->t1));
-                
-                CursorPos.X += (PackedChar->xadvance)*Atlas->PixelScaleWidth;
-                
-                VerticesCount += QuadCount;
-            }
-            
-            gl_LoadTextureFromImage(Textures[0], Atlas->Width, Atlas->Height, Atlas->Data, GL_RED, TextShader);
-            gl_LoadFloatsIntoBuffer(VBOs[0], TextShader, "pos", VerticesCount, 2, Positions);
-            gl_LoadFloatsIntoBuffer(VBOs[1], TextShader, "tex", VerticesCount, 2, TexCoords);
-            gl_handle UTextColor = glGetUniformLocation(TextShader, "TextColor"); 
-            glUniform4f(UTextColor, V3Arg(Color_Text), 1.0f);
-            
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            glDisable(GL_MULTISAMPLE);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glBlendEquation(GL_FUNC_ADD);
-            glDisable(GL_DEPTH_TEST);
-            
-            glDrawArrays(GL_TRIANGLES, 0, VerticesCount);
-        }
-    }
-    
-    // Software rendering
-    {
         SoftwareShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
                                                S8("../source/shaders/soft_vert.glsl"),
                                                S8("../source/shaders/soft_frag.glsl"));
