@@ -70,8 +70,7 @@ struct Token
 
 struct SyntaxNode
 {
-    TokenType Type;
-    Token    *token;
+    Token *token;
 
     SyntaxNode  *Parent;
     SyntaxNode **Children;
