@@ -5,172 +5,131 @@
 #define BASE_NO_ENTRYPOINT 1
 #include "editor_parser.h"
 
-    internal Token *
-Lex(app_state *app, arena *Arena)
+internal Token *
+Parse(app_state *app, arena *Arena)
 {
-    Token *FirstToken = PushStruct(Arena, Token);
-    Token *LastToken  = PushStruct(Arena, Token);
+    Token *FirstToken = 0;
+    Token *LastToken  = 0;
 
     s32 TextIndex = 0;
     s32 Line      = 1;
     s32 Column    = 1;
 
-
     while (TextIndex < app->TextCount)
     {
         rune c = app->Text[TextIndex];
 
-        s32 TokenEnd         = 0;
-        s32 TokenStart       = TextIndex;
-        s32 TokenSize        = 0;
-        s32 TokenStartColumn = Column;
-
-        while ((c == ' ' || c == '\t' || c == '\n' || c == '\r'))
+        if (c == ' ' || c == '\t' || c == '\n' || c == '\r')
         {
             if (c == '\n')
             {
                 ++Line;
-                TokenEnd = TextIndex - 1;
                 Column = 1;
             }
             else
             {
                 ++Column;
             }
+            ++TextIndex;
+            continue;
+        }
 
-            TextIndex += 1;
-            if (TextIndex <= app->TextCount)
+        s32 TokenStart = TextIndex;
+        s32 TokenEnd   = TextIndex;
+
+        while (TokenEnd < app->TextCount)
+        {
+            rune ch = app->Text[TokenEnd];
+            if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r')
             {
-                c = app->Text[TextIndex];
+                break;
             }
+            ++TokenEnd;
         }
 
-        if (TextIndex >= app->TextCount)
+        s32 TokenSize = TokenEnd - TokenStart;
+
+        if (TokenSize > 0)
         {
-            break;
-        }
+            Token *NewToken = PushStruct(Arena, Token);
+            u8    *TokenStr = PushArray(Arena, u8, TokenSize + 1);
 
-        c = app->Text[TextIndex];
-
-
-        if (c == ' ' || c == '\t' || c == '\n' || c == '\r')
-        {
-            s32 TokenEnd         = 0;
-
-            TokenSize = TokenEnd - TokenStart;
-
-            if (TokenSize > 0)
+            for (s32 i = 0; i < TokenSize; ++i)
             {
-                Token *NewToken = PushStruct(Arena, Token);
-                u8    *TokenStr = PushArray(Arena, u8, TokenSize + 1);
+                TokenStr[i] = (u8)app->Text[TokenStart + i];
+            }
+            TokenStr[TokenSize] = 0;
 
-                for (s32 TokenSizeIndex = 0;
-                        TokenSizeIndex < TokenSize;
-                        ++TokenSizeIndex)
+            NewToken->Lexeme.Data = TokenStr;
+            NewToken->Lexeme.Size = TokenSize;
+            NewToken->Line        = Line;
+            NewToken->Column      = Column;
+            NewToken->Type        = TokenIdentifier;
+            NewToken->Next        = 0;
+
+            if (TokenSize == 1)
+            {
+                char ch = (char)TokenStr[0];
+                switch (ch)
                 {
-                    TokenStr[TokenSizeIndex] = (u8)app->Text[TokenStart + TokenSizeIndex];
-                }
-
-                TokenStr[TokenSize] = 0;
-
-                NewToken->Lexeme.Data = TokenStr;
-                NewToken->Lexeme.Size = TokenSize;
-                NewToken->Line        = Line;
-                NewToken->Column      = TokenStartColumn;
-
-                if (NewToken->Lexeme.Size == 1)
-                {
-                    char c = (char)NewToken->Lexeme.Data[0];
-
-                    if (c == '+' || c == '-' || c == '*' || c == '/')
-                    {
+                    case '+':
+                    case '-':
+                    case '*':
+                    case '/':
                         NewToken->Type = TokenOperator;
-                    }
+                        break;
 
-                    if (c == '#')
-                    {
+                    case '#':
                         NewToken->Type = TokenDirective;
-                    }
+                        break;
 
-                    if (c == ';')
-                    {
+                    case ';':
                         NewToken->Type = TokenSemicolon;
-                    }
+                        break;
 
-                    {
-                        s32 OpeningDelimiter, ClosingDelimiter = 0;
-
-                        if (c == '(' || c == '{' || c == '[')
-                        {
-                            OpeningDelimiter = TextIndex;
-                        }
-
-                        if (c == ')' || c == '}' || c == ']')
-                        {
-                            ClosingDelimiter = TextIndex;
-                        }
-
-                        if (ClosingDelimiter >= OpeningDelimiter)
-                        {
-                            break;
-                        }
-                        else
-                        {
-                            // TODO(nasr): save value
-                        }
-
-                        TokenEnd = TextIndex + 1;
-                        Column += 1;
-                        NewToken->Type = TokenDelimiter;
-                    }
-
-                    if (c == ',' || c == '.')
-                    {
+                    case ',':
+                    case '.':
                         NewToken->Type = TokenPunctuation;
-                    }
-                }
+                        break;
 
-                if (NewToken->Lexeme.Size >= 2)
-                {
-                    char FirstChar = (char)NewToken->Lexeme.Data[0];
-                    char LastChar  = (char)NewToken->Lexeme.Data[NewToken->Lexeme.Size - 1];
-                    if ((FirstChar == '"' && LastChar == '"') ||
-                            (FirstChar == '\'' && LastChar == '\''))
-                    {
-                        NewToken->Type = TokenString;
-                    }
+                    case '(':
+                    case '{':
+                    case '[':
+                    case ')':
+                    case '}':
+                    case ']':
+                        NewToken->Type = TokenDelimiter;
+                        break;
                 }
-
-                if (NewToken->Lexeme.Size > 0)
-                {
-                    char FirstChar = (char)NewToken->Lexeme.Data[0];
-                    if ((FirstChar >= 'a' && FirstChar <= 'z') ||
-                            (FirstChar >= 'A' && FirstChar <= 'Z') ||
-                            (FirstChar >= '0' && FirstChar <= '9'))
-                    {
-                        NewToken->Type = TokenIdentifier;
-                    }
-                }
-
-                NewToken->Next = PushStruct(Arena, Token);
-
-                if (LastToken)
-                {
-                    LastToken->Next = NewToken;
-                    LastToken       = NewToken;
-                }
-                else
-                {
-                    FirstToken = NewToken;
-                    LastToken  = NewToken;
-                }
-
-                TextIndex = TokenEnd;
             }
 
+            else if (TokenSize >= 2)
+            {
+                char FirstChar = (char)TokenStr[0];
+                char LastChar  = (char)TokenStr[TokenSize - 1];
+
+                if ((FirstChar == '"' && LastChar == '"') ||
+                    (FirstChar == '\'' && LastChar == '\''))
+                {
+                    NewToken->Type = TokenString;
+                }
+            }
+
+            if (LastToken)
+            {
+                LastToken->Next = NewToken;
+                LastToken       = NewToken;
+            }
+            else
+            {
+                FirstToken = NewToken;
+                LastToken  = NewToken;
+            }
+
+            Column += TokenSize;
         }
 
-        ++TextIndex;
+        TextIndex = TokenEnd;
     }
 
     return FirstToken;
