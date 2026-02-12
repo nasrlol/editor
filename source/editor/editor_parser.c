@@ -1,19 +1,14 @@
-#include "base/base_core.h"
-#include "base/base_os.h"
-#include "base/base_strings.h"
-#include "base/base_arenas.h"
 #define BASE_NO_ENTRYPOINT 1
+#include "base/base_core.h"
 #include "editor_parser.h"
 
-internal Token *
-Parse(app_state *app, arena *Arena)
+internal ConcreteSyntaxTree *
+Parse(app_state *app, arena *Arena, b32 FormatEverything)
 {
-    Token *FirstToken = 0;
-    Token *LastToken  = 0;
-
-    s32 TextIndex = 0;
-    s32 Line      = 1;
-    s32 Column    = 1;
+    ConcreteSyntaxTree *tree;
+    s32                 TextIndex = 0;
+    s32                 Line      = 1;
+    s32                 Column    = 1;
 
     while (TextIndex < app->TextCount)
     {
@@ -115,50 +110,35 @@ Parse(app_state *app, arena *Arena)
                 }
             }
 
-            if (LastToken)
+            Column += TokenSize;
+
+            SyntaxNode *node = PushStruct(Arena, SyntaxNode);
+            node->token      = NewToken;
+
+            if (tree->root == 0)
             {
-                LastToken->Next = NewToken;
-                LastToken       = NewToken;
+                tree->root    = node;
+                tree->current = node;
             }
             else
             {
-                FirstToken = NewToken;
-                LastToken  = NewToken;
-            }
+                if (tree->current->ChildCount < tree->current->ChildCapacity)
+                {
+                    tree->current->Children[tree->current->ChildCount] = node;
+                    tree->current->ChildCount += 1;
 
-            Column += TokenSize;
+                    node->Parent = tree->current;
+                }
+                else
+                {
+                }
+            }
         }
 
         TextIndex = TokenEnd;
     }
 
-    return FirstToken;
-}
-
-internal void
-AddToCST(ConcreteSyntaxTree *tree, SyntaxNode *node)
-{
-    if (tree->root == 0)
-    {
-        tree->root    = node;
-        tree->current = node;
-    }
-
-    else
-    {
-        if (tree->current->ChildCount < tree->current->ChildCapacity)
-        {
-            tree->current->Children[tree->current->ChildCount] = node;
-            tree->current->ChildCount += 1;
-            node->Parent = tree->current;
-        }
-        else
-        {
-            Log("max tree");
-
-            /* TODO(nasr): (see notess)*/
-        }
-    }
+    return tree;
 }
 
 internal void
