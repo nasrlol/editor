@@ -8,6 +8,7 @@
 
 // TODO(luca): Better UTF8 handling instead of passing a flag in parameters.
 
+typedef struct app_font app_font;
 struct app_font
 {
     stbtt_fontinfo Info;

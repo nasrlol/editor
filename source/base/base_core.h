@@ -156,6 +156,7 @@ do { if(!(Expression)) TrapMsg(Format, ##__VA_ARGS__); } while(0)
 
 #define MemoryCopy(Dest, Source, Count) memmove(Dest, Source, Count)
 #define MemorySet(Dest, Value, Count)  memset(Dest, Value, Count)
+#define MemoryZero(Value) MemorySet((Value), 0, sizeof((*Value)));
 
 //~ Attributes
 #define internal static

@@ -40,7 +40,7 @@ gl_CompileShaderFromSource(arena *Arena, str8 ExeDirPath, str8 FileNameAfterExe,
     
     if(Source.Size)
     {    
-        glShaderSource(Handle, 1, (char **)&Source.Data, NULL);
+        glShaderSource(Handle, 1, (const char **)&Source.Data, NULL);
         glCompileShader(Handle);
         gl_ErrorStatus(Handle, true);
     }

@@ -193,7 +193,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
     font_atlas *Atlas = &App->FontAtlas;
     
     // NOTE(luca): Will be rerun when reloaded.
-    local_persist s32 GLADVersion = gladLoaderLoadGL();
+    local_persist s32 GLADVersion = 0;
+    if(!Memory->Initialized || Memory->Reloaded)
+    {
+        GLADVersion = gladLoaderLoadGL();
+    }
     
     if(!Memory->Initialized)
     {

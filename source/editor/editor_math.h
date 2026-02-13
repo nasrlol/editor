@@ -111,23 +111,23 @@ ProvokingFuncs
 internal inline void
 MakeQuadV2(v2 *Quad, v2 Min, v2 Max)
 {
-    Quad[0] = {Min.X, Min.Y}; // BL
-    Quad[1] = {Max.X, Min.Y}; // BR
-    Quad[2] = {Min.X, Max.Y}; // TL
-    Quad[3] = {Min.X, Max.Y}; // TL
-    Quad[4] = {Max.X, Max.Y}; // TR
-    Quad[5] = {Max.X, Min.Y}; // BR
+    Quad[0] = V2(Min.X, Min.Y); // BL
+    Quad[1] = V2(Max.X, Min.Y); // BR
+    Quad[2] = V2(Min.X, Max.Y); // TL
+    Quad[3] = V2(Min.X, Max.Y); // TL
+    Quad[4] = V2(Max.X, Max.Y); // TR
+    Quad[5] = V2(Max.X, Min.Y); // BR
 }
 
 internal inline void
 MakeQuadV3(v3 *Quad, v2 Min, v2 Max, f32 Z)
 {
-    Quad[0] = {Min.X, Min.Y, Z}; // BL
-    Quad[1] = {Max.X, Min.Y, Z}; // BR
-    Quad[2] = {Min.X, Max.Y, Z}; // TL
-    Quad[3] = {Min.X, Max.Y, Z}; // TL
-    Quad[4] = {Max.X, Max.Y, Z}; // TR
-    Quad[5] = {Max.X, Min.Y, Z}; // BR
+    Quad[0] = V3(Min.X, Min.Y, Z); // BL
+    Quad[1] = V3(Max.X, Min.Y, Z); // BR
+    Quad[2] = V3(Min.X, Max.Y, Z); // TL
+    Quad[3] = V3(Min.X, Max.Y, Z); // TL
+    Quad[4] = V3(Max.X, Max.Y, Z); // TR
+    Quad[5] = V3(Max.X, Min.Y, Z); // BR
 }
 
 #define E e[_VecMathIdx]

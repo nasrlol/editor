@@ -567,7 +567,8 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                             Status LookupStatus = {};
                             
                             app_text_button *Button = &Input->Text.Buffer[Input->Text.Count];
-                            *Button = {};
+                            MemoryZero(Button);
+                            
                             Input->Text.Count += 1;
                             
                             if(Shift)   Button->Modifiers |= PlatformKeyModifier_Shift;
