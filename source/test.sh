@@ -9,14 +9,14 @@ cd "$ScriptDirectory"
 DidWork=0
 Build="../build"
 
-clang=0
-gcc=1
+clang=1
+gcc=0
 debug=1
 release=0
 personal=0
-slow=1
+slow=0
 asan=0
-clean=1
+clean=0
 
 editor=0
 windows=0
@@ -111,7 +111,7 @@ then
  fi
 
  C_Compile "./editor/editor_app.cpp" editor_app.so "$AppFlags"
- C_Compile "./tests/parser_test.cpp" editor
+ C_Compile "./tests/parser_test.cpp" lexer_test
 fi
 
 if [ "$windows" = 1 ]

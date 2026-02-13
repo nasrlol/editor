@@ -1,88 +1,69 @@
 #ifndef EDITOR_PARSER_H
 #define EDITOR_PARSER_H
-#include "base/base_core.h"
-#include "base/base_strings.h"
-#include "editor/editor_app.h"
 
-typedef struct Token              Token;
+typedef struct Token              token;
 typedef struct SyntaxNode         SyntaxNode;
 typedef struct ConcreteSyntaxTree ConcreteSyntaxTree;
 
-/* TODO(nasr): remove these and check them inline */
-// clang-format off
-global_variable str8 Keywords[] =
+enum TokenType
 {
-S8("break"), S8("case"), S8("char"), S8("const"),
-S8("continue"), S8("default"), S8("do"), S8("double"),
-S8("else"), S8("enum"), S8("extern"), S8("float"),
-S8("for"), S8("goto"), S8("if"), S8("int"),
-S8("long"), S8("register"), S8("return"), S8("short"),
-S8("signed"), S8("sizeof"), S8("static"), S8("struct"),
-S8("switch"), S8("typedef"), S8("union"), S8("unsigned"),
-S8("void"), S8("volatile"), S8("while"),
-};
-
-global_variable char Operators[] =
-{
-'+', '-', '*',
-'/', '%', '=',
-'<', '>', '!',
-'&', '|', '^',
-'~',
-};
-
-// clang-format on
-
-typedef enum
-{
-    TokenInvalid = 256,
+    TokenUndefined = 256,
     TokenIdentifier,
-    TokenNumber,
+    TokenIdentifierName,
+    TokenIdentifierValue,
     TokenString,
-    TokenChar,
-    TokenKeyword,
-    TokenOperator,
-    TokenDelimiter,
-    TokenPunctuation,
-    TokenDirective,
-    TokenSemicolon,
-    TokenComment,
-    TokenNewLine,
-    TokenEOF,
-} TokenType;
+    TokenNumber,
+    TokenDoubleEqual,
+    TokenGreaterEqual,
+    TokenLesserEqual,
+    TokenRightArrow,
+    TokenFunc,
+    TokenReturn,
+    TokenIf,
+    TokenElse,
+    TokenFor,
+    TokenWhile,
+    TokenBreak,
+    TokenContinue,
+};
+
+enum TokenFlags
+{
+    FlagNone       = 0,
+    FlagConstant   = 1 << 0,
+    FlagGlobal     = 1 << 1,
+    FlagsValue     = 1 << 2,
+    FlagDeprecated = 1 << 3,
+    FlagDefinition = 1 << 4,
+    FlagComparison = 1 << 5,
+};
 
 struct Token
 {
-    TokenType Type;
-    str8      Lexeme;
-
-    union
-    {
-        str8 StringValue;
-        s32  IntegerValue;
-    };
-
-    s32 Line;
-    s32 Column;
-
-    Token *Next;
+    str8       Lexeme;
+    TokenType  Type;
+    TokenFlags Flags;
+    s32        Line;
+    s32        Column;
 };
 
 struct SyntaxNode
 {
-    Token *token;
-
     SyntaxNode  *Parent;
-    SyntaxNode **Children;
-    s32          ChildCount;
-    s32          ChildCapacity;
+    SyntaxNode **Child;
+
+    SyntaxNode *NextNode;
+    token      *Token;
+
+    umm         Scope;
 };
 
 struct ConcreteSyntaxTree
 {
-    SyntaxNode *root;
-    SyntaxNode *current;
+    SyntaxNode *Root;
+    SyntaxNode *Current;
 
     arena *Arena;
 };
+
 #endif

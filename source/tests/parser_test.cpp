@@ -17,14 +17,15 @@ main()
     app_state test_app = {0};
     arena    *Arena    = ArenaAlloc();
 
-    int fd = open("source/tests/parser_test.cpp", O_RDONLY);
+    int fd = open("test.c", O_RDONLY);
     if (fd < 0)
     {
         return 1;
     }
 
-    char   *input_buffer = (char *)ArenaPush(Arena, MB(8), 0);
-    ssize_t bytes_read   = read(fd, input_buffer, MB(5) - 1);
+    char *input_buffer = (char *)ArenaPush(Arena, MB(8), 0);
+
+    ssize_t bytes_read = read(fd, input_buffer, MB(2) - 1);
     close(fd);
 
     if (bytes_read <= 0)
@@ -37,19 +38,12 @@ main()
     {
         test_app.Text[i] = input_buffer[i];
     }
+
     test_app.TextCount = bytes_read;
 
-    Token *tokens = Parse(&test_app, Arena, 0);
-    for (Token *token = tokens; token != 0; token = token->Next)
-    {
-        printf("Type=%u Lexeme=\"", (TokenType)token->Type);
-        for (s32 i = 0; i < token->Lexeme.Size; ++i)
-        {
-            printf("%c", token->Lexeme.Data[i]);
-        }
+    ConcreteSyntaxTree *tree = Parse(&test_app, Arena, 0);
 
-        printf("\" Line=%d Column=%d\n", token->Line, token->Column);
-    }
+    printf("%s", tree->Root->Token->Lexeme.Data);
 
     return 0;
 }
