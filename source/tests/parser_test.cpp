@@ -11,8 +11,7 @@
 #include "editor/editor_parser.h"
 #include "editor/editor_parser.c"
 
-int
-main()
+int main()
 {
     app_state test_app = {0};
     arena    *Arena    = ArenaAlloc();
@@ -43,7 +42,11 @@ main()
 
     ConcreteSyntaxTree *tree = Parse(&test_app, Arena, 0);
 
-    printf("%s", tree->Root->Token->Lexeme.Data);
+    for (s32 index = 0; index < tree->Root->Token->Lexeme.Size; ++index)
+    {
+        printf(S8Fmt "\n", S8Arg(tree->Root->Token->Lexeme));
+
+    }
 
     return 0;
 }

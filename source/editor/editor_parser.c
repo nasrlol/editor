@@ -229,7 +229,9 @@ Parse(app_state *app, arena *Arena, b32 FormatEverything)
 
                     case TokenDoubleEqual:
                     {
-                        node->Token->Flags |= FlagDefinition;
+                        node->Token->Flags =
+                            (TokenFlags)(node->Token->Flags | TokenFlags(FlagDefinition));
+
                         break;
                     }
 
@@ -279,7 +281,11 @@ Parse(app_state *app, arena *Arena, b32 FormatEverything)
                     }
                     case TokenIf:
                     {
-                        if (node->NextNode->)
+                        if (node->NextNode->Token->Type == (TokenType)'{')
+                        {
+                            // TODO(nasr): define as scope and do something with it
+                        }
+
                     }
                     case TokenElse:
                     {
@@ -304,21 +310,26 @@ Parse(app_state *app, arena *Arena, b32 FormatEverything)
                     }
                     case (TokenFor):
                     {
-                        if (node->NextNode == (TokenType)'{')
+                        if (node->NextNode->Token->Type == (TokenType)'{')
                         {
+                            
                             // TODO(nasr): define a scope in here
-                        }                       
+                        }
+
                         break;
                     }
                     case (TokenIdentifierValue):
                     {
                         if (TokenIdentifier == node->Parent->Parent->Token->Type)
-                        {
-                            // TODO(nasr):
+                        {   
+                            /**
+                            * TODO(nasr):
+                            **/
                         }
                         else
                         {
-                            node->Flags |= FlagDirty;
+                            node->Token->Flags =
+                                (TokenFlags)(node->Token->Flags | TokenFlags(FlagDirty));
                         }
                     }
                     case (TokenWhile):

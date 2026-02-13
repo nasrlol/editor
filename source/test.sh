@@ -14,9 +14,9 @@ gcc=0
 debug=1
 release=0
 personal=0
-slow=0
+slow=1
 asan=0
-clean=0
+clean=1
 
 editor=0
 windows=0

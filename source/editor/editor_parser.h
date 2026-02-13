@@ -29,7 +29,7 @@ enum TokenType
     TokenExpression,
 };
 
-enum TokenFlags
+typedef enum TokenFlags
 {
     FlagNone            = 0,
     FlagConstant        = 1 << 0,
@@ -41,7 +41,7 @@ enum TokenFlags
     FlagTranslationUnit = 1 << 6,
     FlagDirty           = 1 << 7,
 
-};
+} TokenFlags;
 
 struct Token
 {
@@ -73,7 +73,7 @@ struct ConcreteSyntaxTree
 
 struct TranslationUnit
 {
-    i32                 FileID;
+    s32                 FileID;
     ConcreteSyntaxTree *Tree;
 };
 
