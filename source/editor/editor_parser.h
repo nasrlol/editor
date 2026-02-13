@@ -4,6 +4,7 @@
 typedef struct Token              token;
 typedef struct SyntaxNode         SyntaxNode;
 typedef struct ConcreteSyntaxTree ConcreteSyntaxTree;
+typedef struct TranslationUnit    TranslationUnit;
 
 enum TokenType
 {
@@ -25,17 +26,21 @@ enum TokenType
     TokenWhile,
     TokenBreak,
     TokenContinue,
+    TokenExpression,
 };
 
 enum TokenFlags
 {
-    FlagNone       = 0,
-    FlagConstant   = 1 << 0,
-    FlagGlobal     = 1 << 1,
-    FlagsValue     = 1 << 2,
-    FlagDeprecated = 1 << 3,
-    FlagDefinition = 1 << 4,
-    FlagComparison = 1 << 5,
+    FlagNone            = 0,
+    FlagConstant        = 1 << 0,
+    FlagGlobal          = 1 << 1,
+    FlagsValue          = 1 << 2,
+    FlagDeprecated      = 1 << 3,
+    FlagDefinition      = 1 << 4,
+    FlagComparison      = 1 << 5,
+    FlagTranslationUnit = 1 << 6,
+    FlagDirty           = 1 << 7,
+
 };
 
 struct Token
@@ -55,7 +60,7 @@ struct SyntaxNode
     SyntaxNode *NextNode;
     token      *Token;
 
-    umm         Scope;
+    umm Scope;
 };
 
 struct ConcreteSyntaxTree
@@ -64,6 +69,12 @@ struct ConcreteSyntaxTree
     SyntaxNode *Current;
 
     arena *Arena;
+};
+
+struct TranslationUnit
+{
+    i32                 FileID;
+    ConcreteSyntaxTree *Tree;
 };
 
 #endif
