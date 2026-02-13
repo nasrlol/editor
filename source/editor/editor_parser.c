@@ -44,7 +44,7 @@ Parse(app_state *app, arena *Arena, b32 FormatEverything)
         if (TokenSize > 0)
         {
             Token *NewToken = PushStruct(Arena, Token);
-            u8    *StrValue= PushArray(Arena, u8, TokenSize + 1);
+            u8    *StrValue = PushArray(Arena, u8, TokenSize + 1);
 
             for (s32 i = 0; i < TokenSize; ++i)
             {
@@ -278,6 +278,9 @@ Parse(app_state *app, arena *Arena, b32 FormatEverything)
                         }
                     }
                     case TokenIf:
+                    {
+                        if (node->NextNode->)
+                    }
                     case TokenElse:
                     {
                         /**
@@ -301,10 +304,25 @@ Parse(app_state *app, arena *Arena, b32 FormatEverything)
                     }
                     case (TokenFor):
                     {
-                        if (node)
+                        if (node->NextNode == (TokenType)'{')
                         {
-
+                            // TODO(nasr): define a scope in here
+                        }                       
+                        break;
+                    }
+                    case (TokenIdentifierValue):
+                    {
+                        if (TokenIdentifier == node->Parent->Parent->Token->Type)
+                        {
+                            // TODO(nasr):
                         }
+                        else
+                        {
+                            node->Flags |= FlagDirty;
+                        }
+                    }
+                    case (TokenWhile):
+                    {
                         break;
                     }
                 }
