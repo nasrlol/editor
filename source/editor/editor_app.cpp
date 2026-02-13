@@ -142,9 +142,14 @@ InitAtlas(arena *Arena, app_font *Font, font_atlas *Atlas, f32 HeightPx)
 }
 
 void
-DrawChar(font_atlas *Atlas, v2 *Position, v2 *TexCoord, v2 Pos, rune Codepoint)
+DrawChar(font_atlas *Atlas, v2 *Positions, v2 *TexCoords, s32 *VerticesCount, 
+         v2 Pos, rune Codepoint)
 {
     rune CharIdx = Codepoint - Atlas->FirstCodepoint;
+    
+    v2 *Position = Positions + *VerticesCount;
+    v2 *TexCoord = TexCoords + *VerticesCount;
+    *VerticesCount += 6;
     
     stbtt_packedchar *PackedChar = &Atlas->PackedChars[CharIdx];
     f32 Width = (PackedChar->x1 - PackedChar->x0)*Atlas->PixelScaleWidth;
@@ -156,10 +161,9 @@ DrawChar(font_atlas *Atlas, v2 *Position, v2 *TexCoord, v2 Pos, rune Codepoint)
         v2 Max = V2(Min.X + Width, Min.Y - Height);
         MakeQuadV2(Position, Min, Max);
     }
+    
     stbtt_aligned_quad *Quad = &Atlas->AlignedQuads[CharIdx]; // '!'
     MakeQuadV2(TexCoord, V2(Quad->s0, Quad->t0), V2(Quad->s1, Quad->t1));
-    
-    
 }
 
 
@@ -333,8 +337,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
         Atlas->PixelScaleHeight = (2.0f / (f32)(Buffer->Height));
         Atlas->PixelScaleWidth  = (2.0f / (f32)(Buffer->Width));
         
-        
-        
         f32 StartX = ((f32)BorderSize*Atlas->PixelScaleWidth + -1.0f);
         
         str8 Text = {.Data = (u8 *)App->Text, .Size = App->TextCount};
@@ -365,9 +367,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             }
             else if(CumulatedWidth > MaxWidth)
             {
-#if 0
-                // TODO(luca): We should search backwards for a whitespace.
-#else
+                // TODO(luca): We should search backwards for a whitespace instead.
                 CumulatedWidth = 0;
                 
                 // Wrap()
@@ -379,34 +379,20 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 // We go back one to draw the character we wrapped on.
                 StartIdx = Idx;
                 Idx -= 1;
-#endif
             }
             else
             {
-                // DrawCharacter()
-                v2 *Position = TextPositions + TextVerticesCount;
-                v2 *TexCoord = TextTexCoords + TextVerticesCount;
-                DrawChar(Atlas, Position, TexCoord, Offset, App->Text[Idx]);
-                TextVerticesCount += QuadCount;
-                
+                DrawChar(Atlas, TextPositions, TextTexCoords, &TextVerticesCount, Offset, App->Text[Idx]);
                 Offset.X += CharWidth;
-                
             }
         }
         
-        v2 *Position = TextPositions + TextVerticesCount;
-        v2 *TexCoord = TextTexCoords + TextVerticesCount;
         v2 Pos = Offset;
-        Pos.Y -= 0.0f;
-        DrawChar(Atlas, Position, TexCoord, Pos, L'_');
-        TextVerticesCount += QuadCount;
-        
-        
+        DrawChar(Atlas, TextPositions, TextTexCoords, &TextVerticesCount, Pos, L'_');
     }
     
     // Text rendering
     {
-        
         TextShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
                                            S8("../source/shaders/text_vert.glsl"),
                                            S8("../source/shaders/text_frag.glsl"));
