@@ -8,45 +8,75 @@
 #include "editor/editor_libs.h"
 #include "editor/editor_gl.h"
 #include "editor/editor_app.h"
+#include "editor/editor_lexer.h"
+#include "editor/editor_lexer.c"
 #include "editor/editor_parser.h"
 #include "editor/editor_parser.c"
 
-int main()
+void
+PrintTree(SyntaxNode *Node)
 {
-    app_state test_app = {0};
-    arena    *Arena    = ArenaAlloc();
+	if (!Node)
+	{
+		return;
+	}
 
-    int fd = open("test.c", O_RDONLY);
-    if (fd < 0)
-    {
-        return 1;
-    }
+	if (Node->Token)
+	{
+		if (Node->Token->Type != 0)
+		{
+			printf(S8Fmt " -- Type: %d\n", S8Arg(Node->Token->Lexeme), (TokenType)Node->Token->Type);
+		}
 
-    char *input_buffer = (char *)ArenaPush(Arena, MB(8), 0);
+		if (Node->Child)
+		{
+			for (int NodeIndex = 0;
+                    Node->Child[NodeIndex] != NULL;
+                    ++NodeIndex)
+			{
+				PrintTree(Node->Child[NodeIndex]);
+			}
+		}
 
-    ssize_t bytes_read = read(fd, input_buffer, MB(2) - 1);
-    close(fd);
+		if (Node->NextNode)
+        {
+			PrintTree(Node->NextNode);
+		}
+	}
+}
 
-    if (bytes_read <= 0)
-    {
-        return 1;
-    }
-    input_buffer[bytes_read] = '\0';
+int
+main(s32 argc, char **argv)
+{
+	char *filename = "test.c";
+	if (argc > 1)
+	{
+		filename = argv[1];
+	}
 
-    for (s32 i = 0; i < bytes_read; ++i)
-    {
-        test_app.Text[i] = input_buffer[i];
-    }
+	app_state test_app = {0};
+	arena	 *Arena	   = ArenaAlloc();
 
-    test_app.TextCount = bytes_read;
+	int fd = open(filename, O_RDONLY);
+	if (fd < 0)
+		return 1;
 
-    ConcreteSyntaxTree *tree = Parse(&test_app, Arena, 0);
+	umm bytes_read = read(fd, test_app.Text, 1024);
+	close(fd);
 
-    for (s32 index = 0; index < tree->Root->Token->Lexeme.Size; ++index)
-    {
-        printf(S8Fmt "\n", S8Arg(tree->Root->Token->Lexeme));
+	test_app.TextCount = bytes_read;
+	if (bytes_read < 1024)
+	{
+		test_app.Text[bytes_read] = '\0';
+	}
 
-    }
+	TokenList		   *list = Lex(&test_app, Arena);
+	ConcreteSyntaxTree *tree = Parse(Arena, list);
 
-    return 0;
+	if (tree && tree->Root)
+	{
+		PrintTree(tree->Root);
+	}
+
+	return 0;
 }
