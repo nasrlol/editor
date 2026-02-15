@@ -2,7 +2,7 @@ BasedOnStyle: LLVM
 Language: Cpp
 IndentWidth: 4
 TabWidth: 4
-UseTab: Never
+UseTab: Always
 ContinuationIndentWidth: 0
 IndentWrappedFunctionNames: true
 
