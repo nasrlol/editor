@@ -187,6 +187,28 @@ RectFromSize(v2 TopLeft, v2 Size)
     return Result;
 }
 
+internal inline b32
+IsInside(f32 X, f32 Y, v2 Min, v2 Max)
+{
+    b32 Result = (X >= Min.X && X <= Max.X &&
+                  Y >= Min.Y && Y <= Max.Y);
+    return Result;
+}
+
+internal inline b32
+IsInsideRect(f32 X, f32 Y, rect Rectangle)
+{
+    b32 Result = IsInside(X, Y, Rectangle.Min, Rectangle.Max);
+    return Result;
+}
+
+internal inline b32
+IsInsideRectV2(v2 Pos, rect Rectangle)
+{
+    b32 Result = IsInsideRect(Pos.X, Pos.Y, Rectangle);
+    return Result;
+}
+
 //- 
 
 internal inline f32

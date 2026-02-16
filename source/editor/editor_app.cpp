@@ -237,18 +237,22 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         if(!Key.IsSymbol)
         {
+            // Ignore shift.
+            Key.Modifiers = (Key.Modifiers & ~PlatformKeyModifier_Shift);
+            
             if(Key.Modifiers & PlatformKeyModifier_Alt && Key.Codepoint == 'b')
             {
                 DebugBreak;
             }
-            if(Key.Modifiers == PlatformKeyModifier_Control ||
-               (Key.Modifiers == (PlatformKeyModifier_Control | PlatformKeyModifier_Shift)))
+            
+            if(Key.Modifiers == PlatformKeyModifier_Control)
             {
-                if(Key.Codepoint == 'h')
+                if(0) {}
+                else if(Key.Codepoint == 'h')
                 {
                     DeleteChar(App);
                 }
-                if(Key.Codepoint == 's')
+                else if(Key.Codepoint == 's')
                 {
                     str8 File = PushS8(FrameArena, App->TextCount);
                     for EachIndex(Idx, App->TextCount)
@@ -261,22 +265,21 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     
                     Log("Saved.\n");
                 }
-                if (Key.Codepoint == '+')
+                else if(Key.Codepoint == '+')
                 {
                     App->HeightPx++;
                 }
-                
-                if (Key.Codepoint == '-')
+                else if(Key.Codepoint == '-')
                 {
                     App->HeightPx--;
                 }
-                if(Key.Codepoint == '0')
+                else if(Key.Codepoint == '0')
                 {
                     App->HeightPx = DefaultHeightPx;
                 }
             }
-            if(Key.Modifiers == PlatformKeyModifier_None ||
-               Key.Modifiers == PlatformKeyModifier_Shift)
+            
+            if(Key.Modifiers == PlatformKeyModifier_None)
             {
                 AppendChar(App, Key.Codepoint);
             }
@@ -435,6 +438,30 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glDrawArrays(GL_TRIANGLES, 0, TextVerticesCount);
     }
     
+    rect ButtonDim;
+    ButtonDim.Min = V2(480.f, 110.f);
+    ButtonDim.Max = V2(870.f, 310.f);
+    v3 ButtonFillColor = Color_Button;
+    
+    v2 MousePos = V2S32(Input->MouseX, Input->MouseY);
+    if(IsInsideRectV2(MousePos, ButtonDim))
+    {
+        if(Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
+        {
+            ButtonFillColor = Color_ButtonPressed;
+        }
+        else
+        {        
+            ButtonFillColor = Color_ButtonHovered;
+        }
+    }
+    
+    v3 ButtonBorderColor = Color_BackgroundSecond;
+    f32 ButtonBorderThickness = 2.f;
+    f32 ButtonSoftness = 1.f;
+    f32 ButtonCornerRadius = 20.0f;
+    
+    
     gl_handle RectShader;
     {
         RectShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
@@ -459,18 +486,22 @@ UPDATE_AND_RENDER(UpdateAndRender)
             -1.f, -1.f,
             +1.f, -1.f,
             
-            // instances                Color                  Radius  Border  Softness
-            80.f, 80.f, 280.f, 280.f,   0.f, 0.f, 1.f, 1.f,    10.f,   1.f,    1.f,
-            480.f, 110.f, 870.f, 310.f, 1.f, .5f, 0.f, 1.f,    20.f,   0.f,    1.f,
-            480.f, 110.f, 870.f, 310.f, 0.f, 0.5f, 1.f, 1.f,   20.f,   4.f,    1.f,
+            // Instances
+            // Dest                     Color                  Radius  Border  Softness
+            80.f,  80.f,  280.f, 280.f, 0.f, 0.f, 1.f, 1.f,    10.f,   1.f,    1.f,
             200.f, 320.f, 340.f, 420.f, 1.f, 0.f, 1.f, 1.f,    20.f,   0.f,    5.f,
+            
+            RectArg(ButtonDim),         V3Arg(ButtonFillColor), 1.f,   
+            ButtonCornerRadius, 0.f, ButtonSoftness,
+            RectArg(ButtonDim),         V3Arg(ButtonBorderColor), 1.f,   
+            ButtonCornerRadius, ButtonBorderThickness, ButtonSoftness,
             
             0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height,
             V3Arg(BorderColor), 1.f,                                
             0.f, (f32)BorderSize, 0.f,
         };
         
-        s32 RectsCount = (ArrayCount(BufferData) - 12)/QuadStride;
+        s32 RectsCount = (ArrayCount(BufferData) - 6*2)/QuadStride;
         
         glBufferData(GL_ARRAY_BUFFER, sizeof(BufferData), BufferData, GL_STATIC_DRAW);
         
