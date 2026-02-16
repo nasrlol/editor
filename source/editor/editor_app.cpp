@@ -501,44 +501,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                            S8("../source/shaders/rect_frag.glsl"));
         glUseProgram(RectShader);
         
-#if 0        
-        s32 ComponentsCount = 6;
-        s32 VerticesCount = 6;
-        s32 MaxRectsCount = 20;
-        rect_vertex *BufferData = PushArray(FrameArena, rect_vertex, MaxRectsCount*VerticesCount);
-        
-        s32 RectsCount = 0;
-        
-        DebugCreateRect(BufferData, &RectsCount, RectFromSize(V2(80, 80), V2(200, 200)));
-        DebugCreateRect(BufferData, &RectsCount, RectFromSize(V2(380, 210), V2(400, 200)));
-        
-        glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]);
-        
-        u64 RectsSize = RectsCount*sizeof(f32)*VerticesCount*ComponentsCount;
-        glBufferData(GL_ARRAY_BUFFER, RectsSize, BufferData, GL_STATIC_DRAW);
-        
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 6*sizeof(f32), 0);
-        
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 6*sizeof(f32), (void *)(2*sizeof(f32)));
-        
-        
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glEnable(GL_MULTISAMPLE);
-        glEnable(GL_BLEND);
-        glDisable(GL_DEPTH_TEST);
-        
-        glDrawArrays(GL_TRIANGLES, 0, RectsCount*VerticesCount);
-#else
-        
         gl_handle UViewport = glGetUniformLocation(RectShader, "Viewport");
         glUniform2f(UViewport, (f32)(Buffer->Width), (f32)(Buffer->Height));
         
         glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]);
         
-        s32 QuadStride = 7;
+        s32 QuadStride = 11;
         
         f32 BufferData[] =
         {
@@ -552,8 +520,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
             
             // instances                Color                  Radius  Border  Softness
             80.f, 80.f, 280.f, 280.f,   0.f, 0.f, 1.f, 1.f,    10.f,   1.f,    1.f,
-            380.f, 210.f, 780.f, 410.f, 1.f, 0.f, 1.f, 1.f,    0.f,    0.f,    0.f,
+            480.f, 110.f, 870.f, 310.f, 1.f, .5f, 0.f, 1.f,    20.f,   0.f,    1.f,
+            480.f, 110.f, 870.f, 310.f, 0.f, 0.5f, 1.f, 1.f,   20.f,   4.f,    1.f,
+            200.f, 320.f, 340.f, 420.f, 1.f, 0.f, 1.f, 1.f,    20.f,   0.f,    5.f,
         };
+        
+        s32 RectsCount = (ArrayCount(BufferData) - 12)/QuadStride;
         
         glBufferData(GL_ARRAY_BUFFER, sizeof(BufferData), BufferData, GL_STATIC_DRAW);
         
@@ -587,10 +559,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glEnable(GL_BLEND);
         glDisable(GL_DEPTH_TEST);
         
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, 2);
-        
-#endif
-        
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, RectsCount);
     }
     
     // Cleanup
