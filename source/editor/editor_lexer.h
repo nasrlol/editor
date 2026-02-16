@@ -14,7 +14,6 @@ enum TokenType
 	TokenGreaterEqual,
 	TokenLesserEqual,
     TokenParam,
-	TokenRightArrow,
 	TokenFunc,
 	TokenReturn,
 	TokenIf,
@@ -25,6 +24,8 @@ enum TokenType
 	TokenContinue,
 	TokenExpression,
     TokenWhiteSpace,
+    TokenComparisonParam,
+    TokenFuncBody
 };
 
 typedef enum TokenFlags
