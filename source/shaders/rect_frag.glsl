@@ -5,12 +5,16 @@
 #define v4 vec4 
 #define f32 float
 
+in v2  VS_Pos;
+in v4  VS_Dest;
+in f32 VS_CornerRadius;
+in f32 VS_BorderThickness;
+in f32 VS_Softness;
+in v4  VS_Color;
+
+uniform v2 Viewport;
+
 out v4 FragColor;
-
-in v2 LocalPos;
-flat in v4 DestRect;
-
-uniform v2 Screen;
 
 f32
 BoxSDF(v2 Pos, v2 HalfDim, f32 CornerRadius)
@@ -26,23 +30,20 @@ void main()
 {
     v4 Color = v4(1.0, 0.0, 0.0, 1.0);
     
-    v2 Min = DestRect.xy;
-    v2 Max = DestRect.zw;
+    // TODO(luca): This should happen in the vertex shader.
+    v2 Min = VS_Dest.xy;
+    v2 Max = VS_Dest.zw;
     v2 HalfSize = (Max - Min)/2.0;
     v2 Center = Min + HalfSize;
-    v2 Pos = LocalPos - Center;
-    
-    f32 CornerRadius = 10.0f;
-    f32 BorderThickness = 0.0;
-    f32 Softness = 1.0;
+    v2 Pos = VS_Pos - Center;
     
     f32 tBorder = 1.0;
-    if(BorderThickness > 0)
+    if(VS_BorderThickness > 0)
     {
         f32 sBorder = BoxSDF(Pos,
-                             HalfSize - v2(Softness*2.0, Softness*2.0) - BorderThickness,
-                             max(CornerRadius-BorderThickness, 0.0));
-        tBorder = smoothstep(0.0, 2.0*Softness, sBorder);
+                             HalfSize - v2(VS_Softness*2.0, VS_Softness*2.0) - VS_BorderThickness,
+                             max(VS_CornerRadius-VS_BorderThickness, 0.0));
+        tBorder = smoothstep(0.0, 2.0*VS_Softness, sBorder);
     }
     if(tBorder < 0.001f)
     {
@@ -50,12 +51,12 @@ void main()
     }
     
     f32 tCorner = 1;
-    if(CornerRadius > 0.0 || Softness > 0.75f)
+    if(VS_CornerRadius > 0.0 || VS_Softness > 0.75f)
     {
         f32 sCorner = BoxSDF(Pos,
-                             HalfSize - v2(Softness*2.0, Softness*2.0),
-                             CornerRadius);
-        tCorner = 1-smoothstep(0.0, 2.0*Softness, sCorner);
+                             HalfSize - v2(VS_Softness*2.0, VS_Softness*2.0),
+                             VS_CornerRadius);
+        tCorner = 1-smoothstep(0.0, 2.0*VS_Softness, sCorner);
     }
     
     Color.a *= tBorder;

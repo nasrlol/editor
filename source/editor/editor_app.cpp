@@ -500,6 +500,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                            S8("../source/shaders/rect_vert.glsl"),
                                            S8("../source/shaders/rect_frag.glsl"));
         glUseProgram(RectShader);
+        
+#if 0        
         s32 ComponentsCount = 6;
         s32 VerticesCount = 6;
         s32 MaxRectsCount = 20;
@@ -521,11 +523,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 6*sizeof(f32), (void *)(2*sizeof(f32)));
         
-        gl_handle UScreen = glGetUniformLocation(RectShader, "Screen");
-        glUniform2f(UScreen, (f32)(Buffer->Width), (f32)(Buffer->Height));
-        
-        gl_handle UViewport = glGetUniformLocation(RectShader, "Viewport");
-        glUniform2f(UViewport, (f32)(Buffer->Width), (f32)(Buffer->Height));
         
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -534,6 +531,66 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glDisable(GL_DEPTH_TEST);
         
         glDrawArrays(GL_TRIANGLES, 0, RectsCount*VerticesCount);
+#else
+        
+        gl_handle UViewport = glGetUniformLocation(RectShader, "Viewport");
+        glUniform2f(UViewport, (f32)(Buffer->Width), (f32)(Buffer->Height));
+        
+        glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]);
+        
+        s32 QuadStride = 7;
+        
+        f32 BufferData[] =
+        {
+            // quad
+            -1.f, +1.f,
+            +1.f, +1.f,
+            -1.f, -1.f,
+            +1.f, +1.f,
+            -1.f, -1.f,
+            +1.f, -1.f,
+            
+            // instances                Color                  Radius  Border  Softness
+            80.f, 80.f, 280.f, 280.f,   0.f, 0.f, 1.f, 1.f,    10.f,   1.f,    1.f,
+            380.f, 210.f, 780.f, 410.f, 1.f, 0.f, 1.f, 1.f,    0.f,    0.f,    0.f,
+        };
+        
+        glBufferData(GL_ARRAY_BUFFER, sizeof(BufferData), BufferData, GL_STATIC_DRAW);
+        
+        glEnableVertexAttribArray(0);
+        glVertexAttribDivisor(0, 0);  
+        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2*sizeof(f32), 0);
+        
+        glEnableVertexAttribArray(1);
+        glVertexAttribDivisor(1, 1);
+        glVertexAttribPointer(1, 4, GL_FLOAT, false, QuadStride*sizeof(f32), (void *)((12 + 0)*sizeof(f32)));
+        
+        glEnableVertexAttribArray(2);
+        glVertexAttribDivisor(2, 1 );
+        glVertexAttribPointer(2, 4, GL_FLOAT, false, QuadStride*sizeof(f32), (void *)((12 + 4)*sizeof(f32)));
+        
+        glEnableVertexAttribArray(3);
+        glVertexAttribDivisor(3, 1);
+        glVertexAttribPointer(3, 1, GL_FLOAT, false, QuadStride*sizeof(f32), (void *)((12 + 8)*sizeof(f32)));
+        
+        glEnableVertexAttribArray(4);
+        glVertexAttribDivisor(4, 1);
+        glVertexAttribPointer(4, 1, GL_FLOAT, false, QuadStride*sizeof(f32), (void *)((12 + 9)*sizeof(f32)));
+        
+        glEnableVertexAttribArray(5);
+        glVertexAttribDivisor(5, 1);
+        glVertexAttribPointer(5, 1, GL_FLOAT, false, QuadStride*sizeof(f32), (void *)((12 + 10)*sizeof(f32)));
+        
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_MULTISAMPLE);
+        glEnable(GL_BLEND);
+        glDisable(GL_DEPTH_TEST);
+        
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, 2);
+        
+#endif
+        
     }
     
     // Cleanup

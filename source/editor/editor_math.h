@@ -158,6 +158,7 @@ struct rect
     v2 Min;
     v2 Max;
 };
+#define RectArg(Value) (Value).Min.X, (Value).Min.Y, (Value).Max.X, (Value).Max.Y
 
 internal inline rect
 Rect(f32 MinX, f32 MinY, f32 MaxX, f32 MaxY)
