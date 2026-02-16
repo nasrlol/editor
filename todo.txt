@@ -1,6 +1,11 @@
 platform:
-- loop editing
 - fix keyboard input (pressing & holding, vs text)
   - easier query of keys & modifiers.
 - linux: investigate startup time.
-- resizing & (wrapping)
+- resizing (fast atlas baking)
+- sleep when idle
+- custom decorations
+
+Archived:
+ platform:
+ x loop editing

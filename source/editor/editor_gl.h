@@ -3,6 +3,8 @@
 #ifndef EDITOR_GL_H
 #define EDITOR_GL_H
 
+#include "editor/editor_app.h"
+
 typedef unsigned int gl_handle;
 
 //- GL helpers 
@@ -72,7 +74,7 @@ gl_ProgramFromShaders(arena *Arena, str8 ExeDirPath, str8 VertPath, str8 FragPat
 }
 
 internal void
-gl_LoadFloatsIntoBuffer(gl_handle BufferHandle, gl_handle ShaderHandle, char *AttributeName, umm Count, s32 VecSize, void *Buffer)
+gl_LoadFloatsIntoBuffer(gl_handle BufferHandle, gl_handle ShaderHandle, char *AttributeName, u64 Count, s32 VecSize, void *Buffer)
 {
     gl_handle AttribHandle;
     
@@ -117,6 +119,15 @@ gl_LoadTextureFromImage(gl_handle Texture, s32 Width, s32 Height, u8 *Image, s32
     
     gl_handle UTexture = glGetUniformLocation(ShaderProgram, "Texture"); 
     glUniform1i(UTexture, 0);
+}
+
+void
+gl_SetQuadAttribute(s32 Index, s32 Count, u64 *Offset)
+{
+    glEnableVertexAttribArray(Index);
+    glVertexAttribDivisor(Index, 1);
+    glVertexAttribPointer(Index, Count, GL_FLOAT, false, sizeof(rect_quad_data), (void *)((*Offset)*sizeof(f32)));
+    *Offset += Count;
 }
 
 #endif //EDITOR_GL_H

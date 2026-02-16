@@ -83,6 +83,17 @@ V3(f32 X, f32 Y, f32 Z)
     return Result;
 }
 
+internal inline v4 
+V4(f32 X, f32 Y, f32 Z, f32 W) 
+{
+    v4 Result = {};
+    Result.X = X;
+    Result.Y = Y;
+    Result.Z = Z;
+    Result.W = W;
+    return Result;
+}
+
 internal inline b32
 InBounds(v2 A, v2 Min, v2 Max)
 {
@@ -147,15 +158,54 @@ struct rect
     v2 Min;
     v2 Max;
 };
+#define RectArg(Value) (Value).Min.X, (Value).Min.Y, (Value).Max.X, (Value).Max.Y
+
+internal inline rect
+Rect(f32 MinX, f32 MinY, f32 MaxX, f32 MaxY)
+{
+    rect Result = {0};
+    Result.Min = V2(MinX, MinY);
+    Result.Max = V2(MaxX, MaxY);
+    return Result;
+}
 
 internal inline rect
 RectFromCenterDim(v2 Center, v2 Dim)
 {
     rect Result = {0};
-    
-    Result.Min = V2(Center.X - Dim.X, Center.Y + Dim.Y);
-    Result.Max = V2(Center.X + Dim.X, Center.Y - Dim.Y);
-    
+    Result.Min = V2(Center.X - Dim.X, Center.Y - Dim.Y);
+    Result.Max = V2(Center.X + Dim.X, Center.Y + Dim.Y);
+    return Result;
+}
+
+internal inline rect
+RectFromSize(v2 TopLeft, v2 Size)
+{
+    rect Result = {0};
+    Result.Min = TopLeft;
+    Result.Max = V2AddV2(TopLeft, Size);
+    return Result;
+}
+
+internal inline b32
+IsInside(f32 X, f32 Y, v2 Min, v2 Max)
+{
+    b32 Result = (X >= Min.X && X <= Max.X &&
+                  Y >= Min.Y && Y <= Max.Y);
+    return Result;
+}
+
+internal inline b32
+IsInsideRect(f32 X, f32 Y, rect Rectangle)
+{
+    b32 Result = IsInside(X, Y, Rectangle.Min, Rectangle.Max);
+    return Result;
+}
+
+internal inline b32
+IsInsideRectV2(v2 Pos, rect Rectangle)
+{
+    b32 Result = IsInsideRect(Pos.X, Pos.Y, Rectangle);
     return Result;
 }
 

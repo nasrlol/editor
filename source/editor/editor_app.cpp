@@ -166,6 +166,18 @@ DrawChar(font_atlas *Atlas, v2 *Positions, v2 *TexCoords, s32 *VerticesCount,
     MakeQuadV2(TexCoord, V2(Quad->s0, Quad->t0), V2(Quad->s1, Quad->t1));
 }
 
+void
+DrawRect(v4 Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
+{
+    rect_quad_data *Data = GlobalRectQuadData + GlobalRectsCount;
+    GlobalRectsCount += 1;
+    
+    Data->Dest = Dest;
+    Data->Color = Color;
+    Data->CornerRadius = CornerRadius;
+    Data->BorderThickness = BorderThickness;
+    Data->Softness = Softness;
+}
 
 C_LINKAGE
 UPDATE_AND_RENDER(UpdateAndRender)
@@ -220,18 +232,22 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         if(!Key.IsSymbol)
         {
+            // Ignore shift.
+            Key.Modifiers = (Key.Modifiers & ~PlatformKeyModifier_Shift);
+            
             if(Key.Modifiers & PlatformKeyModifier_Alt && Key.Codepoint == 'b')
             {
                 DebugBreak;
             }
-            if(Key.Modifiers == PlatformKeyModifier_Control ||
-               (Key.Modifiers == (PlatformKeyModifier_Control | PlatformKeyModifier_Shift)))
+            
+            if(Key.Modifiers == PlatformKeyModifier_Control)
             {
-                if(Key.Codepoint == 'h')
+                if(0) {}
+                else if(Key.Codepoint == 'h')
                 {
                     DeleteChar(App);
                 }
-                if(Key.Codepoint == 's')
+                else if(Key.Codepoint == 's')
                 {
                     str8 File = PushS8(FrameArena, App->TextCount);
                     for EachIndex(Idx, App->TextCount)
@@ -244,22 +260,21 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     
                     Log("Saved.\n");
                 }
-                if (Key.Codepoint == '+')
+                else if(Key.Codepoint == '+')
                 {
                     App->HeightPx++;
                 }
-                
-                if (Key.Codepoint == '-')
+                else if(Key.Codepoint == '-')
                 {
                     App->HeightPx--;
                 }
-                if(Key.Codepoint == '0')
+                else if(Key.Codepoint == '0')
                 {
                     App->HeightPx = DefaultHeightPx;
                 }
             }
-            if(Key.Modifiers == PlatformKeyModifier_None ||
-               Key.Modifiers == PlatformKeyModifier_Shift)
+            
+            if(Key.Modifiers == PlatformKeyModifier_None)
             {
                 AppendChar(App, Key.Codepoint);
             }
@@ -282,10 +297,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
     }
     
-    gl_handle VAOs[1] = {};
-    gl_handle VBOs[2] = {};
-    gl_handle Textures[1] = {};
-    gl_handle SoftwareShader, TextShader;
+    gl_handle VAOs[2] = {};
+    gl_handle VBOs[3] = {};
+    gl_handle Textures[2] = {};
+    gl_handle SoftwareShader, TextShader, RectShader;
     glGenVertexArrays(ArrayCount(VAOs), &VAOs[0]);
     glGenBuffers(ArrayCount(VBOs), &VBOs[0]);
     glGenTextures(ArrayCount(Textures), &Textures[0]);
@@ -295,30 +310,51 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     v3 BackgroundColor = Color_BackgroundSecond;
     
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    
     glClearColor(BackgroundColor.X, BackgroundColor.Y, BackgroundColor.Z, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    s32 BorderSize = 2;
-    u32 BorderColor = 0;
+    s32 WindowBorderSize = 2;
+    v3 WindowBorderColor;
     
     if(0) {}
-    else if(Input->PlatformIsRecording) BorderColor = ColorU32_Red;
-    else if(Input->PlatformIsPlaying) BorderColor = ColorU32_Green;
-    else if(Input->PlatformWindowIsFocused) BorderColor = ColorU32_Foreground;
-    else BorderColor = ColorU32_Background;
+    else if(Input->PlatformIsRecording) WindowBorderColor = Color_Red;
+    else if(Input->PlatformIsPlaying) WindowBorderColor = Color_Green;
+    else if(Input->PlatformWindowIsFocused) WindowBorderColor = Color_Foreground;
+    else WindowBorderColor = Color_Background;
     
-    // Render text (rasterized on CPU)
+    //- Prepare rects rendering 
+    u64 BufferMaxSize = KB(1)/sizeof(f32);
+    f32 *RectsBufferData = PushArray(FrameArena, f32, BufferMaxSize);
+    f32 QuadPosData[] =
+    {
+        -1.f, +1.f,
+        +1.f, +1.f,
+        -1.f, -1.f,
+        +1.f, +1.f,
+        -1.f, -1.f,
+        +1.f, -1.f,
+    };
+    
+    MemoryCopy(RectsBufferData, QuadPosData, sizeof(QuadPosData));
+    GlobalRectsCount = 0;
+    GlobalRectQuadData = (rect_quad_data *)(RectsBufferData + ArrayCount(QuadPosData));
+    
+    //- Render text (rasterized on CPU)
     app_offscreen_buffer TextImage;
     {    
-        TextImage.Width = Buffer->Width - BorderSize;
-        TextImage.Height = Buffer->Height - BorderSize;
+        TextImage.Width = Buffer->Width - WindowBorderSize;
+        TextImage.Height = Buffer->Height - WindowBorderSize;
         TextImage.BytesPerPixel = Buffer->BytesPerPixel;
         TextImage.Pitch = TextImage.BytesPerPixel*TextImage.Width;
         u64 Size = TextImage.BytesPerPixel*(TextImage.Width*TextImage.Height);
         TextImage.Pixels = PushArray(FrameArena, u8, Size);
         MemorySet(TextImage.Pixels, 0, Size);
     }
-    
     
     v2 *TextTexCoords = 0;
     v2 *TextPositions = 0;
@@ -341,7 +377,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         Atlas->PixelScaleHeight = (2.0f / (f32)(Buffer->Height));
         Atlas->PixelScaleWidth  = (2.0f / (f32)(Buffer->Width));
         
-        f32 StartX = ((f32)BorderSize*Atlas->PixelScaleWidth + -1.0f);
+        f32 StartX = ((f32)WindowBorderSize*Atlas->PixelScaleWidth + -1.0f);
         
         str8 Text = {.Data = (u8 *)App->Text, .Size = App->TextCount};
         
@@ -395,8 +431,78 @@ UPDATE_AND_RENDER(UpdateAndRender)
         DrawChar(Atlas, TextPositions, TextTexCoords, &TextVerticesCount, Pos, L'_');
     }
     
-    // Text rendering
+    // Draw rectangles 
+    {    
+        rect ButtonDim;
+        ButtonDim.Min = V2(480.f, 110.f);
+        ButtonDim.Max = V2(870.f, 310.f);
+        v3 ButtonFillColor = Color_Button;
+        f32 ButtonCornerRadius = 10.f;
+        f32 ButtonSoftness = 1.f;
+        v3 ButtonBorderColor = {};
+        f32 ButtonBorderThickness = 3.f;
+        
+        v2 MousePos = V2S32(Input->MouseX, Input->MouseY);
+        if(IsInsideRectV2(MousePos, ButtonDim))
+        {
+            if(Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
+            {
+                ButtonFillColor = Color_ButtonPressed;
+            }
+            else
+            {        
+                ButtonFillColor = Color_ButtonHovered;
+            }
+        }
+        
+        DrawRect(V4(80.f,  80.f,  280.f, 280.f), V4(0.f, 0.f, 1.f, 1.f), 10.f, 1.f, 1.f);
+        DrawRect(V4(200.f, 320.f, 340.f, 420.f), V4(1.f, 0.f, 1.f, 1.f), 20.f, 0.f, 1.f);
+        DrawRect(V4(200.f, 320.f, 340.f, 420.f), V4(0.f, 0.f, 0.f, 1.f), 20.f, 3.f, 1.f);
+        DrawRect(V4(RectArg(ButtonDim)), V4(V3Arg(ButtonFillColor), 1.f), 
+                 ButtonCornerRadius, 0.f, ButtonSoftness);
+        DrawRect(V4(RectArg(ButtonDim)), V4(V3Arg(ButtonBorderColor), 1.f), 
+                 ButtonCornerRadius, ButtonBorderThickness, ButtonSoftness);
+        DrawRect(V4(0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height), V4(V3Arg(WindowBorderColor), 1.f),
+                 0.f, (f32)WindowBorderSize, 0.f);
+        
+    }
+    
+    //- Rendering 
+    
+    // Render rectangles
     {
+        glBindVertexArray(VAOs[0]);
+        RectShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
+                                           S8("../source/shaders/rect_vert.glsl"),
+                                           S8("../source/shaders/rect_frag.glsl"));
+        glUseProgram(RectShader);
+        
+        gl_handle UViewport = glGetUniformLocation(RectShader, "Viewport");
+        glUniform2f(UViewport, (f32)(Buffer->Width), (f32)(Buffer->Height));
+        
+        glBindBuffer(GL_ARRAY_BUFFER, VBOs[2]);
+        
+        u64 Size = sizeof(QuadPosData) + GlobalRectsCount*sizeof(rect_quad_data);
+        glBufferData(GL_ARRAY_BUFFER, Size, RectsBufferData, GL_STATIC_DRAW);
+        
+        glEnableVertexAttribArray(0);
+        glVertexAttribDivisor(0, 0);  
+        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2*sizeof(f32), 0);
+        
+        u64 Offset = ArrayCount(QuadPosData);
+        gl_SetQuadAttribute(1, 4, &Offset);
+        gl_SetQuadAttribute(2, 4, &Offset);
+        gl_SetQuadAttribute(3, 1, &Offset);
+        gl_SetQuadAttribute(4, 1, &Offset);
+        gl_SetQuadAttribute(5, 1, &Offset);
+        
+        glEnable(GL_MULTISAMPLE);
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GlobalRectsCount);
+    }
+    
+    // Render text
+    {
+        glBindVertexArray(VAOs[1]);
         TextShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
                                            S8("../source/shaders/text_vert.glsl"),
                                            S8("../source/shaders/text_frag.glsl"));
@@ -408,81 +514,17 @@ UPDATE_AND_RENDER(UpdateAndRender)
         gl_handle UTextColor = glGetUniformLocation(TextShader, "TextColor"); 
         glUniform4f(UTextColor, V3Arg(Color_Text), 1.0f);
         
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glDisable(GL_MULTISAMPLE);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glBlendEquation(GL_FUNC_ADD);
-        glDisable(GL_DEPTH_TEST);
-        
         glDrawArrays(GL_TRIANGLES, 0, TextVerticesCount);
-    }
-    
-    // Software rendering
-    {
-        // Draw borders
-        {
-            for(s32 X = 0; X < BorderSize; X += 1)
-            {
-                for(s32 Y = 0; Y < TextImage.Height; Y += 1)
-                {
-                    u32 *Left = GetPixel(&TextImage, X, Y);
-                    *Left = BorderColor;
-                    u32 *Right = GetPixel(&TextImage, TextImage.Width - 1 - X, Y);
-                    *Right = BorderColor;
-                }
-            }
-            
-            for(s32 Y = 0; Y < BorderSize; Y += 1)
-            {
-                for(s32 X = 0; X < TextImage.Width; X += 1)
-                {
-                    u32 *Top = GetPixel(&TextImage, X, Y);
-                    *Top = BorderColor;
-                    u32 *Bottom = GetPixel(&TextImage, X, TextImage.Height - 1 - Y);
-                    *Bottom = BorderColor;
-                }
-            }
-        }
-        
-        SoftwareShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
-                                               S8("../source/shaders/soft_vert.glsl"),
-                                               S8("../source/shaders/soft_frag.glsl"));
-        glUseProgram(SoftwareShader);
-        
-        s32 Count = 6;
-        {        
-            v3 *Positions = PushArray(FrameArena, v3, Count);
-            v2 *TexCoords = PushArray(FrameArena, v2, Count);
-            
-            MakeQuadV3(Positions, V2(-1.0f, -1.0f), V2(1.0f, 1.0f), -1.0f);
-            for EachIndex(Idx, Count)
-            {
-                V2Math TexCoords[Idx].E = (Positions[Idx].E + 1.0f)*0.5f;
-                TexCoords[Idx].Y = (1.0f - TexCoords[Idx].Y);
-            }
-            
-            gl_LoadTextureFromImage(Textures[0], TextImage.Width, TextImage.Height, TextImage.Pixels, GL_RGBA,  SoftwareShader);
-            
-            gl_LoadFloatsIntoBuffer(VBOs[0], SoftwareShader, "pos", Count, 3, Positions);
-            gl_LoadFloatsIntoBuffer(VBOs[1], SoftwareShader, "tex", Count, 2, TexCoords);
-        }
-        
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glEnable(GL_MULTISAMPLE);
-        glEnable(GL_BLEND);
-        glEnable(GL_DEPTH_TEST);
-        
-        glDrawArrays(GL_TRIANGLES, 0, Count);
     }
     
     // Cleanup
     {
+        glDeleteVertexArrays(ArrayCount(VAOs), &VAOs[0]);
         glDeleteTextures(ArrayCount(Textures), &Textures[0]);
         glDeleteBuffers(ArrayCount(VBOs), &VBOs[0]);
-        glDeleteProgram(SoftwareShader);
         glDeleteProgram(TextShader);
+        glDeleteProgram(RectShader);
     }
     
     return ShouldQuit;
