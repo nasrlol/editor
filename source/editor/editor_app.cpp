@@ -316,13 +316,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     s32 BorderSize = 2;
-    u32 BorderColor = 0;
+    v3 BorderColor;
     
     if(0) {}
-    else if(Input->PlatformIsRecording) BorderColor = ColorU32_Red;
-    else if(Input->PlatformIsPlaying) BorderColor = ColorU32_Green;
-    else if(Input->PlatformWindowIsFocused) BorderColor = ColorU32_Foreground;
-    else BorderColor = ColorU32_Background;
+    else if(Input->PlatformIsRecording) BorderColor = Color_Red;
+    else if(Input->PlatformIsPlaying) BorderColor = Color_Green;
+    else if(Input->PlatformWindowIsFocused) BorderColor = Color_Foreground;
+    else BorderColor = Color_Background;
     
     // Render text (rasterized on CPU)
     app_offscreen_buffer TextImage;
@@ -435,65 +435,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glDrawArrays(GL_TRIANGLES, 0, TextVerticesCount);
     }
     
-    // Software rendering
-    {
-        // Draw borders
-        {
-            for(s32 X = 0; X < BorderSize; X += 1)
-            {
-                for(s32 Y = 0; Y < TextImage.Height; Y += 1)
-                {
-                    u32 *Left = GetPixel(&TextImage, X, Y);
-                    *Left = BorderColor;
-                    u32 *Right = GetPixel(&TextImage, TextImage.Width - 1 - X, Y);
-                    *Right = BorderColor;
-                }
-            }
-            
-            for(s32 Y = 0; Y < BorderSize; Y += 1)
-            {
-                for(s32 X = 0; X < TextImage.Width; X += 1)
-                {
-                    u32 *Top = GetPixel(&TextImage, X, Y);
-                    *Top = BorderColor;
-                    u32 *Bottom = GetPixel(&TextImage, X, TextImage.Height - 1 - Y);
-                    *Bottom = BorderColor;
-                }
-            }
-        }
-        
-        SoftwareShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
-                                               S8("../source/shaders/soft_vert.glsl"),
-                                               S8("../source/shaders/soft_frag.glsl"));
-        glUseProgram(SoftwareShader);
-        
-        s32 Count = 6;
-        {        
-            v3 *Positions = PushArray(FrameArena, v3, Count);
-            v2 *TexCoords = PushArray(FrameArena, v2, Count);
-            
-            MakeQuadV3(Positions, V2(-1.0f, -1.0f), V2(1.0f, 1.0f), -1.0f);
-            for EachIndex(Idx, Count)
-            {
-                V2Math TexCoords[Idx].E = (Positions[Idx].E + 1.0f)*0.5f;
-                TexCoords[Idx].Y = (1.0f - TexCoords[Idx].Y);
-            }
-            
-            gl_LoadTextureFromImage(Textures[0], TextImage.Width, TextImage.Height, TextImage.Pixels, GL_RGBA,  SoftwareShader);
-            
-            gl_LoadFloatsIntoBuffer(VBOs[0], SoftwareShader, "pos", Count, 3, Positions);
-            gl_LoadFloatsIntoBuffer(VBOs[1], SoftwareShader, "tex", Count, 2, TexCoords);
-        }
-        
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glEnable(GL_MULTISAMPLE);
-        glEnable(GL_BLEND);
-        glEnable(GL_DEPTH_TEST);
-        
-        glDrawArrays(GL_TRIANGLES, 0, Count);
-    }
-    
     gl_handle RectShader;
     {
         RectShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
@@ -523,6 +464,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
             480.f, 110.f, 870.f, 310.f, 1.f, .5f, 0.f, 1.f,    20.f,   0.f,    1.f,
             480.f, 110.f, 870.f, 310.f, 0.f, 0.5f, 1.f, 1.f,   20.f,   4.f,    1.f,
             200.f, 320.f, 340.f, 420.f, 1.f, 0.f, 1.f, 1.f,    20.f,   0.f,    5.f,
+            
+            0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height,
+            V3Arg(BorderColor), 1.f,                                
+            0.f, (f32)BorderSize, 0.f,
         };
         
         s32 RectsCount = (ArrayCount(BufferData) - 12)/QuadStride;
@@ -566,7 +511,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     {
         glDeleteTextures(ArrayCount(Textures), &Textures[0]);
         glDeleteBuffers(ArrayCount(VBOs), &VBOs[0]);
-        glDeleteProgram(SoftwareShader);
         glDeleteProgram(TextShader);
         glDeleteProgram(RectShader);
     }
