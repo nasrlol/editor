@@ -72,7 +72,7 @@ gl_ProgramFromShaders(arena *Arena, str8 ExeDirPath, str8 VertPath, str8 FragPat
 }
 
 internal void
-gl_LoadFloatsIntoBuffer(gl_handle BufferHandle, gl_handle ShaderHandle, char *AttributeName, umm Count, s32 VecSize, void *Buffer)
+gl_LoadFloatsIntoBuffer(gl_handle BufferHandle, gl_handle ShaderHandle, char *AttributeName, u64 Count, s32 VecSize, void *Buffer)
 {
     gl_handle AttribHandle;
     

@@ -5,6 +5,13 @@
 
 #define DefaultHeightPx 24
 
+typedef struct rect_vertex rect_vertex;
+struct rect_vertex
+{
+    v2 Pos;
+    v4 DestPos;
+};
+
 typedef struct font_atlas font_atlas;
 struct font_atlas
 {

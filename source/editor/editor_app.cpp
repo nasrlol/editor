@@ -166,6 +166,23 @@ DrawChar(font_atlas *Atlas, v2 *Positions, v2 *TexCoords, s32 *VerticesCount,
     MakeQuadV2(TexCoord, V2(Quad->s0, Quad->t0), V2(Quad->s1, Quad->t1));
 }
 
+void
+DebugCreateRect(rect_vertex *BufferData, s32 *RectsCount, rect Rect)
+{
+    rect_vertex *R = BufferData + ((*RectsCount) * 6);
+    *RectsCount += 1;
+    
+    v2 Min = Rect.Min;
+    v2 Max = Rect.Max;
+    
+    v4 Dest = V4(Min.X, Min.Y, Max.X, Max.Y);
+    R[0].Pos = V2(Min.X, Max.Y);
+    R[1].Pos = V2(Max.X, Max.Y);
+    R[2].Pos = V2(Max.X, Min.Y);  R[2].DestPos = Dest;
+    R[3].Pos = V2(Max.X, Min.Y);
+    R[4].Pos = V2(Min.X, Min.Y);
+    R[5].Pos = V2(Min.X, Max.Y);  R[5].DestPos = Dest;
+}
 
 C_LINKAGE
 UPDATE_AND_RENDER(UpdateAndRender)
@@ -477,12 +494,55 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glDrawArrays(GL_TRIANGLES, 0, Count);
     }
     
+    gl_handle RectShader;
+    {
+        RectShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
+                                           S8("../source/shaders/rect_vert.glsl"),
+                                           S8("../source/shaders/rect_frag.glsl"));
+        glUseProgram(RectShader);
+        s32 ComponentsCount = 6;
+        s32 VerticesCount = 6;
+        s32 MaxRectsCount = 20;
+        rect_vertex *BufferData = PushArray(FrameArena, rect_vertex, MaxRectsCount*VerticesCount);
+        
+        s32 RectsCount = 0;
+        
+        DebugCreateRect(BufferData, &RectsCount, RectFromSize(V2(80, 80), V2(200, 200)));
+        DebugCreateRect(BufferData, &RectsCount, RectFromSize(V2(380, 210), V2(400, 200)));
+        
+        glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]);
+        
+        u64 RectsSize = RectsCount*sizeof(f32)*VerticesCount*ComponentsCount;
+        glBufferData(GL_ARRAY_BUFFER, RectsSize, BufferData, GL_STATIC_DRAW);
+        
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 6*sizeof(f32), 0);
+        
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 6*sizeof(f32), (void *)(2*sizeof(f32)));
+        
+        gl_handle UScreen = glGetUniformLocation(RectShader, "Screen");
+        glUniform2f(UScreen, (f32)(Buffer->Width), (f32)(Buffer->Height));
+        
+        gl_handle UViewport = glGetUniformLocation(RectShader, "Viewport");
+        glUniform2f(UViewport, (f32)(Buffer->Width), (f32)(Buffer->Height));
+        
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_MULTISAMPLE);
+        glEnable(GL_BLEND);
+        glDisable(GL_DEPTH_TEST);
+        
+        glDrawArrays(GL_TRIANGLES, 0, RectsCount*VerticesCount);
+    }
+    
     // Cleanup
     {
         glDeleteTextures(ArrayCount(Textures), &Textures[0]);
         glDeleteBuffers(ArrayCount(VBOs), &VBOs[0]);
         glDeleteProgram(SoftwareShader);
         glDeleteProgram(TextShader);
+        glDeleteProgram(RectShader);
     }
     
     return ShouldQuit;
