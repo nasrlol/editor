@@ -25,6 +25,11 @@ SET(ButtonText,       0xfffbfdfe) \
 SET(Foreground,       0xffd8dee9) \
 SET(Background,       0xff13171f) \
 SET(BackgroundSecond, 0xff3a4151) \
+SET(White,            0xffe5e9f0) \
+SET(Black,            0xff3b4252) \
+SET(Gray,             0xff4c566a) \
+SET(Blue,             0xff81a1c1) \
+SET(Cyan,             0xff88C0D0) \
 SET(Red,              0xffbf616a) \
 SET(Green,            0xffa3be8c) \
 SET(Orange,           0xffd08770) \
@@ -35,7 +40,7 @@ SET(Yellow,           0xffebcb8b)
 ColorList
 #undef SET
 
-#define SET(Name, Value) v3 Color_##Name = {U32ToV3Arg(Value)};
+#define SET(Name, Value) v4 Color_##Name = {U32ToV3Arg(Value), 1.f};
 ColorList
 #undef SET
 
@@ -130,11 +135,11 @@ InitAtlas(arena *Arena, app_font *Font, font_atlas *Atlas, f32 HeightPx)
         stbtt_PackEnd(&ctx);
     }
     
-    for EachIndexType(s32, Idx, Atlas->CodepointsCount)
+    for EachIndex(Idx, Atlas->CodepointsCount)
     {
         float UnusedX, UnusedY;
         stbtt_GetPackedQuad(Atlas->PackedChars, Atlas->Width, Atlas->Height, 
-                            Idx,
+                            (u32)Idx,
                             &UnusedX, &UnusedY,
                             &Atlas->AlignedQuads[Idx], 0);
     }
@@ -166,17 +171,25 @@ DrawChar(font_atlas *Atlas, v2 *Positions, v2 *TexCoords, s32 *VerticesCount,
     MakeQuadV2(TexCoord, V2(Quad->s0, Quad->t0), V2(Quad->s1, Quad->t1));
 }
 
-void
-DrawRect(v4 Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
+internal rect_quad_data *
+DrawRect(rect Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
 {
-    rect_quad_data *Data = GlobalRectQuadData + GlobalRectsCount;
+    rect_quad_data *Result = GlobalRectQuadData + GlobalRectsCount;
     GlobalRectsCount += 1;
     
-    Data->Dest = Dest;
-    Data->Color = Color;
-    Data->CornerRadius = CornerRadius;
-    Data->BorderThickness = BorderThickness;
-    Data->Softness = Softness;
+    Result->Dest = Dest;
+    Result->Color0 = Color;
+    Result->Color1 = Color;
+    Result->Color2 = Color;
+    Result->Color3 = Color;
+    Result->CornerRadii.e[0] = CornerRadius;
+    Result->CornerRadii.e[1] = CornerRadius;
+    Result->CornerRadii.e[2] = CornerRadius;
+    Result->CornerRadii.e[3] = CornerRadius;
+    Result->Border = BorderThickness;
+    Result->Softness = Softness;
+    
+    return Result;
 }
 
 C_LINKAGE
@@ -186,6 +199,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
 #if EDITOR_INTERNAL
     GlobalDebuggerIsAttached = Memory->IsDebuggerAttached;
+#endif
+#if OS_WINDOWS
+    GlobalPerfCountFrequency = Memory->PerfCountFrequency;
 #endif
     
     arena *PermanentArena, *FrameArena;
@@ -308,7 +324,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     glViewport(0, 0, Buffer->Width, Buffer->Height);
     
-    v3 BackgroundColor = Color_BackgroundSecond;
+    v4 BackgroundColor = Color_BackgroundSecond;
     
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -319,7 +335,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     s32 WindowBorderSize = 2;
-    v3 WindowBorderColor;
+    v4 WindowBorderColor;
     
     if(0) {}
     else if(Input->PlatformIsRecording) WindowBorderColor = Color_Red;
@@ -333,8 +349,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     f32 QuadPosData[] =
     {
         -1.f, +1.f,
-        +1.f, +1.f,
-        -1.f, -1.f,
         +1.f, +1.f,
         -1.f, -1.f,
         +1.f, -1.f,
@@ -383,14 +397,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         f32 MaxWidth = -StartX + 1.0f;
         f32 CumulatedWidth = 0;
-        u32 StartIdx = 0;
+        u64 StartIdx = 0;
         // NOTE(luca): Monospace, all widths will be the same.
         f32 CharWidth = (Atlas->PackedChars[0].xadvance)*Atlas->PixelScaleWidth;
         f32 CharHeight = (Atlas->PixelScaleHeight*App->HeightPx);
         
         v2 Offset = V2(StartX, (1.0f - CharHeight));
         
-        for EachIndexType(u32, Idx, App->TextCount)
+        for EachIndex(Idx, App->TextCount)
         {
             CumulatedWidth += CharWidth;
             
@@ -432,39 +446,17 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     
     // Draw rectangles 
-    {    
-        rect ButtonDim;
-        ButtonDim.Min = V2(480.f, 110.f);
-        ButtonDim.Max = V2(870.f, 310.f);
-        v3 ButtonFillColor = Color_Button;
-        f32 ButtonCornerRadius = 10.f;
-        f32 ButtonSoftness = 1.f;
-        v3 ButtonBorderColor = {};
-        f32 ButtonBorderThickness = 3.f;
-        
-        v2 MousePos = V2S32(Input->MouseX, Input->MouseY);
-        if(IsInsideRectV2(MousePos, ButtonDim))
+    {
+        f32 Time = (f32)OS_GetWallClock();
+        // Window borders
         {
-            if(Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
-            {
-                ButtonFillColor = Color_ButtonPressed;
-            }
-            else
-            {        
-                ButtonFillColor = Color_ButtonHovered;
-            }
+            rect Dest = {0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height};
+            rect_quad_data *Rec = DrawRect(Dest, WindowBorderColor, 0.f, (f32)WindowBorderSize, 0.f);
+            Rec->Color0 = WindowBorderColor;
+            Rec->Color1.W = 0.2f;
+            Rec->Color2.W = 0.2f;
+            Rec->Color3 = WindowBorderColor;
         }
-        
-        DrawRect(V4(80.f,  80.f,  280.f, 280.f), V4(0.f, 0.f, 1.f, 1.f), 10.f, 1.f, 1.f);
-        DrawRect(V4(200.f, 320.f, 340.f, 420.f), V4(1.f, 0.f, 1.f, 1.f), 20.f, 0.f, 1.f);
-        DrawRect(V4(200.f, 320.f, 340.f, 420.f), V4(0.f, 0.f, 0.f, 1.f), 20.f, 3.f, 1.f);
-        DrawRect(V4(RectArg(ButtonDim)), V4(V3Arg(ButtonFillColor), 1.f), 
-                 ButtonCornerRadius, 0.f, ButtonSoftness);
-        DrawRect(V4(RectArg(ButtonDim)), V4(V3Arg(ButtonBorderColor), 1.f), 
-                 ButtonCornerRadius, ButtonBorderThickness, ButtonSoftness);
-        DrawRect(V4(0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height), V4(V3Arg(WindowBorderColor), 1.f),
-                 0.f, (f32)WindowBorderSize, 0.f);
-        
     }
     
     //- Rendering 
@@ -477,8 +469,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                            S8("../source/shaders/rect_frag.glsl"));
         glUseProgram(RectShader);
         
-        gl_handle UViewport = glGetUniformLocation(RectShader, "Viewport");
-        glUniform2f(UViewport, (f32)(Buffer->Width), (f32)(Buffer->Height));
+        // Uniforms
+        {
+            gl_handle UViewport = glGetUniformLocation(RectShader, "Viewport");
+            glUniform2f(UViewport, (f32)(Buffer->Width), (f32)(Buffer->Height));
+        }
         
         glBindBuffer(GL_ARRAY_BUFFER, VBOs[2]);
         
@@ -490,14 +485,16 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glVertexAttribPointer(0, 2, GL_FLOAT, false, 2*sizeof(f32), 0);
         
         u64 Offset = ArrayCount(QuadPosData);
-        gl_SetQuadAttribute(1, 4, &Offset);
-        gl_SetQuadAttribute(2, 4, &Offset);
-        gl_SetQuadAttribute(3, 1, &Offset);
-        gl_SetQuadAttribute(4, 1, &Offset);
-        gl_SetQuadAttribute(5, 1, &Offset);
+        
+        // TODO(luca): Metaprogram
+        s32 Counts[] = {4, 4,4,4,4, 4, 1,1};
+        for EachElement(Idx, Counts)
+        {            
+            gl_SetQuadAttribute((s32)Idx + 1, Counts[Idx], &Offset);
+        }
         
         glEnable(GL_MULTISAMPLE);
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GlobalRectsCount);
+        glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GlobalRectsCount);
     }
     
     // Render text
@@ -512,7 +509,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         gl_LoadFloatsIntoBuffer(VBOs[0], TextShader, "pos", TextVerticesCount, 2, TextPositions);
         gl_LoadFloatsIntoBuffer(VBOs[1], TextShader, "tex", TextVerticesCount, 2, TextTexCoords);
         gl_handle UTextColor = glGetUniformLocation(TextShader, "TextColor"); 
-        glUniform4f(UTextColor, V3Arg(Color_Text), 1.0f);
+        glUniform4f(UTextColor, 0.f, 0.f, 0.f, 1.0f);
         
         glDisable(GL_MULTISAMPLE);
         glDrawArrays(GL_TRIANGLES, 0, TextVerticesCount);

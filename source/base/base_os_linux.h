@@ -3,6 +3,6 @@
 #if !defined(BASE_OS_LINUX_H)
 #define BASE_OS_LINUX_H
 
-internal s64 LinuxTimeSpecToSeconds(struct timespec Counter);
+internal s64 LinuxTimeSpecTo(struct timespec Counter);
 
 #endif //BASE_OS_LINUX_H

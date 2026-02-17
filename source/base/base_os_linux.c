@@ -39,7 +39,7 @@ struct os_thread
 
 //~ Helpers
 internal s64
-LinuxTimeSpecToSeconds(struct timespec Counter)
+LinuxTimeSpecToNS(struct timespec Counter)
 {
     s64 Result = (s64)Counter.tv_sec*1000000000 + (s64)Counter.tv_nsec;
     return Result;
@@ -155,14 +155,14 @@ OS_Allocate(umm Size)
     return Result;
 }
 
-internal s64 
+internal f64 
 OS_GetWallClock(void)
 {
-    s64 Result = 0;
+    f64 Result = 0;
     
     struct timespec Counter;
     clock_gettime(CLOCK_MONOTONIC, &Counter);
-    Result = LinuxTimeSpecToSeconds(Counter);
+    Result = (f64)LinuxTimeSpecToNS(Counter)*1e-9;
     
     return Result;
 }

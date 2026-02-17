@@ -879,7 +879,7 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
     struct stat Stats = {};
     stat(Code->LibraryPath, &Stats);
     umm Size = Stats.st_size;
-    s64 CurrentWriteTime = LinuxTimeSpecToSeconds(Stats.st_mtim);
+    s64 CurrentWriteTime = LinuxTimeSpecToNS(Stats.st_mtim);
     
     // NOTE(luca): Compilers will write twice to the executable for I know what reason, this
     // hack only detects the file as written to if it happened in over 100ms.

@@ -154,6 +154,8 @@ struct app_memory
 #endif
     b32 Reloaded;
     
+    f64 PerfCountFrequency;
+    
     b32 Initialized;
 };
 

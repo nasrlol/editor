@@ -1,4 +1,4 @@
-global_variable s64 GlobalPerfCountFrequency;
+global_variable f64 GlobalPerfCountFrequency;
 
 //- Helpers 
 
@@ -158,17 +158,14 @@ OS_Allocate(umm Size)
     return Result;
 }
 
-internal s64
+internal f64
 OS_GetWallClock(void)
 {
-    s64 Result = 0;
+    f64 Result = 0;
     
-    LARGE_INTEGER Time;
-    QueryPerformanceCounter(&Time);
-    
-    f32 Seconds = (f32)Time.QuadPart/(f32)GlobalPerfCountFrequency;
-    // NOTE(luca): Convert to nanoseconds
-    Result = (s64)(Seconds*1000.0f*1000.0f*1000.0f);
+    LARGE_INTEGER Counter;
+    QueryPerformanceCounter(&Counter);
+    Result = (f64)(Counter.QuadPart)/GlobalPerfCountFrequency;
     
     return Result;
 }
