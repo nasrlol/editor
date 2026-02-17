@@ -32,7 +32,6 @@ PushArena(arena *Arena, u64 Size)
     Result->Size = Size;
     Result->Base = ArenaPush(Arena, Result->Size, false);
     Result->Pos = 0;
-    AsanPoisonMemoryRegion(Result->Base, Result->Size);
     
     return Result;
 }
