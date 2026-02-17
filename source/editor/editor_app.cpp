@@ -132,7 +132,7 @@ InitAtlas(arena *Arena, app_font *Font, font_atlas *Atlas, f32 HeightPx)
         stbtt_PackEnd(&ctx);
     }
     
-    for EachIndexType(s32, Idx, Atlas->CodepointsCount)
+    for EachIndex(Idx, Atlas->CodepointsCount)
     {
         float UnusedX, UnusedY;
         stbtt_GetPackedQuad(Atlas->PackedChars, Atlas->Width, Atlas->Height, 

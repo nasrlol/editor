@@ -137,31 +137,30 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
     if(RegisterClassA(&WindowClass))
     {
         RECT WindowRect = { 0, 0, Buffer->Width, Buffer->Height };
-        DWORD Style = WS_OVERLAPPEDWINDOW;
+        DWORD Style = WS_VISIBLE | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX ;
         
         AdjustWindowRect(&WindowRect, Style, FALSE);
         
         int WindowWidth  = WindowRect.right - WindowRect.left;
         int WindowHeight = WindowRect.bottom - WindowRect.top;
         
+        
+        
         HWND Window = CreateWindowExA(
                                       0,
                                       WindowClass.lpszClassName,
                                       "Handmade Hero",
-                                      Style | WS_VISIBLE,
-                                      CW_USEDEFAULT,
-                                      CW_USEDEFAULT,
+                                      Style,
+                                      0,
+                                      0,
                                       WindowWidth,
                                       WindowHeight,
                                       0,
                                       0,
                                       Instance,
                                       0);
-        
         if(Window)
         {
-            HGLRC GLContext;
-            
             HDC OwnDC = GetDC(Window);
             
             int Win32RefreshRate = GetDeviceCaps(OwnDC, VREFRESH);
@@ -180,7 +179,7 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
             int ChosenFormat = ChoosePixelFormat(OwnDC, &PixelFormat);
             SetPixelFormat(OwnDC, ChosenFormat, &PixelFormat);
             
-            GLContext = wglCreateContext(OwnDC);
+            HGLRC GLContext = wglCreateContext(OwnDC);
             wglMakeCurrent(OwnDC, GLContext);
             
             Context->OwnDC = OwnDC;
@@ -274,7 +273,12 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                 else if(Codepoint == '\b') Button->Symbol = PlatformKey_BackSpace;
                                 else if(Codepoint == '\t') Button->Symbol = PlatformKey_Tab;
                                 else if(Codepoint == 27) Button->Symbol = PlatformKey_Escape;
-                                else NotImplemented;
+                                else if(Codepoint == 13) Button->Symbol = PlatformKey_Return; 
+                                else 
+                                {
+                                    // Not implemented
+                                    DebugBreak;
+                                };
                             }
                         }
                         else
