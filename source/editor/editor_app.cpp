@@ -25,6 +25,8 @@ SET(ButtonText,       0xfffbfdfe) \
 SET(Foreground,       0xffd8dee9) \
 SET(Background,       0xff13171f) \
 SET(BackgroundSecond, 0xff3a4151) \
+SET(Blue,             0xff81a1c1) \
+SET(Cyan,             0xff88C0D0) \
 SET(Red,              0xffbf616a) \
 SET(Green,            0xffa3be8c) \
 SET(Orange,           0xffd08770) \
@@ -435,21 +437,49 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     
     // Draw rectangles 
-    {    
-        v4 Dest = V4(0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height);
-        DrawRect(Dest, WindowBorderColor, 0.f, (f32)WindowBorderSize, 0.f);
+    {
+        // Window borders
+        {
+            v4 Dest = V4(0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height);
+            rect_quad_data *RectData = DrawRect(Dest, WindowBorderColor, 0.f, (f32)WindowBorderSize, 0.f);
+            RectData->Color0 = WindowBorderColor;
+            RectData->Color1.W = 0.2f;
+            RectData->Color2.W = 0.2f;
+            RectData->Color3 = WindowBorderColor;
+        }
         
+        // Debug tests
         {        
-            f32 X = 80.f;
-            rect_quad_data *RectData = DrawRect(V4(X, 80.f, X + 120.f, 200.f), Color_Green, 10.f, 0.f, 0.5f);
-            RectData->Color0 = Color_Magenta;
-            RectData->Color1 = Color_Magenta;
+            v4 Dest = V4FromRec(RectFromSize(V2(80.f, 84.f), V2(110.f, 60.f)));
             
-            X += 200.f;
-            DrawRect(V4(X, 80.f, X + 120.f, 200.f), Color_Red, 0.f, 0.f, 0.f);
-            X += 200.f;
-            DrawRect(V4(X, 80.f, X + 120.f, 200.f), Color_Yellow, 0.f, 0.f, 0.f);
-            X += 200.f;
+            rect_quad_data *RectData = DrawRect(Dest, Color_Yellow, 10.f, 0.f, 0.5f);
+            
+            b32 Hovered = IsInsideV4((f32)Input->MouseX, (f32)Input->MouseY, Dest);
+            if(Hovered)
+            { 
+                if(Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
+                {
+                    RectData->Color0.W = .5f;
+                    RectData->Color1.W = .5f;
+                }
+                else
+                {                
+                    RectData->Color0.W = .7f;
+                    RectData->Color1.W = .7f;
+                }
+            }
+            else
+            {
+                RectData->Color0.W = .8f;
+                RectData->Color1.W = .8f;
+            }
+            
+            DrawRect(Dest, V4(0.f, 0.f, 0.f, 1.f), 10.f, 2.f, 0.5f);
+            
+            Dest.X += 200.f; Dest.Z += 200.f;
+            DrawRect(V4(280.f, 70.f, 380.f, 170.f), Color_Red, 50.f, 2.f, 0.5f);
+            Dest.X += 200.f; Dest.Z += 200.f;
+            DrawRect(Dest, Color_Blue, 0.f, 0.f, 3.f);
         }
         
     }
@@ -501,7 +531,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         gl_LoadFloatsIntoBuffer(VBOs[0], TextShader, "pos", TextVerticesCount, 2, TextPositions);
         gl_LoadFloatsIntoBuffer(VBOs[1], TextShader, "tex", TextVerticesCount, 2, TextTexCoords);
         gl_handle UTextColor = glGetUniformLocation(TextShader, "TextColor"); 
-        glUniform4f(UTextColor, V3Arg(Color_Text), 1.0f);
+        glUniform4f(UTextColor, 0.f, 0.f, 0.f, 1.0f);
         
         glDisable(GL_MULTISAMPLE);
         glDrawArrays(GL_TRIANGLES, 0, TextVerticesCount);

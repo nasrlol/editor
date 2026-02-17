@@ -195,6 +195,20 @@ IsInside(f32 X, f32 Y, v2 Min, v2 Max)
     return Result;
 }
 
+internal inline v4
+V4FromRec(rect Rec)
+{
+    v4 Result = V4(Rec.Min.X, Rec.Min.Y, Rec.Max.X, Rec.Max.Y);
+    return Result;
+}
+
+internal inline b32
+IsInsideV4(f32 X, f32 Y, v4 Rec)
+{
+    b32 Result = IsInside(X, Y, V2(Rec.X, Rec.Y), V2(Rec.Z, Rec.W));
+    return Result;
+}
+
 internal inline b32
 IsInsideRect(f32 X, f32 Y, rect Rectangle)
 {
