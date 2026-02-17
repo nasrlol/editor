@@ -1,0 +1,17 @@
+#define BASE_NO_ENTRYPOINT 1
+#include "base/base.h"
+#include "base/base.c"
+#include "editor/editor_platform.h"
+#include "editor/editor_font.h"
+#include "editor/editor_random.h"
+#include "editor/editor_math.h"
+#include "editor/editor_libs.h"
+#include "editor/editor_gl.h"
+#include "editor/editor_app.h"
+#include "editor/editor_lexer.h"
+#include "editor/editor_lexer.c"
+#include "editor/editor_parser.c"
+#include "editor/editor_parser.h"
+#include "editor/editor_tree_visualizer.c"
+#include "editor/editor_tree_visualizer.h"
+

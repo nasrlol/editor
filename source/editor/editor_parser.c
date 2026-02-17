@@ -46,6 +46,10 @@ Parse(arena *Arena, TokenList *List)
 					SyntaxNode *node = PushStruct(Arena, SyntaxNode);
 					while (node->NextNode)
 					{
+                        node = node->NextNode;
+                        // TODO(nasr): assume for now that the parent is the function token
+                        node->Scope = (umm)&node->Parent;
+                        
 					}
 					// TODO(nasr):
 				}

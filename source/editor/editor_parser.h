@@ -9,11 +9,9 @@ struct SyntaxNode
 {
 	SyntaxNode	*Parent;
 	SyntaxNode **Child;
-
-	SyntaxNode *NextNode;
-	token	   *Token;
-
-	umm Scope;
+	SyntaxNode	*NextNode;
+	token		*Token;
+	umm			 Scope;
 };
 
 struct ConcreteSyntaxTree

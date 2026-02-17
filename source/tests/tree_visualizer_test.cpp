@@ -10,11 +10,14 @@
 #include "editor/editor_app.h"
 #include "editor/editor_lexer.h"
 #include "editor/editor_lexer.c"
-#include "editor/editor_parser.h"
 #include "editor/editor_parser.c"
+#include "editor/editor_parser.h"
+#include "editor/editor_tree_visualizer.c"
+#include "editor/editor_tree_visualizer.h"
 
-int main(s32 argc, char **argv)
+int main()
 {
+
     char *filename = "test.c";
     if (argc > 1)
     {
@@ -63,20 +66,7 @@ int main(s32 argc, char **argv)
     TokenList *list = Lex(&test_app, Arena);
     ConcreteSyntaxTree *tree = Parse(Arena, list);
 
-    if (list)
-    {
-        printf("[ok] list\n");
-
-    } else  printf("[error] list\n");
-
-    if (tree)
-    {
-        printf("[ok] tree\n");
-
-    } else  printf("[error] tree\n");
 
 
-
-
-    return 0;
+    tree_visualizer(ConcreteSyntaxTree *tree, arena *Arena);
 }
