@@ -297,9 +297,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
     }
     
-    gl_handle VAOs[1] = {};
-    gl_handle VBOs[2] = {};
-    gl_handle Textures[1] = {};
+    gl_handle VAOs[2] = {};
+    gl_handle VBOs[3] = {};
+    gl_handle Textures[2] = {};
     gl_handle SoftwareShader, TextShader, RectShader;
     glGenVertexArrays(ArrayCount(VAOs), &VAOs[0]);
     glGenBuffers(ArrayCount(VBOs), &VBOs[0]);
@@ -309,6 +309,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
     glViewport(0, 0, Buffer->Width, Buffer->Height);
     
     v3 BackgroundColor = Color_BackgroundSecond;
+    
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
     
     glClearColor(BackgroundColor.X, BackgroundColor.Y, BackgroundColor.Z, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -464,31 +469,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     //- Rendering 
     
-    // Render text
-    {
-        TextShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
-                                           S8("../source/shaders/text_vert.glsl"),
-                                           S8("../source/shaders/text_frag.glsl"));
-        glUseProgram(TextShader);
-        
-        gl_LoadTextureFromImage(Textures[0], Atlas->Width, Atlas->Height, Atlas->Data, GL_RED, TextShader);
-        gl_LoadFloatsIntoBuffer(VBOs[0], TextShader, "pos", TextVerticesCount, 2, TextPositions);
-        gl_LoadFloatsIntoBuffer(VBOs[1], TextShader, "tex", TextVerticesCount, 2, TextTexCoords);
-        gl_handle UTextColor = glGetUniformLocation(TextShader, "TextColor"); 
-        glUniform4f(UTextColor, V3Arg(Color_Text), 1.0f);
-        
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glDisable(GL_MULTISAMPLE);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glBlendEquation(GL_FUNC_ADD);
-        glDisable(GL_DEPTH_TEST);
-        
-        glDrawArrays(GL_TRIANGLES, 0, TextVerticesCount);
-    }
-    
     // Render rectangles
     {
+        glBindVertexArray(VAOs[0]);
         RectShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
                                            S8("../source/shaders/rect_vert.glsl"),
                                            S8("../source/shaders/rect_frag.glsl"));
@@ -497,7 +480,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         gl_handle UViewport = glGetUniformLocation(RectShader, "Viewport");
         glUniform2f(UViewport, (f32)(Buffer->Width), (f32)(Buffer->Height));
         
-        glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]);
+        glBindBuffer(GL_ARRAY_BUFFER, VBOs[2]);
         
         u64 Size = sizeof(QuadPosData) + GlobalRectsCount*sizeof(rect_quad_data);
         glBufferData(GL_ARRAY_BUFFER, Size, RectsBufferData, GL_STATIC_DRAW);
@@ -513,13 +496,26 @@ UPDATE_AND_RENDER(UpdateAndRender)
         gl_SetQuadAttribute(4, 1, &Offset);
         gl_SetQuadAttribute(5, 1, &Offset);
         
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glEnable(GL_MULTISAMPLE);
-        glEnable(GL_BLEND);
-        glDisable(GL_DEPTH_TEST);
-        
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GlobalRectsCount);
+    }
+    
+    // Render text
+    {
+        glBindVertexArray(VAOs[1]);
+        TextShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
+                                           S8("../source/shaders/text_vert.glsl"),
+                                           S8("../source/shaders/text_frag.glsl"));
+        glUseProgram(TextShader);
+        
+        gl_LoadTextureFromImage(Textures[0], Atlas->Width, Atlas->Height, Atlas->Data, GL_RED, TextShader);
+        gl_LoadFloatsIntoBuffer(VBOs[0], TextShader, "pos", TextVerticesCount, 2, TextPositions);
+        gl_LoadFloatsIntoBuffer(VBOs[1], TextShader, "tex", TextVerticesCount, 2, TextTexCoords);
+        gl_handle UTextColor = glGetUniformLocation(TextShader, "TextColor"); 
+        glUniform4f(UTextColor, V3Arg(Color_Text), 1.0f);
+        
+        glDisable(GL_MULTISAMPLE);
+        glDrawArrays(GL_TRIANGLES, 0, TextVerticesCount);
     }
     
     // Cleanup
