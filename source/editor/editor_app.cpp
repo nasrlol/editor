@@ -166,18 +166,22 @@ DrawChar(font_atlas *Atlas, v2 *Positions, v2 *TexCoords, s32 *VerticesCount,
     MakeQuadV2(TexCoord, V2(Quad->s0, Quad->t0), V2(Quad->s1, Quad->t1));
 }
 
-void
+internal rect_quad_data *
 DrawRect(v4 Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
 {
-    rect_quad_data *Data = GlobalRectQuadData + GlobalRectsCount;
+    rect_quad_data *Result = GlobalRectQuadData + GlobalRectsCount;
     GlobalRectsCount += 1;
     
-    Data->Dest = Dest;
-    Data->Color0 = Color;
-    Data->Color1 = Color;
-    Data->CornerRadius = CornerRadius;
-    Data->BorderThickness = BorderThickness;
-    Data->Softness = Softness;
+    Result->Dest = Dest;
+    Result->Color0 = Color;
+    Result->Color1 = Color;
+    Result->Color2 = Color;
+    Result->Color3 = Color;
+    Result->CornerRadius = CornerRadius;
+    Result->BorderThickness = BorderThickness;
+    Result->Softness = Softness;
+    
+    return Result;
 }
 
 C_LINKAGE
@@ -437,7 +441,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         {        
             f32 X = 80.f;
-            DrawRect(V4(X, 80.f, X + 120.f, 200.f), Color_Green, 0.f, 0.f, 0.f);
+            rect_quad_data *RectData = DrawRect(V4(X, 80.f, X + 120.f, 200.f), Color_Green, 10.f, 0.f, 0.5f);
+            RectData->Color0 = Color_Magenta;
+            RectData->Color1 = Color_Magenta;
+            
             X += 200.f;
             DrawRect(V4(X, 80.f, X + 120.f, 200.f), Color_Red, 0.f, 0.f, 0.f);
             X += 200.f;
@@ -470,12 +477,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glVertexAttribPointer(0, 2, GL_FLOAT, false, 2*sizeof(f32), 0);
         
         u64 Offset = ArrayCount(QuadPosData);
-        gl_SetQuadAttribute(1, 4, &Offset);
-        gl_SetQuadAttribute(2, 4, &Offset);
-        gl_SetQuadAttribute(3, 4, &Offset);
-        gl_SetQuadAttribute(4, 1, &Offset);
-        gl_SetQuadAttribute(5, 1, &Offset);
-        gl_SetQuadAttribute(6, 1, &Offset);
+        
+        // TODO(luca): Metaprogram
+        s32 Counts[] = {4,4,4,4,4,1,1,1};
+        for EachElement(Idx, Counts)
+        {            
+            gl_SetQuadAttribute((s32)Idx + 1, Counts[Idx], &Offset);
+        }
         
         glEnable(GL_MULTISAMPLE);
         glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GlobalRectsCount);

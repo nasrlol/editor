@@ -10,16 +10,17 @@ layout (location = 0) in v2  P_Pos;
 layout (location = 1) in v4  I_Dest;
 layout (location = 2) in v4  I_Color0;
 layout (location = 3) in v4  I_Color1;
-layout (location = 4) in f32 I_CornerRadius;
-layout (location = 5) in f32 I_BorderThickness;
-layout (location = 6) in f32 I_Softness;
+layout (location = 4) in v4  I_Color2;
+layout (location = 5) in v4  I_Color3;
+layout (location = 6) in f32 I_CornerRadius;
+layout (location = 7) in f32 I_BorderThickness;
+layout (location = 8) in f32 I_Softness;
 
 uniform v2 Viewport;
 
 out v2  VS_Pos;
 out v4  VS_Dest;
-out v4  VS_Color0;
-out v4  VS_Color1;
+out v4  VS_Color;
 out f32 VS_CornerRadius;
 out f32 VS_BorderThickness;
 out f32 VS_Softness;
@@ -27,8 +28,10 @@ out f32 VS_Softness;
 void main()
 {
     VS_Dest = I_Dest;
-    VS_Color0 = I_Color0;
-    VS_Color1 = I_Color1;
+    
+    v4 Colors[] = v4[](I_Color0, I_Color1, I_Color2, I_Color3);
+    VS_Color = Colors[gl_VertexID];
+    
     VS_CornerRadius = I_CornerRadius;
     VS_BorderThickness = I_BorderThickness;
     VS_Softness = I_Softness;
