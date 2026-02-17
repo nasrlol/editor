@@ -13,70 +13,56 @@
 #include "editor/editor_parser.h"
 #include "editor/editor_parser.c"
 
-void
-PrintTree(SyntaxNode *Node)
+int main(s32 argc, char **argv)
 {
-	if (!Node)
-	{
-		return;
-	}
+    char *filename = "test.c";
+    if (argc > 1)
+    {
+        filename = argv[1];
+    }
 
-	if (Node->Token)
-	{
-		if (Node->Token->Type != 0)
-		{
-			printf(S8Fmt " -- Type: %d\n", S8Arg(Node->Token->Lexeme), (TokenType)Node->Token->Type);
-		}
+    arena *Arena = ArenaAlloc(.Size = GB(3));
+    app_state test_app = {0};
 
-		if (Node->Child)
-		{
-			for (int NodeIndex = 0;
-                    Node->Child[NodeIndex] != NULL;
-                    ++NodeIndex)
-			{
-				PrintTree(Node->Child[NodeIndex]);
-			}
-		}
+    struct stat st;
+    if (stat(filename, &st) != 0)
+    {
+        return 1;
+    }
 
-		if (Node->NextNode)
-        {
-			PrintTree(Node->NextNode);
-		}
-	}
-}
+    int fd = open(filename, O_RDONLY);
+    if (fd < 0)
+    {
+        return 1;
+    }
 
-int
-main(s32 argc, char **argv)
-{
-	char *filename = "test.c";
-	if (argc > 1)
-	{
-		filename = argv[1];
-	}
+    u64 max_bytes = st.st_size;
+    if (max_bytes > 1023)  
+    {
+        max_bytes = 1023;
+    }
 
-	app_state test_app = {0};
-	arena	 *Arena	   = ArenaAlloc();
+    char *buffer = PushArray(Arena, char, max_bytes);
 
-	int fd = open(filename, O_RDONLY);
-	if (fd < 0)
-		return 1;
+    s64 bytes_read = read(fd, buffer, max_bytes);
+    close(fd);
 
-	umm bytes_read = read(fd, test_app.Text, 1024);
-	close(fd);
+    if (bytes_read <= 0)
+    {
+        return 1;
+    }
 
-	test_app.TextCount = bytes_read;
-	if (bytes_read < 1024)
-	{
-		test_app.Text[bytes_read] = '\0';
-	}
+    for (s64 i = 0; i < bytes_read; ++i)
+    {
+        test_app.Text[i] = (rune)buffer[i];
+    }
 
-	TokenList		   *list = Lex(&test_app, Arena);
-	ConcreteSyntaxTree *tree = Parse(Arena, list);
+    test_app.Text[bytes_read] = 0;
+    test_app.TextCount        = bytes_read;
 
-	if (tree && tree->Root)
-	{
-		PrintTree(tree->Root);
-	}
+    TokenList *list = Lex(&test_app, Arena);
+    ConcreteSyntaxTree *tree = Parse(Arena, list);
 
-	return 0;
+
+    return 0;
 }

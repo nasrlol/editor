@@ -18,11 +18,14 @@ Parse(arena *Arena, TokenList *List)
 		{
 			case (TokenUndefined):
 			{
-                tree->Current->Token->Flags = (TokenFlags)(tree->Current->Token->Flags | FlagDirty);
-				// TODO(nasr): If we are ever going to implement incremental parsing this is going to be usefull
-				// to do a search for the dirty flags and try fixing those up or something
-				break;
+				tree->Current->Token->Flags = (TokenFlags)(tree->Current->Token->Flags | FlagDirty);
+                /**
+                 * TODO(nasr): If we are ever going to implement incremental parsing this is going to be usefull
+                 * to do a search for the dirty flags and try fixing those up or something
+                 **/
+                break;
 			}
+
 			case (TokenIdentifier):
 			{
 				if (token->Next && token->Next->Type == (TokenType)'=')
@@ -40,18 +43,17 @@ Parse(arena *Arena, TokenList *List)
 			{
 				if (tree->Current->Parent->Token->Type == TokenFunc)
 				{
-                    SyntaxNode *node = PushStruct(Arena, SyntaxNode);
-                    while (node->NextNode)
-                    {
-
-                    }
+					SyntaxNode *node = PushStruct(Arena, SyntaxNode);
+					while (node->NextNode)
+					{
+					}
 					// TODO(nasr):
 				}
 			}
 
 			case (TokenIdentifierValue):
 			{
-                // TODO(nasr): check if the previous nodes are correct etc;
+				// TODO(nasr): check if the previous nodes are correct etc;
 
 				break;
 			}
@@ -61,7 +63,7 @@ Parse(arena *Arena, TokenList *List)
 			{
 				if (tree->Current->Parent->Token->Type == (TokenType)'{')
 				{
-                    // TODO(nasr): i was doing something with this but forgot what :)
+					// TODO(nasr): i was doing something with this but forgot what :)
 					// tree->Current->Token;
 				}
 				else if (tree->Current->Parent->Token->Type == (TokenType)'=')
@@ -123,7 +125,7 @@ Parse(arena *Arena, TokenList *List)
 						nextNode = tree->Current->NextNode;
 					}
 
-                    /**
+					/**
                      * NOTE(nasr): first child is opening bracket
                      * second child is body
                      * third one is closing bracket 
@@ -145,10 +147,9 @@ Parse(arena *Arena, TokenList *List)
 			}
 			case (TokenElse):
 			{
-                if (tree->Current->NextNode->Token->Type == (TokenType)'{')
-                {
-
-                }
+				if (tree->Current->NextNode->Token->Type == (TokenType)'{')
+				{
+				}
 
 				break;
 			}
@@ -169,13 +170,14 @@ Parse(arena *Arena, TokenList *List)
 
 			case (TokenBreak):
 			{
-                /**
-                * this assumes the parent is correct
-                **/
-                if (!tree->Current->Parent)
-                {    
-                    tree->Current->Token->Flags = (TokenFlags)(tree->Current->Token->Flags | FlagDirty);
-                }
+				/**
+                 * NOTE(nasr): this assumes the parent is correct
+                 **/
+				if (!tree->Current->Parent)
+				{
+					tree->Current->Token->Flags =
+                        (TokenFlags)(tree->Current->Token->Flags | FlagDirty);
+				}
 				break;
 			}
 			case (TokenContinue):

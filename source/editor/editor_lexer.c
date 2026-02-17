@@ -8,15 +8,15 @@ Lex(app_state *app, arena *Arena)
 
 	while (TextIndex < app->TextCount)
 	{
-		rune ch = app->Text[TextIndex];
+		rune character = app->Text[TextIndex];
 
-		if (ch == ' ' || ch == '\t')
+		if (character == ' ' || character == '\t')
 		{
 			TextIndex++;
 			Column++;
 			continue;
 		}
-		if (ch == '\n' || ch == '\r')
+		if (character == '\n' || character == '\r')
 		{
 			TextIndex++;
 			Line++;
@@ -29,15 +29,15 @@ Lex(app_state *app, arena *Arena)
 		NewToken->Column = Column;
 
 		s32 TokenStart = TextIndex;
-		if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z'))
+		if ((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z'))
 		{
 			while (TextIndex < app->TextCount)
 			{
-				rune next_ch = app->Text[TextIndex];
-				if ((next_ch >= 'a' && next_ch <= 'z') ||
-					(next_ch >= 'A' && next_ch <= 'Z') ||
-					(next_ch >= '0' && next_ch <= '9') ||
-					(next_ch == '_'))
+				rune next_character = app->Text[TextIndex];
+				if ((next_character >= 'a' && next_character <= 'z') ||
+					(next_character >= 'A' && next_character <= 'Z') ||
+					(next_character >= '0' && next_character <= '9') ||
+					(next_character == '_'))
 				{
 					TextIndex++;
 				}
@@ -49,7 +49,7 @@ Lex(app_state *app, arena *Arena)
 
 			NewToken->Type = TokenIdentifier;
 		}
-		else if (ch >= '0' && ch <= '9')
+		else if (character >= '0' && character <= '9')
 		{
 			while (TextIndex < app->TextCount &&
 				   app->Text[TextIndex] >= '0' && app->Text[TextIndex] <= '9')
@@ -61,13 +61,13 @@ Lex(app_state *app, arena *Arena)
 		else
 		{
 			TextIndex++;
-			NewToken->Type = (TokenType)ch;
+			NewToken->Type = (TokenType)character;
 		}
 
 		s32 TokenEnd		  = TextIndex;
 		NewToken->Lexeme.Data = (u8 *)&app->Text[TokenStart];
 		NewToken->Lexeme.Size = (umm)(TokenEnd - TokenStart);
-        umm Size =  NewToken->Lexeme.Size;
+		umm Size			  = NewToken->Lexeme.Size;
 
 		switch (NewToken->Lexeme.Data[TokenStart + Size])
 		{
@@ -86,7 +86,7 @@ Lex(app_state *app, arena *Arena)
 			case ('{'):
 			{
 				NewToken->Type = (TokenType)'{';
-                break;
+				break;
 			}
 
 			case ('}'):
@@ -101,7 +101,7 @@ Lex(app_state *app, arena *Arena)
 				break;
 			}
 
-			case (';'):
+			case (';'):                            
 			{
 				NewToken->Type = (TokenType)';';
 				break;
@@ -117,7 +117,7 @@ Lex(app_state *app, arena *Arena)
 			{
 				if (NewToken->Lexeme.Data[TokenStart + Size + 1] == '>')
 				{
-                    NewToken->Type = (TokenType)'>';
+					NewToken->Type = (TokenType)'>';
 					Size++;
 				}
 				else
@@ -214,5 +214,6 @@ Lex(app_state *app, arena *Arena)
 
 		Column += (s32)NewToken->Lexeme.Size;
 	}
+
 	return List;
 }
