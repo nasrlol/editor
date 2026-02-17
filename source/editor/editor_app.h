@@ -14,8 +14,8 @@ struct rect_quad_data
     v4 Color1;
     v4 Color2;
     v4 Color3;
-    f32 CornerRadius;
-    f32 BorderThickness;
+    v4 CornerRadii;
+    f32 Border;
     f32 Softness;
 };
 NO_STRUCT_PADDING_END

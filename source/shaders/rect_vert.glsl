@@ -12,7 +12,7 @@ layout (location = 2) in v4  I_Color0;
 layout (location = 3) in v4  I_Color1;
 layout (location = 4) in v4  I_Color2;
 layout (location = 5) in v4  I_Color3;
-layout (location = 6) in f32 I_CornerRadius;
+layout (location = 6) in v4  I_CornerRadii;
 layout (location = 7) in f32 I_BorderThickness;
 layout (location = 8) in f32 I_Softness;
 
@@ -27,12 +27,13 @@ out f32 VS_Softness;
 
 void main()
 {
+    v4 Colors[] = v4[](I_Color0, I_Color1, I_Color2, I_Color3);
+    
     VS_Dest = I_Dest;
     
-    v4 Colors[] = v4[](I_Color0, I_Color1, I_Color2, I_Color3);
     VS_Color = Colors[gl_VertexID];
+    VS_CornerRadius = I_CornerRadii[gl_VertexID];
     
-    VS_CornerRadius = I_CornerRadius;
     VS_BorderThickness = I_BorderThickness;
     VS_Softness = I_Softness;
     

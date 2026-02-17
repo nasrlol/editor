@@ -137,7 +137,7 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
     if(RegisterClassA(&WindowClass))
     {
         RECT WindowRect = { 0, 0, Buffer->Width, Buffer->Height };
-        DWORD Style = WS_VISIBLE | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX ;
+        DWORD Style = WS_VISIBLE | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU;
         
         AdjustWindowRect(&WindowRect, Style, FALSE);
         

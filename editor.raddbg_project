@@ -14,10 +14,10 @@ target:
 debug_info:
 {
   path: "C:/Users/zebra/Projects/editor/build/editor_platform.pdb"
-  timestamp: 66206846668317
+  timestamp: 66206850012092
 }
 debug_info:
 {
   path: "C:/Users/zebra/Projects/editor/build/editor_app.pdb"
-  timestamp: 66206846720562
+  timestamp: 66206850060268
 }

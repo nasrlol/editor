@@ -179,8 +179,11 @@ DrawRect(v4 Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
     Result->Color1 = Color;
     Result->Color2 = Color;
     Result->Color3 = Color;
-    Result->CornerRadius = CornerRadius;
-    Result->BorderThickness = BorderThickness;
+    Result->CornerRadii.e[0] = CornerRadius;
+    Result->CornerRadii.e[1] = CornerRadius;
+    Result->CornerRadii.e[2] = CornerRadius;
+    Result->CornerRadii.e[3] = CornerRadius;
+    Result->Border = BorderThickness;
     Result->Softness = Softness;
     
     return Result;
@@ -395,7 +398,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         v2 Offset = V2(StartX, (1.0f - CharHeight));
         
-        for EachIndexType(u32, Idx, App->TextCount)
+        for EachIndex(Idx, App->TextCount)
         {
             CumulatedWidth += CharWidth;
             
@@ -452,29 +455,33 @@ UPDATE_AND_RENDER(UpdateAndRender)
         {        
             v4 Dest = V4FromRec(RectFromSize(V2(80.f, 84.f), V2(110.f, 60.f)));
             
-            rect_quad_data *RectData = DrawRect(Dest, Color_Yellow, 10.f, 0.f, 0.5f);
+            rect_quad_data *Fill = DrawRect(Dest, Color_Yellow, 10.f, 0.f, 0.5f);
+            
+            Fill->CornerRadii.e[0] = 0.f;
+            Fill->CornerRadii.e[3] = 0.f;
             
             b32 Hovered = IsInsideV4((f32)Input->MouseX, (f32)Input->MouseY, Dest);
             if(Hovered)
             { 
                 if(Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
                 {
-                    RectData->Color0.W = .5f;
-                    RectData->Color1.W = .5f;
+                    Fill->Color0.W = .5f;
+                    Fill->Color1.W = .5f;
                 }
                 else
                 {                
-                    RectData->Color0.W = .7f;
-                    RectData->Color1.W = .7f;
+                    Fill->Color0.W = .7f;
+                    Fill->Color1.W = .7f;
                 }
             }
             else
             {
-                RectData->Color0.W = .8f;
-                RectData->Color1.W = .8f;
+                Fill->Color0.W = .8f;
+                Fill->Color1.W = .8f;
             }
             
-            DrawRect(Dest, V4(0.f, 0.f, 0.f, 1.f), 10.f, 2.f, 0.5f);
+            rect_quad_data *Border = DrawRect(Dest, V4(0.f, 0.f, 0.f, 1.f), 10.f, 2.f, 0.5f);
+            Border->CornerRadii = Fill->CornerRadii;
             
             Dest.X += 200.f; Dest.Z += 200.f;
             DrawRect(V4(280.f, 70.f, 380.f, 170.f), Color_Red, 50.f, 2.f, 0.5f);
@@ -509,7 +516,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         u64 Offset = ArrayCount(QuadPosData);
         
         // TODO(luca): Metaprogram
-        s32 Counts[] = {4,4,4,4,4,1,1,1};
+        s32 Counts[] = {4, 4,4,4,4, 4, 1,1};
         for EachElement(Idx, Counts)
         {            
             gl_SetQuadAttribute((s32)Idx + 1, Counts[Idx], &Offset);
