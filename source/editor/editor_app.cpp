@@ -35,7 +35,7 @@ SET(Yellow,           0xffebcb8b)
 ColorList
 #undef SET
 
-#define SET(Name, Value) v3 Color_##Name = {U32ToV3Arg(Value)};
+#define SET(Name, Value) v4 Color_##Name = {U32ToV3Arg(Value), 1.f};
 ColorList
 #undef SET
 
@@ -173,7 +173,8 @@ DrawRect(v4 Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
     GlobalRectsCount += 1;
     
     Data->Dest = Dest;
-    Data->Color = Color;
+    Data->Color0 = Color;
+    Data->Color1 = Color;
     Data->CornerRadius = CornerRadius;
     Data->BorderThickness = BorderThickness;
     Data->Softness = Softness;
@@ -308,7 +309,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     glViewport(0, 0, Buffer->Width, Buffer->Height);
     
-    v3 BackgroundColor = Color_BackgroundSecond;
+    v4 BackgroundColor = Color_BackgroundSecond;
     
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -319,7 +320,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     s32 WindowBorderSize = 2;
-    v3 WindowBorderColor;
+    v4 WindowBorderColor;
     
     if(0) {}
     else if(Input->PlatformIsRecording) WindowBorderColor = Color_Red;
@@ -333,8 +334,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     f32 QuadPosData[] =
     {
         -1.f, +1.f,
-        +1.f, +1.f,
-        -1.f, -1.f,
         +1.f, +1.f,
         -1.f, -1.f,
         +1.f, -1.f,
@@ -433,37 +432,18 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     // Draw rectangles 
     {    
-        rect ButtonDim;
-        ButtonDim.Min = V2(480.f, 110.f);
-        ButtonDim.Max = V2(870.f, 310.f);
-        v3 ButtonFillColor = Color_Button;
-        f32 ButtonCornerRadius = 10.f;
-        f32 ButtonSoftness = 1.f;
-        v3 ButtonBorderColor = {};
-        f32 ButtonBorderThickness = 3.f;
+        v4 Dest = V4(0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height);
+        DrawRect(Dest, WindowBorderColor, 0.f, (f32)WindowBorderSize, 0.f);
         
-        v2 MousePos = V2S32(Input->MouseX, Input->MouseY);
-        if(IsInsideRectV2(MousePos, ButtonDim))
-        {
-            if(Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
-            {
-                ButtonFillColor = Color_ButtonPressed;
-            }
-            else
-            {        
-                ButtonFillColor = Color_ButtonHovered;
-            }
+        {        
+            f32 X = 80.f;
+            DrawRect(V4(X, 80.f, X + 120.f, 200.f), Color_Green, 0.f, 0.f, 0.f);
+            X += 200.f;
+            DrawRect(V4(X, 80.f, X + 120.f, 200.f), Color_Red, 0.f, 0.f, 0.f);
+            X += 200.f;
+            DrawRect(V4(X, 80.f, X + 120.f, 200.f), Color_Yellow, 0.f, 0.f, 0.f);
+            X += 200.f;
         }
-        
-        DrawRect(V4(80.f,  80.f,  280.f, 280.f), V4(0.f, 0.f, 1.f, 1.f), 10.f, 1.f, 1.f);
-        DrawRect(V4(200.f, 320.f, 340.f, 420.f), V4(1.f, 0.f, 1.f, 1.f), 20.f, 0.f, 1.f);
-        DrawRect(V4(200.f, 320.f, 340.f, 420.f), V4(0.f, 0.f, 0.f, 1.f), 20.f, 3.f, 1.f);
-        DrawRect(V4(RectArg(ButtonDim)), V4(V3Arg(ButtonFillColor), 1.f), 
-                 ButtonCornerRadius, 0.f, ButtonSoftness);
-        DrawRect(V4(RectArg(ButtonDim)), V4(V3Arg(ButtonBorderColor), 1.f), 
-                 ButtonCornerRadius, ButtonBorderThickness, ButtonSoftness);
-        DrawRect(V4(0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height), V4(V3Arg(WindowBorderColor), 1.f),
-                 0.f, (f32)WindowBorderSize, 0.f);
         
     }
     
@@ -492,12 +472,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
         u64 Offset = ArrayCount(QuadPosData);
         gl_SetQuadAttribute(1, 4, &Offset);
         gl_SetQuadAttribute(2, 4, &Offset);
-        gl_SetQuadAttribute(3, 1, &Offset);
+        gl_SetQuadAttribute(3, 4, &Offset);
         gl_SetQuadAttribute(4, 1, &Offset);
         gl_SetQuadAttribute(5, 1, &Offset);
+        gl_SetQuadAttribute(6, 1, &Offset);
         
         glEnable(GL_MULTISAMPLE);
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GlobalRectsCount);
+        glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GlobalRectsCount);
     }
     
     // Render text

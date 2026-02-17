@@ -5,15 +5,18 @@
 
 #define DefaultHeightPx 24
 
+NO_STRUCT_PADDING_BEGIN
 typedef struct rect_quad_data rect_quad_data;
 struct rect_quad_data
 {
     v4 Dest;
-    v4 Color;
+    v4 Color0;
+    v4 Color1;
     f32 CornerRadius;
     f32 BorderThickness;
     f32 Softness;
 };
+NO_STRUCT_PADDING_END
 
 typedef struct font_atlas font_atlas;
 struct font_atlas

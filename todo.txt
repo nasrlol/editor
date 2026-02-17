@@ -1,3 +1,9 @@
+misc:
+- metaprogramming
+  - replace X macros
+  - f32 buffers, sizes and offsets
+- profiler
+
 platform:
 - fix keyboard input (pressing & holding, vs text)
   - easier query of keys & modifiers.

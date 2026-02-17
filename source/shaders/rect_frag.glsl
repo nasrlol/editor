@@ -7,7 +7,8 @@
 
 in v2  VS_Pos;
 in v4  VS_Dest;
-in v4  VS_Color;
+in v4  VS_Color0;
+in v4  VS_Color1;
 in f32 VS_CornerRadius;
 in f32 VS_BorderThickness;
 in f32 VS_Softness;
@@ -28,7 +29,9 @@ BoxSDF(v2 Pos, v2 HalfDim, f32 CornerRadius)
 
 void main()
 {
-    v4 Color = VS_Color;
+    v4 Color;
+    Color = VS_Color1;
+    Color = VS_Color0;
     
     // TODO(luca): This should happen in the vertex shader.
     v2 Min = VS_Dest.xy;
