@@ -5,11 +5,14 @@
 
 #define DefaultHeightPx 24
 
-typedef struct rect_vertex rect_vertex;
-struct rect_vertex
+typedef struct rect_quad_data rect_quad_data;
+struct rect_quad_data
 {
-    v2 Pos;
-    v4 DestPos;
+    v4 Dest;
+    v4 Color;
+    f32 CornerRadius;
+    f32 BorderThickness;
+    f32 Softness;
 };
 
 typedef struct font_atlas font_atlas;
@@ -43,5 +46,9 @@ struct app_state
     
     s32 CursorPos;
 };
+
+//~ Globals
+global_variable rect_quad_data *GlobalRectQuadData;
+global_variable s32 GlobalRectsCount;
 
 #endif //EDITOR_APP_H

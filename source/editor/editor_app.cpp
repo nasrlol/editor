@@ -167,21 +167,16 @@ DrawChar(font_atlas *Atlas, v2 *Positions, v2 *TexCoords, s32 *VerticesCount,
 }
 
 void
-DebugCreateRect(rect_vertex *BufferData, s32 *RectsCount, rect Rect)
+DrawRect(v4 Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
 {
-    rect_vertex *R = BufferData + ((*RectsCount) * 6);
-    *RectsCount += 1;
+    rect_quad_data *Data = GlobalRectQuadData + GlobalRectsCount;
+    GlobalRectsCount += 1;
     
-    v2 Min = Rect.Min;
-    v2 Max = Rect.Max;
-    
-    v4 Dest = V4(Min.X, Min.Y, Max.X, Max.Y);
-    R[0].Pos = V2(Min.X, Max.Y);
-    R[1].Pos = V2(Max.X, Max.Y);
-    R[2].Pos = V2(Max.X, Min.Y);  R[2].DestPos = Dest;
-    R[3].Pos = V2(Max.X, Min.Y);
-    R[4].Pos = V2(Min.X, Min.Y);
-    R[5].Pos = V2(Min.X, Max.Y);  R[5].DestPos = Dest;
+    Data->Dest = Dest;
+    Data->Color = Color;
+    Data->CornerRadius = CornerRadius;
+    Data->BorderThickness = BorderThickness;
+    Data->Softness = Softness;
 }
 
 C_LINKAGE
@@ -305,7 +300,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     gl_handle VAOs[1] = {};
     gl_handle VBOs[2] = {};
     gl_handle Textures[1] = {};
-    gl_handle SoftwareShader, TextShader;
+    gl_handle SoftwareShader, TextShader, RectShader;
     glGenVertexArrays(ArrayCount(VAOs), &VAOs[0]);
     glGenBuffers(ArrayCount(VBOs), &VBOs[0]);
     glGenTextures(ArrayCount(Textures), &Textures[0]);
@@ -318,27 +313,43 @@ UPDATE_AND_RENDER(UpdateAndRender)
     glClearColor(BackgroundColor.X, BackgroundColor.Y, BackgroundColor.Z, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    s32 BorderSize = 2;
-    v3 BorderColor;
+    s32 WindowBorderSize = 2;
+    v3 WindowBorderColor;
     
     if(0) {}
-    else if(Input->PlatformIsRecording) BorderColor = Color_Red;
-    else if(Input->PlatformIsPlaying) BorderColor = Color_Green;
-    else if(Input->PlatformWindowIsFocused) BorderColor = Color_Foreground;
-    else BorderColor = Color_Background;
+    else if(Input->PlatformIsRecording) WindowBorderColor = Color_Red;
+    else if(Input->PlatformIsPlaying) WindowBorderColor = Color_Green;
+    else if(Input->PlatformWindowIsFocused) WindowBorderColor = Color_Foreground;
+    else WindowBorderColor = Color_Background;
     
-    // Render text (rasterized on CPU)
+    //- Prepare rects rendering 
+    u64 BufferMaxSize = KB(1)/sizeof(f32);
+    f32 *RectsBufferData = PushArray(FrameArena, f32, BufferMaxSize);
+    f32 QuadPosData[] =
+    {
+        -1.f, +1.f,
+        +1.f, +1.f,
+        -1.f, -1.f,
+        +1.f, +1.f,
+        -1.f, -1.f,
+        +1.f, -1.f,
+    };
+    
+    MemoryCopy(RectsBufferData, QuadPosData, sizeof(QuadPosData));
+    GlobalRectsCount = 0;
+    GlobalRectQuadData = (rect_quad_data *)(RectsBufferData + ArrayCount(QuadPosData));
+    
+    //- Render text (rasterized on CPU)
     app_offscreen_buffer TextImage;
     {    
-        TextImage.Width = Buffer->Width - BorderSize;
-        TextImage.Height = Buffer->Height - BorderSize;
+        TextImage.Width = Buffer->Width - WindowBorderSize;
+        TextImage.Height = Buffer->Height - WindowBorderSize;
         TextImage.BytesPerPixel = Buffer->BytesPerPixel;
         TextImage.Pitch = TextImage.BytesPerPixel*TextImage.Width;
         u64 Size = TextImage.BytesPerPixel*(TextImage.Width*TextImage.Height);
         TextImage.Pixels = PushArray(FrameArena, u8, Size);
         MemorySet(TextImage.Pixels, 0, Size);
     }
-    
     
     v2 *TextTexCoords = 0;
     v2 *TextPositions = 0;
@@ -361,7 +372,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         Atlas->PixelScaleHeight = (2.0f / (f32)(Buffer->Height));
         Atlas->PixelScaleWidth  = (2.0f / (f32)(Buffer->Width));
         
-        f32 StartX = ((f32)BorderSize*Atlas->PixelScaleWidth + -1.0f);
+        f32 StartX = ((f32)WindowBorderSize*Atlas->PixelScaleWidth + -1.0f);
         
         str8 Text = {.Data = (u8 *)App->Text, .Size = App->TextCount};
         
@@ -415,7 +426,45 @@ UPDATE_AND_RENDER(UpdateAndRender)
         DrawChar(Atlas, TextPositions, TextTexCoords, &TextVerticesCount, Pos, L'_');
     }
     
-    // Text rendering
+    // Draw rectangles 
+    {    
+        rect ButtonDim;
+        ButtonDim.Min = V2(480.f, 110.f);
+        ButtonDim.Max = V2(870.f, 310.f);
+        v3 ButtonFillColor = Color_Button;
+        f32 ButtonCornerRadius = 10.f;
+        f32 ButtonSoftness = 1.f;
+        v3 ButtonBorderColor = {};
+        f32 ButtonBorderThickness = 3.f;
+        
+        v2 MousePos = V2S32(Input->MouseX, Input->MouseY);
+        if(IsInsideRectV2(MousePos, ButtonDim))
+        {
+            if(Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
+            {
+                ButtonFillColor = Color_ButtonPressed;
+            }
+            else
+            {        
+                ButtonFillColor = Color_ButtonHovered;
+            }
+        }
+        
+        DrawRect(V4(80.f,  80.f,  280.f, 280.f), V4(0.f, 0.f, 1.f, 1.f), 10.f, 1.f, 1.f);
+        DrawRect(V4(200.f, 320.f, 340.f, 420.f), V4(1.f, 0.f, 1.f, 1.f), 20.f, 0.f, 1.f);
+        DrawRect(V4(200.f, 320.f, 340.f, 420.f), V4(0.f, 0.f, 0.f, 1.f), 20.f, 3.f, 1.f);
+        DrawRect(V4(RectArg(ButtonDim)), V4(V3Arg(ButtonFillColor), 1.f), 
+                 ButtonCornerRadius, 0.f, ButtonSoftness);
+        DrawRect(V4(RectArg(ButtonDim)), V4(V3Arg(ButtonBorderColor), 1.f), 
+                 ButtonCornerRadius, ButtonBorderThickness, ButtonSoftness);
+        DrawRect(V4(0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height), V4(V3Arg(WindowBorderColor), 1.f),
+                 0.f, (f32)WindowBorderSize, 0.f);
+        
+    }
+    
+    //- Rendering 
+    
+    // Render text
     {
         TextShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
                                            S8("../source/shaders/text_vert.glsl"),
@@ -438,31 +487,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glDrawArrays(GL_TRIANGLES, 0, TextVerticesCount);
     }
     
-    rect ButtonDim;
-    ButtonDim.Min = V2(480.f, 110.f);
-    ButtonDim.Max = V2(870.f, 310.f);
-    v3 ButtonFillColor = Color_Button;
-    
-    v2 MousePos = V2S32(Input->MouseX, Input->MouseY);
-    if(IsInsideRectV2(MousePos, ButtonDim))
-    {
-        if(Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
-        {
-            ButtonFillColor = Color_ButtonPressed;
-        }
-        else
-        {        
-            ButtonFillColor = Color_ButtonHovered;
-        }
-    }
-    
-    v3 ButtonBorderColor = Color_BackgroundSecond;
-    f32 ButtonBorderThickness = 2.f;
-    f32 ButtonSoftness = 1.f;
-    f32 ButtonCornerRadius = 20.0f;
-    
-    
-    gl_handle RectShader;
+    // Render rectangles
     {
         RectShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
                                            S8("../source/shaders/rect_vert.glsl"),
@@ -474,60 +499,19 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]);
         
-        s32 QuadStride = 11;
-        
-        f32 BufferData[] =
-        {
-            // quad
-            -1.f, +1.f,
-            +1.f, +1.f,
-            -1.f, -1.f,
-            +1.f, +1.f,
-            -1.f, -1.f,
-            +1.f, -1.f,
-            
-            // Instances
-            // Dest                     Color                  Radius  Border  Softness
-            80.f,  80.f,  280.f, 280.f, 0.f, 0.f, 1.f, 1.f,    10.f,   1.f,    1.f,
-            200.f, 320.f, 340.f, 420.f, 1.f, 0.f, 1.f, 1.f,    20.f,   0.f,    5.f,
-            
-            RectArg(ButtonDim),         V3Arg(ButtonFillColor), 1.f,   
-            ButtonCornerRadius, 0.f, ButtonSoftness,
-            RectArg(ButtonDim),         V3Arg(ButtonBorderColor), 1.f,   
-            ButtonCornerRadius, ButtonBorderThickness, ButtonSoftness,
-            
-            0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height,
-            V3Arg(BorderColor), 1.f,                                
-            0.f, (f32)BorderSize, 0.f,
-        };
-        
-        s32 RectsCount = (ArrayCount(BufferData) - 6*2)/QuadStride;
-        
-        glBufferData(GL_ARRAY_BUFFER, sizeof(BufferData), BufferData, GL_STATIC_DRAW);
+        u64 Size = sizeof(QuadPosData) + GlobalRectsCount*sizeof(rect_quad_data);
+        glBufferData(GL_ARRAY_BUFFER, Size, RectsBufferData, GL_STATIC_DRAW);
         
         glEnableVertexAttribArray(0);
         glVertexAttribDivisor(0, 0);  
         glVertexAttribPointer(0, 2, GL_FLOAT, false, 2*sizeof(f32), 0);
         
-        glEnableVertexAttribArray(1);
-        glVertexAttribDivisor(1, 1);
-        glVertexAttribPointer(1, 4, GL_FLOAT, false, QuadStride*sizeof(f32), (void *)((12 + 0)*sizeof(f32)));
-        
-        glEnableVertexAttribArray(2);
-        glVertexAttribDivisor(2, 1 );
-        glVertexAttribPointer(2, 4, GL_FLOAT, false, QuadStride*sizeof(f32), (void *)((12 + 4)*sizeof(f32)));
-        
-        glEnableVertexAttribArray(3);
-        glVertexAttribDivisor(3, 1);
-        glVertexAttribPointer(3, 1, GL_FLOAT, false, QuadStride*sizeof(f32), (void *)((12 + 8)*sizeof(f32)));
-        
-        glEnableVertexAttribArray(4);
-        glVertexAttribDivisor(4, 1);
-        glVertexAttribPointer(4, 1, GL_FLOAT, false, QuadStride*sizeof(f32), (void *)((12 + 9)*sizeof(f32)));
-        
-        glEnableVertexAttribArray(5);
-        glVertexAttribDivisor(5, 1);
-        glVertexAttribPointer(5, 1, GL_FLOAT, false, QuadStride*sizeof(f32), (void *)((12 + 10)*sizeof(f32)));
+        u64 Offset = ArrayCount(QuadPosData);
+        gl_SetQuadAttribute(1, 4, &Offset);
+        gl_SetQuadAttribute(2, 4, &Offset);
+        gl_SetQuadAttribute(3, 1, &Offset);
+        gl_SetQuadAttribute(4, 1, &Offset);
+        gl_SetQuadAttribute(5, 1, &Offset);
         
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -535,11 +519,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glEnable(GL_BLEND);
         glDisable(GL_DEPTH_TEST);
         
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, RectsCount);
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GlobalRectsCount);
     }
     
     // Cleanup
     {
+        glDeleteVertexArrays(ArrayCount(VAOs), &VAOs[0]);
         glDeleteTextures(ArrayCount(Textures), &Textures[0]);
         glDeleteBuffers(ArrayCount(VBOs), &VBOs[0]);
         glDeleteProgram(TextShader);
