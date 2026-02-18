@@ -30,15 +30,15 @@ enum TokenType
 
 typedef enum TokenFlags
 {
-	FlagNone			= 0,
-	FlagConstant		= 1 << 0,
-	FlagGlobal			= 1 << 1,
-	FlagsValue			= 1 << 2,
-	FlagDeprecated		= 1 << 3,
-	FlagDefinition		= 1 << 4,
-	FlagComparison		= 1 << 5,
-	FlagTranslationUnit = 1 << 6,
-	FlagDirty			= 1 << 7,
+	FlagNone			= (0),
+	FlagConstant		= (1 << 0),
+	FlagGlobal			= (1 << 1),
+	FlagsValue			= (1 << 2),
+	FlagDeprecated		= (1 << 3),
+	FlagDefinition		= (1 << 4),
+	FlagComparison		= (1 << 5),
+	FlagTranslationUnit = (1 << 6),
+	FlagDirty			= (1 << 7),
 
 } TokenFlags;
 

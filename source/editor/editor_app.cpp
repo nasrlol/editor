@@ -9,6 +9,8 @@
 #include "editor_gl.h"
 #include "editor_app.h"
 
+
+
 #define U32ToV3Arg(Hex) \
 ((f32)((Hex >> 8*2) & 0xFF)/255.0f), \
 ((f32)((Hex >> 8*1) & 0xFF)/255.0f), \
@@ -40,6 +42,7 @@ ColorList
 #define SET(Name, Value) v4 Color_##Name = {U32ToV3Arg(Value), 1.f};
 ColorList
 #undef SET
+
 
 internal app_offscreen_buffer
 LoadImage(arena *Arena, str8 ExeDirPath, str8 Path)
@@ -189,6 +192,15 @@ DrawRect(v4 Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
     return Result;
 }
 
+#include "editor_lexer.h"
+#include "editor_lexer.c"
+
+#include "editor_parser.h"
+#include "editor_parser.c"
+
+#include "editor_tree_visualizer.h"
+#include "editor_tree_visualizer.c"
+
 C_LINKAGE
 UPDATE_AND_RENDER(UpdateAndRender)
 {
@@ -281,6 +293,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 else if(Key.Codepoint == '0')
                 {
                     App->HeightPx = DefaultHeightPx;
+                }
+                else if(Key.Codepoint == 't')
+                {
+                    // NOTE(nasr): here
+                    TokenList *list = Lex(App, FrameArena);
+                    ConcreteSyntaxTree *tree = Parse(FrameArena, list);
+                    tree_visualizer(tree, FrameArena, Buffer, Memory);
                 }
             }
             
@@ -496,9 +515,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // Render rectangles
     {
         glBindVertexArray(VAOs[0]);
-        RectShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
-                                           S8("../source/shaders/rect_vert.glsl"),
-                                           S8("../source/shaders/rect_frag.glsl"));
+
+        // RectShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
+        //                                   S8("../source/shaders/soft_vert.glsl"),
+        //                                  S8("../source/shaders/soft_rect.glsl"));
         glUseProgram(RectShader);
         
         gl_handle UViewport = glGetUniformLocation(RectShader, "Viewport");
@@ -543,7 +563,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glDisable(GL_MULTISAMPLE);
         glDrawArrays(GL_TRIANGLES, 0, TextVerticesCount);
     }
-    
+
     // Cleanup
     {
         glDeleteVertexArrays(ArrayCount(VAOs), &VAOs[0]);
