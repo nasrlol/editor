@@ -1,0 +1,241 @@
+**Goal:**
+Build a concrete syntax tree (CST) from source files with support for incremental updates.
+
+1. **Input**
+
+   * Entire file buffer (per translation unit).
+   * Multiple files handled independently at first.
+   * Cross-file relationships handled at a higher layer.
+
+2. **Lexing**
+
+   * Continuous scan over buffer.
+   * Produce ordered list of tokens.
+   * Track:
+
+     * Line
+     * Column
+     * Byte offset (maybe)
+
+3. **Parsing**
+
+   * Consume token stream.
+   * Produce Concrete Syntax Tree (CST).
+   * Preserve structure and all tokens (unlike AST).
+
+4. **Incremental Updates**
+
+  * no
+
+---
+
+## Lexing Notes
+
+### Responsibilities
+
+* Skip whitespace but track location.
+* Identify:
+
+  * Identifiers
+  * Keywords
+  * Number literals
+  * String literals
+  * Preprocessor directives
+  * Operators
+  * Delimiters
+* Handle multi-character tokens (`==`, `!=`, `<=`, etc.).
+* Recognize identifier start rules:
+
+  * `[A-Za-z_]`
+  * Followed by `[A-Za-z0-9_]`
+
+Whitespace:
+
+* Does not define scope.
+* Should be tracked for formatting/refactoring.
+
+---
+
+## Tree Construction Rules
+
+### Root
+
+* Root represents the translation unit.
+* It contains:
+
+  * Declarations
+  * Function definitions
+  * Preprocessor directives
+
+### Branch Creation
+
+Branches are created when:
+
+* Encountering `{}` (compound statement)
+* Parsing a declaration
+* Parsing a function definition
+* Parsing control structures (`if`, `for`, etc.)
+* Encountering `;` (statement boundary)
+
+Semicolon defines statement termination, not always scope.
+
+---
+
+## Example
+
+Source:
+
+```
+int main() { return 0; }
+```
+
+Token stream:
+
+```
+[int][main][(][)][{][return][0][;][}]
+```
+
+Possible CST shape:
+
+```
+TranslationUnit
+ └── FunctionDefinition
+     ├── TypeSpecifier (int)
+     ├── Declarator (main)
+     ├── ParameterList
+     └── CompoundStatement
+         └── ReturnStatement
+             └── IntegerLiteral (0)
+```
+
+---
+
+## SyntaxNode Structure
+
+```c
+struct SyntaxNode
+{
+    Token *token;
+
+    SyntaxNode *Parent;
+
+    SyntaxNode **Children;
+    s32          ChildCount;
+    s32          ChildCapacity;
+};
+```
+
+### Interpretation
+
+* `token`:
+
+  * Represents the syntactic anchor of the node.
+  * Example: operator token, identifier token, keyword token.
+
+* `Parent`:
+
+  * Back-reference for restructuring and deletion.
+
+* `Children`:
+
+  * Ordered array.
+  * Order defines syntactic meaning.
+
+---
+
+## Binary Relationships (Left / Right Variables)
+
+For an expression like:
+
+```
+a = b;
+```
+
+Tree shape:
+
+```
+AssignmentExpression (=)
+ ├── Identifier (a)
+ └── Identifier (b)
+```
+
+Stored as:
+
+```c
+struct Node
+{
+   Node **Children;
+}
+node->Children[0]  // ~ left side
+node->Children[1]  // ~ right side
+```
+### Convention
+
+For binary operators:
+
+```
+Children[0] = Left operand
+Children[1] = Right operand
+```
+
+For unary operators:
+
+```
+Children[0] = Operand
+```
+
+For declarations:
+
+Example:
+
+```
+int x = 5;
+```
+
+Tree:
+
+```
+Declaration
+ ├── TypeSpecifier (int)
+ ├── Identifier (x)
+ └── Initializer
+     └── IntegerLiteral (5)
+```
+
+Children order determines meaning.
+
+---
+
+## Declaration vs Assignment
+
+You must differentiate:
+
+* `int x;` → Declaration
+* `x = 5;` → Assignment
+
+Detection rule:
+
+* If first token is a type specifier → Declaration.
+* Otherwise → Expression statement.
+
+---
+
+## Preprocessor Handling
+
+Treat as separate node types:
+
+```
+PreprocessorDirective
+ └── Tokens
+```
+
+Do not merge with normal parsing phase initially.
+
+You do not need a full file map; store:
+
+```
+TranslationUnit {
+    FileID
+    RootNode
+}
+```
