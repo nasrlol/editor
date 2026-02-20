@@ -6,17 +6,17 @@
 # error "Operating system not provided or supported."
 #endif
 
-internal inline f32
-OS_SecondsElapsed(s64 Start, s64 End)
+internal inline f64
+OS_SecondsElapsed(f64 Start, f64 End)
 {
-    f32 Result = ((f32)(End - Start)/1000000000.0f);
+    f64 Result = (End - Start);
     return Result;
 }
 
-internal inline f32
-OS_MSElapsed(s64 Start, s64 End)
+internal inline f64
+OS_MSElapsed(f64 Start, f64 End)
 {
-    f32 Result = ((f32)(End - Start)/1000000.0f);
+    f64 Result = ((End - Start)*1000.f);
     return Result;
 }
 
@@ -33,7 +33,7 @@ internal void
 OS_ProfileAndPrint(char *Label)
 {
     GlobalProfiler.End = OS_GetWallClock();
-    Log(" %s_%s: %.4f\n", GlobalProfilerPrefix, Label, (f64)OS_MSElapsed(GlobalProfiler.Start, GlobalProfiler.End));
+    Log(" %s_%s: %.4f\n", GlobalProfilerPrefix, Label, OS_MSElapsed(GlobalProfiler.Start, GlobalProfiler.End));
     GlobalProfiler.Start = GlobalProfiler.End;
 }
 #else

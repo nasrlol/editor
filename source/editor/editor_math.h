@@ -152,12 +152,21 @@ V3Math { C.e = A.e * B.e; }
 */
 
 //- 
-typedef struct rect rect;
-struct rect
+typedef union rect rect;
+union rect
 {
-    v2 Min;
-    v2 Max;
+    f32 e[4];
+    struct
+    {            
+        v2 Min;
+        v2 Max;
+    };
+    struct
+    {
+        f32 X, Y, W, Z;
+    };
 };
+
 #define RectArg(Value) (Value).Min.X, (Value).Min.Y, (Value).Max.X, (Value).Max.Y
 
 internal inline rect
@@ -210,7 +219,7 @@ IsInsideV4(f32 X, f32 Y, v4 Rec)
 }
 
 internal inline b32
-IsInsideRect(f32 X, f32 Y, rect Rectangle)
+IsInsideRec(f32 X, f32 Y, rect Rectangle)
 {
     b32 Result = IsInside(X, Y, Rectangle.Min, Rectangle.Max);
     return Result;
@@ -219,7 +228,7 @@ IsInsideRect(f32 X, f32 Y, rect Rectangle)
 internal inline b32
 IsInsideRectV2(v2 Pos, rect Rectangle)
 {
-    b32 Result = IsInsideRect(Pos.X, Pos.Y, Rectangle);
+    b32 Result = IsInsideRec(Pos.X, Pos.Y, Rectangle);
     return Result;
 }
 

@@ -20,6 +20,8 @@ uniform v2 Viewport;
 
 out v2  VS_Pos;
 out v4  VS_Dest;
+out v2  VS_Center;
+out v2  VS_HalfSize;
 out v4  VS_Color;
 out f32 VS_CornerRadius;
 out f32 VS_BorderThickness;
@@ -29,24 +31,26 @@ void main()
 {
     v4 Colors[] = v4[](I_Color0, I_Color1, I_Color2, I_Color3);
     
-    VS_Dest = I_Dest;
-    
-    VS_Color = Colors[gl_VertexID];
-    VS_CornerRadius = I_CornerRadii[gl_VertexID];
-    
-    VS_BorderThickness = I_BorderThickness;
-    VS_Softness = I_Softness;
-    
     v2 Min = I_Dest.xy;
     v2 Max = I_Dest.zw;
     
     v2 PosInQuad = (P_Pos + 1.0) * 0.5;
     v2 PixelPos = mix(Min, Max, PosInQuad);
     
-    VS_Pos = PixelPos;
-    
     v2 ClipPos = (PixelPos / Viewport) * 2.0 - 1.0;
     ClipPos.y = -ClipPos.y;
+    
+    v2 HalfSize = (Max - Min)/2.0;
+    v2 Center = Min + HalfSize;
+    
+    VS_Center = Center;
+    VS_HalfSize = HalfSize;
+    VS_Pos = PixelPos - Center;
+    VS_Dest = I_Dest;
+    VS_Color = Colors[gl_VertexID];
+    VS_CornerRadius = I_CornerRadii[gl_VertexID];
+    VS_BorderThickness = I_BorderThickness;
+    VS_Softness = I_Softness;
     
     gl_Position = v4(ClipPos, 0.0, 1.0);
 }

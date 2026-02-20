@@ -27,6 +27,9 @@ SET(ButtonText,       0xfffbfdfe) \
 SET(Foreground,       0xffd8dee9) \
 SET(Background,       0xff13171f) \
 SET(BackgroundSecond, 0xff3a4151) \
+SET(White,            0xffe5e9f0) \
+SET(Black,            0xff3b4252) \
+SET(Gray,             0xff4c566a) \
 SET(Blue,             0xff81a1c1) \
 SET(Cyan,             0xff88C0D0) \
 SET(Red,              0xffbf616a) \
@@ -139,7 +142,7 @@ InitAtlas(arena *Arena, app_font *Font, font_atlas *Atlas, f32 HeightPx)
     {
         float UnusedX, UnusedY;
         stbtt_GetPackedQuad(Atlas->PackedChars, Atlas->Width, Atlas->Height, 
-                            Idx,
+                            (u32)Idx,
                             &UnusedX, &UnusedY,
                             &Atlas->AlignedQuads[Idx], 0);
     }
@@ -172,7 +175,7 @@ DrawChar(font_atlas *Atlas, v2 *Positions, v2 *TexCoords, s32 *VerticesCount,
 }
 
 internal rect_quad_data *
-DrawRect(v4 Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
+DrawRect(rect Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
 {
     rect_quad_data *Result = GlobalRectQuadData + GlobalRectsCount;
     GlobalRectsCount += 1;
@@ -208,6 +211,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
 #if EDITOR_INTERNAL
     GlobalDebuggerIsAttached = Memory->IsDebuggerAttached;
+#endif
+#if OS_WINDOWS
+    GlobalPerfCountFrequency = Memory->PerfCountFrequency;
 #endif
     
     arena *PermanentArena, *FrameArena;
@@ -410,7 +416,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         f32 MaxWidth = -StartX + 1.0f;
         f32 CumulatedWidth = 0;
-        u32 StartIdx = 0;
+        u64 StartIdx = 0;
         // NOTE(luca): Monospace, all widths will be the same.
         f32 CharWidth = (Atlas->PackedChars[0].xadvance)*Atlas->PixelScaleWidth;
         f32 CharHeight = (Atlas->PixelScaleHeight*App->HeightPx);
@@ -460,54 +466,16 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     // Draw rectangles 
     {
+        f32 Time = (f32)OS_GetWallClock();
         // Window borders
         {
-            v4 Dest = V4(0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height);
-            rect_quad_data *RectData = DrawRect(Dest, WindowBorderColor, 0.f, (f32)WindowBorderSize, 0.f);
-            RectData->Color0 = WindowBorderColor;
-            RectData->Color1.W = 0.2f;
-            RectData->Color2.W = 0.2f;
-            RectData->Color3 = WindowBorderColor;
+            rect Dest = {0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height};
+            rect_quad_data *Rec = DrawRect(Dest, WindowBorderColor, 0.f, (f32)WindowBorderSize, 0.f);
+            Rec->Color0 = WindowBorderColor;
+            Rec->Color1.W = 0.2f;
+            Rec->Color2.W = 0.2f;
+            Rec->Color3 = WindowBorderColor;
         }
-        
-        // Debug tests
-        {        
-            v4 Dest = V4FromRec(RectFromSize(V2(80.f, 84.f), V2(110.f, 60.f)));
-            
-            rect_quad_data *Fill = DrawRect(Dest, Color_Yellow, 10.f, 0.f, 0.5f);
-            
-            Fill->CornerRadii.e[0] = 0.f;
-            Fill->CornerRadii.e[3] = 0.f;
-            
-            b32 Hovered = IsInsideV4((f32)Input->MouseX, (f32)Input->MouseY, Dest);
-            if(Hovered)
-            { 
-                if(Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
-                {
-                    Fill->Color0.W = .5f;
-                    Fill->Color1.W = .5f;
-                }
-                else
-                {                
-                    Fill->Color0.W = .7f;
-                    Fill->Color1.W = .7f;
-                }
-            }
-            else
-            {
-                Fill->Color0.W = .8f;
-                Fill->Color1.W = .8f;
-            }
-            
-            rect_quad_data *Border = DrawRect(Dest, V4(0.f, 0.f, 0.f, 1.f), 10.f, 2.f, 0.5f);
-            Border->CornerRadii = Fill->CornerRadii;
-            
-            Dest.X += 200.f; Dest.Z += 200.f;
-            DrawRect(V4(280.f, 70.f, 380.f, 170.f), Color_Red, 50.f, 2.f, 0.5f);
-            Dest.X += 200.f; Dest.Z += 200.f;
-            DrawRect(Dest, Color_Blue, 0.f, 0.f, 3.f);
-        }
-        
     }
     
     //- Rendering 
@@ -521,8 +489,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
         //                                  S8("../source/shaders/soft_rect.glsl"));
         glUseProgram(RectShader);
         
-        gl_handle UViewport = glGetUniformLocation(RectShader, "Viewport");
-        glUniform2f(UViewport, (f32)(Buffer->Width), (f32)(Buffer->Height));
+        // Uniforms
+        {
+            gl_handle UViewport = glGetUniformLocation(RectShader, "Viewport");
+            glUniform2f(UViewport, (f32)(Buffer->Width), (f32)(Buffer->Height));
+        }
         
         glBindBuffer(GL_ARRAY_BUFFER, VBOs[2]);
         

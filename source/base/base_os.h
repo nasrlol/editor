@@ -15,8 +15,8 @@ struct entry_point_params
 typedef struct OS_profiler OS_profiler;
 struct OS_profiler
 {
-    s64 Start;
-    s64 End;
+    f64 Start;
+    f64 End;
 };
 
 typedef struct os_file_handle os_file_handle;
@@ -48,12 +48,12 @@ internal void  OS_BarrierWait(barrier Barrier);
 internal void  OS_SetThreadName(str8 ThreadName);
 internal void *OS_Allocate(umm Size);
 internal void  OS_BarrierWait(barrier Barrier);
-internal s64   OS_GetWallClock(void);
+internal f64   OS_GetWallClock(void);
 internal void  OS_Sleep(u32 MicroSeconds);
 internal void  OS_ChangeDirectory(char *Path);
 //- OS agnostic, implemented in `base_os.c`.
-internal inline f32 OS_SecondsElapsed(s64 Start, s64 End);
-internal inline f32 OS_MSElapsed(s64 Start, s64 End);
+internal f64  OS_SecondsElapsed(f64 Start, f64 End);
+internal f64  OS_MSElapsed(f64 Start, f64 End);
 internal void OS_ProfileInit(char *Prefix);
 internal void OS_ProfileAndPrint(char *Label);
 

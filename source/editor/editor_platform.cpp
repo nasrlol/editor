@@ -69,13 +69,16 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
 #if EDITOR_INTERNAL
         AppMemory.IsDebuggerAttached = GlobalDebuggerIsAttached;
 #endif
+#if OS_WINDOWS
+        AppMemory.PerfCountFrequency = GlobalPerfCountFrequency;
+#endif
         
         app_input _Input[2] = {};
         app_input *NewInput = &_Input[0];
         app_input *OldInput = &_Input[1];
         
-        s64 LastCounter = OS_GetWallClock();
-        s64 FlipWallClock = LastCounter;
+        f64 LastCounter = OS_GetWallClock();
+        f64 FlipWallClock = LastCounter;
 #if EDITOR_FORCE_UPDATE_HZ
         f32 GameUpdateHz = EDITOR_FORCE_UPDATE_HZ;
 #else
@@ -244,14 +247,14 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
             OS_ProfileAndPrint("UpdateImage");
             
-            s64 WorkCounter = OS_GetWallClock();
-            f32 WorkMSPerFrame = OS_MSElapsed(LastCounter, WorkCounter);
+            f64 WorkCounter = OS_GetWallClock();
+            f64 WorkMSPerFrame = OS_MSElapsed(LastCounter, WorkCounter);
             // Sleep
             {            
-                f32 SecondsElapsedForFrame = OS_SecondsElapsed(LastCounter, WorkCounter);
+                f64 SecondsElapsedForFrame = OS_SecondsElapsed(LastCounter, WorkCounter);
                 if(SecondsElapsedForFrame < TargetSecondsPerFrame)
                 {
-                    f32 SleepUS = ((TargetSecondsPerFrame - 0.001f - SecondsElapsedForFrame)*1000000.0f);
+                    f64 SleepUS = ((TargetSecondsPerFrame - 0.001f - SecondsElapsedForFrame)*1e6);
                     if(SleepUS > 0)
                     {
                         // TODO(luca): Intrinsic
@@ -262,7 +265,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                         // TODO(luca): Logging
                     }
                     
-                    f32 TestSecondsElapsedForFrame = OS_SecondsElapsed(LastCounter, OS_GetWallClock());
+                    f64 TestSecondsElapsedForFrame = OS_SecondsElapsed(LastCounter, OS_GetWallClock());
                     if(TestSecondsElapsedForFrame < TargetSecondsPerFrame)
                     {
                         // TODO(luca): Log missed sleep

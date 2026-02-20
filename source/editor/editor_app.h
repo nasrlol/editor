@@ -9,7 +9,7 @@ NO_STRUCT_PADDING_BEGIN
 typedef struct rect_quad_data rect_quad_data;
 struct rect_quad_data
 {
-    v4 Dest;
+    rect Dest;
     v4 Color0;
     v4 Color1;
     v4 Color2;
