@@ -142,17 +142,17 @@ OS_PrintFormat(char *Format, ...)
 internal void
 OS_BarrierWait(barrier Barrier)
 {
-    NotImplemented;
+    NotImplemented();
 }
 
 internal void 
 OS_SetThreadName(str8 ThreadName)
 {
-    NotImplemented;
+    NotImplemented();
 }
 
 internal void *
-OS_Allocate(umm Size)
+OS_Allocate(u64  Size)
 {
     void *Result = VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     return Result;

@@ -63,10 +63,9 @@
 # define RADDBG_MARKUP_IMPLEMENTATION
 # define ssize_t SSIZE_T
 #else
-# include <sys/types.h>
 # define RADDBG_MARKUP_STUBS
+# include <sys/types.h>
 #endif
-#include "lib/raddbg_markup.h"
 
 //~ Macros
 #define ERROR_FMT "%s(%d): ERROR: "
@@ -115,11 +114,11 @@ Swap(t& A, t& B) { t T = A; A = B; B = T; }
 #endif
 
 #if (COMPILER_CLANG || COMPILER_GNU)
-#if defined(__arm__) || defined(__aarch64__)
-# define Trap() __asm__ volatile("brk #0");
-#elif defined(__i386__) || defined(__x86_64__)
-#define Trap() __asm__ volatile("int3");
-#endif
+# if defined(__arm__) || defined(__aarch64__)
+#  define Trap() __asm__ volatile("brk #0");
+# elif defined(__i386__) || defined(__x86_64__)
+#  define Trap() __asm__ volatile("int3");
+# endif
 #elif COMPILER_MSVC
 # define Trap() (__debugbreak());
 #else
@@ -132,19 +131,19 @@ Swap(t& A, t& B) { t T = A; A = B; B = T; }
 # define ReadWriteBarrier __asm__ __volatile__ ("" : : : "memory")
 #endif
 
-#define DebugBreak do { if(GlobalDebuggerIsAttached) Trap(); } while(0)
+#define DebugBreak() do { if(GlobalDebuggerIsAttached) Trap(); } while(0)
 
 #define Var(Name) Glue(Name, __LINE__)
 #define DoOnce local_persist s32 Var(X) = 0; Var(X) += 1; if(Var(X) < 2)
-#define DebugBreakOnce DoOnce { DebugBreak; }
+#define DebugBreakOnce() DoOnce { DebugBreak(); }
 
 # define TrapMsg(Format, ...) do { ErrorLog(Format, ##__VA_ARGS__); Trap(); } while(0)
 #define AssertMsg(Expression, Format, ...) \
 do { if(!(Expression)) TrapMsg(Format, ##__VA_ARGS__); } while(0)
 #define Assert(Expression) AssertMsg(Expression, "Hit assertion")
 
-#define NotImplemented TrapMsg("Not Implemented!")
-#define InvalidPath    TrapMsg("Invalid Path!")
+#define NotImplemented() TrapMsg("Not Implemented!")
+#define InvalidPath()    TrapMsg("Invalid Path!")
 #define StaticAssert(C, ID) global_variable u8 Glue(ID, __LINE__)[(C)?1:-1]
 
 //-
@@ -287,10 +286,10 @@ __pragma(warning(disable: 4267 4996)) // NOTE: Add specific warning numbers to d
 
 #define Pi32 3.14159265359f
 
-#define KB(n)  (((umm)(n)) << 10)
-#define MB(n)  (((umm)(n)) << 20)
-#define GB(n)  (((umm)(n)) << 30)
-#define TB(n)  (((umm)(n)) << 40)
+#define KB(n)  (((u64 )(n)) << 10)
+#define MB(n)  (((u64 )(n)) << 20)
+#define GB(n)  (((u64 )(n)) << 30)
+#define TB(n)  (((u64 )(n)) << 40)
 #define Thousand(n)   ((n)*1000)
 #define Million(n)    ((n)*1000000)
 #define Billion(n)    ((n)*1000000000)
@@ -307,7 +306,7 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
-typedef size_t umm;
+typedef size_t umm ;
 typedef ssize_t smm;
 typedef s32 rune; // utf8 codepoint
 

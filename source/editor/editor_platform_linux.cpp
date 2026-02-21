@@ -474,7 +474,7 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                 Context->WindowHandle = WindowHandle;
                 Context->OpenGLMode = OpenGLMode;
                 Context->Initialized = true;
-                Result = (umm)Context;
+                Result = (u64)Context;
             }
         }
         else
@@ -621,7 +621,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                 }
                                 else
                                 {
-                                    InvalidPath;
+                                    InvalidPath();
                                 }
                             }
                             
@@ -683,7 +683,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                 {
                                     Input->Text.Count -= 1;
                                     ErrorLog("Unhandled special key(%d): %s", Symbol, LinuxReturnStringForSymbol(Symbol));
-                                    DebugBreak;
+                                    DebugBreak();
                                 }
                                 
                             }
@@ -697,7 +697,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                         if(0) {}
                         else if(Alt && (Symbol == XK_F2))
                         {
-                            DebugBreak;
+                            DebugBreak();
                         }
                         else if(Alt && (Symbol == XK_F3))
                         {
@@ -878,7 +878,7 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
 	void *Library = (void *)(Code->LibraryHandle);
     struct stat Stats = {};
     stat(Code->LibraryPath, &Stats);
-    umm Size = Stats.st_size;
+    u64 Size = Stats.st_size;
     s64 CurrentWriteTime = LinuxTimeSpecToNS(Stats.st_mtim);
     
     // NOTE(luca): Compilers will write twice to the executable for I know what reason, this
@@ -908,7 +908,7 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
             {
                 Code->Loaded = true;
                 Memory->Reloaded = true;
-                Code->LibraryHandle = (umm)Library;
+                Code->LibraryHandle = (u64 )Library;
                 Log("\nLibrary reloaded.\n");
             }
             else

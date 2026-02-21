@@ -7,7 +7,7 @@
 
 typedef u64 barrier;
 
-typedef umm thread_handle;
+typedef u64  thread_handle;
 
 typedef struct thread_context thread_context;
 struct thread_context

@@ -170,13 +170,13 @@ struct app_code
     update_and_render *UpdateAndRender;
     
     char *LibraryPath;
-    umm LibraryHandle;
+    u64 LibraryHandle;
     b32 Loaded;
     s64 LastWriteTime;
 };
 
 //~ API
-typedef umm P_context;
+typedef u64  P_context;
 
 internal P_context P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running);
 internal void      P_UpdateImage(P_context Context, app_offscreen_buffer *Buffer);
@@ -225,11 +225,11 @@ PathFromExe(arena *Arena, str8 ExeDirPath, str8 Path)
 {
     char *Result = 0;
     
-    umm Size = ExeDirPath.Size + Path.Size + 1;
+    u64 Size = ExeDirPath.Size + Path.Size + 1;
     
     Result = PushArray(Arena, char, Size);
     
-    umm At = 0;
+    u64 At = 0;
     for EachIndex(Idx, ExeDirPath.Size)
     {
         Result[At] = ExeDirPath.Data[Idx];

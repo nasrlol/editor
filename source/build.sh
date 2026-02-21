@@ -55,7 +55,7 @@ C_Compile()
  GCCFlags="-Wno-cast-function-type -Wno-missing-field-initializers -Wno-int-to-pointer-cast"
 
  Flags="$CommonCompilerFlags $Flags"
- [ "$debug"   = 1 ] && Flags="$Flags $DebugFlags"
+ [ "$debug"   = 1 ] && Flags="$Flags $DebugFlags -DEDITOR_INTERNAL=1"
  [ "$release" = 1 ] && Flags="$Flags $ReleaseFlags"
  [ "$personal" = 1 ] && Flags="$Flags -DEDITOR_PERSONAL=1"
  [ "$slow"     = 1 ] && Flags="$Flags -DEDITOR_SLOW_COMPILE=1"
@@ -92,21 +92,21 @@ printf '[%s compile]\n' "$Compiler"
 if [ "$editor" = 1 ]
 then
  AppFlags="-fPIC --shared" 
- 
+
  LibsFile="../build/editor_libs.o"
 
  # Faster compilation times by compiling all libraries in a separate translation unit.
  if [ "$slow" = 0 ]
  then
-		# If libsfile does not exist or
-		# If compiling with asan but libsfile does not contain asan
-		# If compiling without asan but libsfile contains asan
-		if  { { [ "$asan" = 0 ] && nm "$LibsFile" 2>/dev/null | grep 'asan' > /dev/null; } ||
-						  { [ "$asan" = 1 ] && ! nm "$LibsFile" 2>/dev/null | grep 'asan' > /dev/null; } ||
-						  [ ! -f "$LibsFile" ]; }
-		then
+  # If libsfile does not exist or
+  # If compiling with asan but libsfile does not contain asan
+  # If compiling without asan but libsfile contains asan
+  if { { [ "$asan" = 0 ] && nm "$LibsFile" 2>/dev/null | grep 'asan' > /dev/null; } ||
+     { [ "$asan" = 1 ] && ! nm "$LibsFile" 2>/dev/null | grep 'asan' > /dev/null; } ||
+     [ ! -f "$LibsFile" ]; }
+  then
    C_Compile ./editor/editor_libs.h "$LibsFile" "-fPIC -x c++ -c -DEDITOR_SLOW_COMPILE=1 -Wno-unused-command-line-argument"
-		fi
+  fi
   AppFlags="$AppFlags $LibsFile"
  fi
 
@@ -116,8 +116,8 @@ fi
 
 if [ "$windows" = 1 ]
 then
-	printf 'call C:\BuildTools\devcmd.bat\ncall build.bat\n' | wine cmd.exe 2>/dev/null
-	DidWork=1
+ printf 'call C:\BuildTools\devcmd.bat\ncall build.bat\n' | wine cmd.exe 2>/dev/null
+ DidWork=1
 fi
 
 #- End

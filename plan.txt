@@ -1,0 +1,24 @@
+- center text vertically & horizontally
+- fix text rendering (xoff & leftsidebearing)
+- specify vertical & horizontal padding for text, or maybe don't
+- Spacer
+- Ryan's layout algorithm
+
+- kb_text_shape()
+
+- Strictness
+- Constraints
+- Assertion that the text fits into the rectangle
+		- otherwise clip?
+
+- Shader:
+  - find a way to push a texture for a number of rectangles
+  - then pop when not adding characters anymore
+  - group draw calls with those that need the same texture and those that don't without changing draw order (because foreground&background) 
+  
+
+- Stacks for selecting options like ryan
+
+x Draw background + border + gradient
+x ui_comm from UI_AddBox()
+x draw text from same shader

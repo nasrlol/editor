@@ -10,13 +10,18 @@ typedef struct rect_instance rect_instance;
 struct rect_instance
 {
     rect Dest;
+    rect TexSrc;
+    
     v4 Color0;
     v4 Color1;
     v4 Color2;
     v4 Color3;
     v4 CornerRadii;
+    
     f32 Border;
     f32 Softness;
+    
+    f32 HasTexture;
 };
 NO_STRUCT_PADDING_END
 
@@ -26,6 +31,10 @@ struct font_atlas
     u32 Width;
     u32 Height;
     u8 *Data;
+    
+    f32 HeightPx;
+    f32 FontScale;
+    app_font *Font;
     
     rune FirstCodepoint;
     u32 CodepointsCount;
@@ -37,9 +46,13 @@ struct font_atlas
     stbtt_aligned_quad *AlignedQuads;
 };
 
+// TODO(luca): Remove ?
+struct ui_box;
+
 typedef struct app_state app_state;
 struct app_state
 {
+    // TODO(luca): This is already in the FontAtlas, so it should go away?
     app_font Font;
     font_atlas FontAtlas;
     arena *FontAtlasArena; 
@@ -47,13 +60,60 @@ struct app_state
     f32 HeightPx;
     
     u64 TextCount;
-    rune Text[1024];
+    rune Text[KB(1)];
+    
+    arena *UIArena;
+    u64 UIBoxTableSize;
+    ui_box *UIBoxTable;
     
     s32 CursorPos;
+    
+    // Nils
+    ui_box *TrackerForUI_NilBox;
 };
 
 //~ Globals
-global_variable rect_instance *GlobalRectQuadData;
+global_variable rect_instance *GlobalRectsInstances;
 global_variable s32 GlobalRectsCount;
+
+// X macros
+
+#define U32ToV3Arg(Hex) \
+((f32)((Hex >> 8*2) & 0xFF)/255.0f), \
+((f32)((Hex >> 8*1) & 0xFF)/255.0f), \
+((f32)((Hex >> 8*0) & 0xFF)/255.0f)
+
+#define ColorList \
+SET(Frost0,           0xff8fbcbb) \
+SET(Frost1,           0xff88c0d0) \
+SET(Frost2,           0xff81a1c1) \
+SET(Frost3,           0xff5e81ac) \
+SET(Snow0,            0xffeceff4) \
+SET(Snow1,            0xffe5e9f0) \
+SET(Snow2,            0xffd8dee9) \
+SET(Night0,           0xff4c566a) \
+SET(Night1,           0xff434c5e) \
+SET(Night2,           0xff3b4252) \
+SET(Night3,           0xff2e3440) \
+SET(Red,              0xffbf616a) \
+SET(Orange,           0xffd08770) \
+SET(Yellow,           0xffebcb8b) \
+SET(Green,            0xffa3be8c) \
+SET(Magenta,          0xffb48ead) \
+SET(Black,            0xff000000) \
+
+#define SET(Name, Value) u32 ColorU32_##Name = Value;
+ColorList
+#undef SET
+
+#define SET(Name, Value) v4 Color_##Name = {U32ToV3Arg(Value), 1.f};
+ColorList
+#undef SET
+
+v4 Color_Background = Color_Night3;
+v4 Color_Foreground = Color_Snow0;
+v4 Color_ButtonBorder = Color_Night2;
+v4 Color_ButtonBackground = Color_Night0;
+v4 Color_ButtonText = Color_Black;
 
 #endif //EDITOR_APP_H

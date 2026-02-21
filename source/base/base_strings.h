@@ -1,5 +1,12 @@
 /* date = December 21st 2025 0:25 pm */
 
+#if OS_WINDOWS
+# define RADDBG_MARKUP_IMPLEMENTATION
+#else
+# define RADDBG_MARKUP_STUBS
+#endif
+#include "lib/raddbg_markup.h"
+
 #if !defined(BASE_STRINGS_H)
 #define BASE_STRINGS_H
 
@@ -7,13 +14,13 @@ typedef struct str8 str8;
 struct str8
 {
     u8 *Data;
-    umm Size;
+    u64 Size;
 };
 raddbg_type_view(str8, no_addr(array((char *)Data, Size)));
 
 internal str8 S8SkipLastSlash(str8 String);
 internal b32  S8Match(str8 A, str8 B, b32 AIsPrefix);
-internal umm  StringLength(char *String);
+internal u64  StringLength(char *String);
 
 #if LANG_CPP
 # define S8Cast str8

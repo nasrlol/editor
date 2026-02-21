@@ -7,42 +7,8 @@
 #include "editor_random.h"
 #include "editor_libs.h"
 #include "editor_gl.h"
+#include "editor_ui.h"
 #include "editor_app.h"
-
-#define U32ToV3Arg(Hex) \
-((f32)((Hex >> 8*2) & 0xFF)/255.0f), \
-((f32)((Hex >> 8*1) & 0xFF)/255.0f), \
-((f32)((Hex >> 8*0) & 0xFF)/255.0f)
-
-#define ColorList \
-SET(Text,             0xff87bfcf) \
-SET(Point,            0xff00ffff) \
-SET(Cursor,           0xffff0000) \
-SET(Button,           0xff0172ad) \
-SET(ButtonHovered,    0xff017fc0) \
-SET(ButtonPressed,    0xff0987c8) \
-SET(ButtonText,       0xfffbfdfe) \
-SET(Foreground,       0xffd8dee9) \
-SET(Background,       0xff13171f) \
-SET(BackgroundSecond, 0xff3a4151) \
-SET(White,            0xffe5e9f0) \
-SET(Black,            0xff3b4252) \
-SET(Gray,             0xff4c566a) \
-SET(Blue,             0xff81a1c1) \
-SET(Cyan,             0xff88C0D0) \
-SET(Red,              0xffbf616a) \
-SET(Green,            0xffa3be8c) \
-SET(Orange,           0xffd08770) \
-SET(Magenta,          0xffb48ead) \
-SET(Yellow,           0xffebcb8b)
-
-#define SET(Name, Value) u32 ColorU32_##Name = Value;
-ColorList
-#undef SET
-
-#define SET(Name, Value) v4 Color_##Name = {U32ToV3Arg(Value), 1.f};
-ColorList
-#undef SET
 
 internal app_offscreen_buffer
 LoadImage(arena *Arena, str8 ExeDirPath, str8 Path)
@@ -122,6 +88,10 @@ InitAtlas(arena *Arena, app_font *Font, font_atlas *Atlas, f32 HeightPx)
     Atlas->PackedChars = PushArray(Arena, stbtt_packedchar, Size);
     Atlas->AlignedQuads = PushArray(Arena, stbtt_aligned_quad, Size);
     
+    Atlas->HeightPx = HeightPx;
+    Atlas->FontScale = stbtt_ScaleForPixelHeight(&Font->Info, HeightPx);
+    Atlas->Font = Font;
+    
     stbtt_pack_context ctx;
     {
         stbtt_PackBegin(&ctx, 
@@ -146,36 +116,13 @@ InitAtlas(arena *Arena, app_font *Font, font_atlas *Atlas, f32 HeightPx)
     
 }
 
-void
-DrawChar(font_atlas *Atlas, v2 *Positions, v2 *TexCoords, s32 *VerticesCount, 
-         v2 Pos, rune Codepoint)
-{
-    rune CharIdx = Codepoint - Atlas->FirstCodepoint;
-    
-    v2 *Position = Positions + *VerticesCount;
-    v2 *TexCoord = TexCoords + *VerticesCount;
-    *VerticesCount += 6;
-    
-    stbtt_packedchar *PackedChar = &Atlas->PackedChars[CharIdx];
-    f32 Width = (PackedChar->x1 - PackedChar->x0)*Atlas->PixelScaleWidth;
-    f32 Height = (PackedChar->y1 - PackedChar->y0)*Atlas->PixelScaleHeight;
-    {
-        v2 Min = Pos;
-        Min.X += (PackedChar->xoff)*Atlas->PixelScaleWidth;
-        Min.Y -= (PackedChar->yoff)*Atlas->PixelScaleHeight;
-        v2 Max = V2(Min.X + Width, Min.Y - Height);
-        MakeQuadV2(Position, Min, Max);
-    }
-    
-    stbtt_aligned_quad *Quad = &Atlas->AlignedQuads[CharIdx]; // '!'
-    MakeQuadV2(TexCoord, V2(Quad->s0, Quad->t0), V2(Quad->s1, Quad->t1));
-}
-
 internal rect_instance *
 DrawRect(rect Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
 {
-    rect_instance *Result = GlobalRectQuadData + GlobalRectsCount;
+    rect_instance *Result = GlobalRectsInstances + GlobalRectsCount;
     GlobalRectsCount += 1;
+    
+    MemoryZero(Result);
     
     Result->Dest = Dest;
     Result->Color0 = Color;
@@ -192,6 +139,50 @@ DrawRect(rect Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softnes
     return Result;
 }
 
+internal rect_instance *
+DrawRectChar(font_atlas *Atlas, v2 Pos, rune Codepoint, v4 Color)
+{
+    rect_instance *Result = GlobalRectsInstances + GlobalRectsCount;
+    GlobalRectsCount += 1;
+    
+    MemoryZero(Result);
+    
+    // NOTE(luca): Evereything happens in pixel coordinates in here.
+    
+    rune CharIdx = Codepoint - Atlas->FirstCodepoint;
+    stbtt_packedchar *PackedChar = &Atlas->PackedChars[CharIdx];
+    f32 Width = (PackedChar->x1 - PackedChar->x0);
+    f32 Height = (PackedChar->y1 - PackedChar->y0);
+    {    
+        v2 Min = Pos;
+        Min.X += (PackedChar->xoff);
+        f32 Baseline = GetBaseline(Atlas->Font, Atlas->FontScale);
+        f32 Descent = (f32)Atlas->Font->Descent*Atlas->FontScale;
+        Min.Y += (PackedChar->yoff) + Baseline + Descent;
+        
+        v2 Max = V2(Min.X + Width, Min.Y + Height);
+        
+        Result->Dest = Rect(Min.X, Min.Y, Max.X, Max.Y);
+        
+        stbtt_aligned_quad *Quad = &Atlas->AlignedQuads[CharIdx];
+        Result->TexSrc = Rect(Quad->s0, Quad->t0, Quad->s1, Quad->t1);
+    }
+    
+    Result->Color0 = Color;
+    Result->Color1 = Color;
+    Result->Color2 = Color;
+    Result->Color3 = Color;
+    Result->HasTexture = true;
+    
+#if 0    
+    DrawRect(Result->Dest, V4(0.f, 0.f, 1.f, 1.f), 0.f, 1.f, 0.f);
+#endif
+    
+    return Result;
+}
+
+#include "editor_ui.cpp"
+
 C_LINKAGE
 UPDATE_AND_RENDER(UpdateAndRender)
 {
@@ -204,6 +195,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     GlobalPerfCountFrequency = Memory->PerfCountFrequency;
 #endif
     
+    ui_box *UI_Boxes;
     arena *PermanentArena, *FrameArena;
     app_state *App;
     {    
@@ -238,8 +230,16 @@ UPDATE_AND_RENDER(UpdateAndRender)
         App->TextCount = 0;
         App->CursorPos = 0;
         
+        App->UIBoxTableSize = 4096;
+        App->UIBoxTable = PushArray(PermanentArena, ui_box, App->UIBoxTableSize);
+        App->UIArena = PushArena(PermanentArena, 256*sizeof(ui_box));
+        
+        App->TrackerForUI_NilBox = &_UI_NilBox;
+        
         Memory->Initialized = true;
     }
+    
+    UI_NilBox = App->TrackerForUI_NilBox;
     
     // Text input
     for EachIndex(Idx, Input->Text.Count)
@@ -253,7 +253,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             
             if(Key.Modifiers & PlatformKeyModifier_Alt && Key.Codepoint == 'b')
             {
-                DebugBreak;
+                DebugBreak();
             }
             
             if(Key.Modifiers == PlatformKeyModifier_Control)
@@ -278,11 +278,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 }
                 else if(Key.Codepoint == '+')
                 {
-                    App->HeightPx++;
+                    App->HeightPx += 1.f;
                 }
                 else if(Key.Codepoint == '-')
                 {
-                    App->HeightPx--;
+                    App->HeightPx -= 1.f;
                 }
                 else if(Key.Codepoint == '0')
                 {
@@ -316,7 +316,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     gl_handle VAOs[2] = {};
     gl_handle VBOs[3] = {};
     gl_handle Textures[2] = {};
-    gl_handle SoftwareShader, TextShader, RectShader;
+    gl_handle SoftwareShader, RectShader;
     glGenVertexArrays(ArrayCount(VAOs), &VAOs[0]);
     glGenBuffers(ArrayCount(VBOs), &VBOs[0]);
     glGenTextures(ArrayCount(Textures), &Textures[0]);
@@ -324,7 +324,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     glViewport(0, 0, Buffer->Width, Buffer->Height);
     
-    v4 BackgroundColor = Color_BackgroundSecond;
+    v4 BackgroundColor = Color_Night3;
     
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -334,18 +334,19 @@ UPDATE_AND_RENDER(UpdateAndRender)
     glClearColor(BackgroundColor.X, BackgroundColor.Y, BackgroundColor.Z, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    s32 WindowBorderSize = 2;
+    f32 WindowBorderSize = 2.f;
     v4 WindowBorderColor;
     
     if(0) {}
     else if(Input->PlatformIsRecording) WindowBorderColor = Color_Red;
     else if(Input->PlatformIsPlaying) WindowBorderColor = Color_Green;
-    else if(Input->PlatformWindowIsFocused) WindowBorderColor = Color_Foreground;
-    else WindowBorderColor = Color_Background;
+    else if(Input->PlatformWindowIsFocused) WindowBorderColor = Color_Snow0;
+    else WindowBorderColor = Color_Night3;
     
     //- Prepare rects rendering 
-    u64 BufferMaxSize = KB(1)/sizeof(f32);
+    u64 BufferMaxSize = KB(40)/sizeof(f32);
     f32 *RectsBufferData = PushArray(FrameArena, f32, BufferMaxSize);
+    // TODO(luca): These should go in the vertex shader as a constant.
     f32 QuadPosData[] =
     {
         -1.f, +1.f,
@@ -356,150 +357,96 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     MemoryCopy(RectsBufferData, QuadPosData, sizeof(QuadPosData));
     GlobalRectsCount = 0;
-    GlobalRectQuadData = (rect_instance *)(RectsBufferData + ArrayCount(QuadPosData));
+    GlobalRectsInstances = (rect_instance *)(RectsBufferData + ArrayCount(QuadPosData));
     
-    //- Render text (rasterized on CPU)
-    app_offscreen_buffer TextImage;
-    {    
-        TextImage.Width = Buffer->Width - WindowBorderSize;
-        TextImage.Height = Buffer->Height - WindowBorderSize;
-        TextImage.BytesPerPixel = Buffer->BytesPerPixel;
-        TextImage.Pitch = TextImage.BytesPerPixel*TextImage.Width;
-        u64 Size = TextImage.BytesPerPixel*(TextImage.Width*TextImage.Height);
-        TextImage.Pixels = PushArray(FrameArena, u8, Size);
-        MemorySet(TextImage.Pixels, 0, Size);
-    }
-    
-    v2 *TextTexCoords = 0;
-    v2 *TextPositions = 0;
-    s32 TextVerticesCount = 0;
+    //- Draw text
     
     if(App->Font.Initialized)
     {
-        s32 QuadCount = 6;
-        s32 MaxVerticesCount = QuadCount*1024;
-        TextPositions = PushArray(FrameArena, v2, MaxVerticesCount);
-        TextTexCoords = PushArray(FrameArena, v2, MaxVerticesCount);
-        
         if(App->PreviousHeightPx != App->HeightPx)
         {
             App->PreviousHeightPx = App->HeightPx;
             InitAtlas(App->FontAtlasArena, &App->Font, &App->FontAtlas, App->HeightPx);
         }
-        
-        // NOTE(luca): Should these be minus border size?
-        Atlas->PixelScaleHeight = (2.0f / (f32)(Buffer->Height));
-        Atlas->PixelScaleWidth  = (2.0f / (f32)(Buffer->Width));
-        
-        f32 StartX = ((f32)WindowBorderSize*Atlas->PixelScaleWidth + -1.0f);
-        
-        str8 Text = {.Data = (u8 *)App->Text, .Size = App->TextCount};
-        
-        f32 MaxWidth = -StartX + 1.0f;
-        f32 CumulatedWidth = 0;
-        u64 StartIdx = 0;
-        // NOTE(luca): Monospace, all widths will be the same.
-        f32 CharWidth = (Atlas->PackedChars[0].xadvance)*Atlas->PixelScaleWidth;
-        f32 CharHeight = (Atlas->PixelScaleHeight*App->HeightPx);
-        
-        v2 Offset = V2(StartX, (1.0f - CharHeight));
-        
-        for EachIndex(Idx, App->TextCount)
-        {
-            CumulatedWidth += CharWidth;
-            
-            if(App->Text[Idx] == L'\n')
-            {
-                CumulatedWidth = 0.0f;
-                // Wrap()
-                {
-                    Offset.X = StartX;
-                    Offset.Y -= CharHeight;
-                }
-                
-                StartIdx = Idx + 1;
-            }
-            else if(CumulatedWidth > MaxWidth)
-            {
-                // TODO(luca): We should search backwards for a whitespace instead.
-                CumulatedWidth = 0;
-                
-                // Wrap()
-                {
-                    Offset.X = StartX;
-                    Offset.Y -= CharHeight;
-                }
-                
-                // We go back one to draw the character we wrapped on.
-                StartIdx = Idx;
-                Idx -= 1;
-            }
-            else
-            {
-                DrawChar(Atlas, TextPositions, TextTexCoords, &TextVerticesCount, Offset, App->Text[Idx]);
-                Offset.X += CharWidth;
-            }
-        }
-        
-        v2 Pos = Offset;
-        DrawChar(Atlas, TextPositions, TextTexCoords, &TextVerticesCount, Pos, L'_');
     }
+    
+    v2 BufferDim = V2S32(Buffer->Width, Buffer->Height);
     
     // Draw rectangles 
     {
         f32 Time = (f32)OS_GetWallClock();
         // Window borders
         {
-            rect Dest = RectFromSize(V2(0.f, 0.f), V2S32(Buffer->Width, Buffer->Height));
-            rect_instance *Inst = DrawRect(Dest, WindowBorderColor, 0.f, (f32)WindowBorderSize, 0.f);
+            rect Dest = RectFromSize(V2(0.f, 0.f), BufferDim);
+            rect_instance *Inst = DrawRect(Dest, WindowBorderColor, 0.f, WindowBorderSize, 0.f);
             Inst->Color0 = WindowBorderColor;
             Inst->Color1.W = 0.2f;
             Inst->Color2.W = 0.2f;
             Inst->Color3 = WindowBorderColor;
         }
-        
-#if 0        
-        // Demo rectangles
-        {
-            rect Dest = RectFromSize(V2(80.f, 80.f), V2(100.f, 60.f));
-            rect ShadowDest = Dest;
-            
-            f32 ShadowPx = 4.f;
-            V2Math
-            {
-                ShadowDest.Min.E += ShadowPx/2.f - ShadowPx;
-                ShadowDest.Max.E += ShadowPx/2.f + ShadowPx;
-            }
-            rect_instance *ShadowInst = DrawRect(ShadowDest, V4(0.f, 0.f, 0.f, 1.f), 0.8f, 0.f, ShadowPx);
-            
-            rect_instance *Inst = DrawRect(Dest, Color_Yellow, 8.f, 0.f, 1.f);
-            ShadowInst->CornerRadii = Inst->CornerRadii;
-            
-            Inst->Color2.W = 0.4f;
-            Inst->Color3.W = 0.4f;
-            Inst->Color0.W = 0.8f;
-            Inst->Color1.W = 0.8f;
-            
-            if(IsInsideRec((f32)Input->MouseX, (f32)Input->MouseY, Dest))
-            {
-                Inst->Color0.W = 0.9f;
-                Inst->Color1.W = 0.9f;
-                if(Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
-                {
-                    Inst->Color0.W = 1.f;
-                    Inst->Color1.W = 1.f;
-                }
-            }
-            
-            DrawRect(RectFromSize(V2(283.f, 400.f), V2(396.f, 1.f)), Color_Red, 0.f, 0.f, 0.f);
-            DrawRect(RectFromSize(V2(280.f, 300.f), V2(200.f, 200.f)), Color_Blue, 100.f, 2.f, 1.f);
-            DrawRect(RectFromSize(V2(380.f, 300.f), V2(200.f, 200.f)), Color_Orange, 100.f, 2.f, 1.f);
-            DrawRect(RectFromSize(V2(480.f, 300.f), V2(200.f, 200.f)), Color_Green, 100.f, 2.f, 1.f);
-            
-        }
-#endif
-        
     }
+    
+    // TODO(luca): Titlebar
+    // Open | Save                                                   Close
+    
+    ui_box *Root = PushStructZero(FrameArena, ui_box);
+    
+    Root->FixedPosition = V2(0.f, 0.f);
+    Root->FixedSize = BufferDim;
+    Root->FixedPosition = V2AddF32(Root->FixedPosition, WindowBorderSize);
+    Root->FixedSize = V2SubF32(Root->FixedSize, 2.f*WindowBorderSize);
+    
+    UI_Root = Root;
+    UI_Current = Root;
+    UI_Input = Input;
+    UI_BoxTableSize = App->UIBoxTableSize;
+    UI_BoxTable = App->UIBoxTable;
+    UI_BoxArena = App->UIArena;
+    UI_Atlas = &App->FontAtlas;
+    
+    // TODO(luca): 
+    //1. Have a hash table
+    //2. Have a frame index
+    //3. If box wasn't touched in this iteration, evict from hash table?
+    //4. You can get the previous size and position from this hash table.
+    
+    Root->Parent = Root->First = Root->Next = Root->Last = UI_NilBox;
+    
+    ui_size Size[Axis2_Count] = {};
+    
+    u32 Flags = (UI_BoxFlag_DrawBorders | UI_BoxFlag_DrawBackground |
+                 UI_BoxFlag_DrawDisplayString |
+                 UI_BoxFlag_CenterTextHorizontally | UI_BoxFlag_CenterTextVertically );
+    
+    UI_PushBox();
+    Size[Axis2_X] = {UI_SizeKind_PercentOfParent, 1.f, 1.f};
+    Size[Axis2_Y] = {UI_SizeKind_TextContent, 50.f, 1.f};
+    UI_AddBox(S8("titlebar"), (Flags ^ 
+                               UI_BoxFlag_DrawDisplayString ^ 
+                               UI_BoxFlag_DrawBackground), Size);
+    UI_PushBox();
+    
+    Size[Axis2_X] = {UI_SizeKind_Pixels, 80.f, 1.f}; 
+    Size[Axis2_X] = {UI_SizeKind_PercentOfParent, 1.0f/3.f, 1.f}; 
+    
+    Size[Axis2_Y] = {UI_SizeKind_TextContent, 50.f, 1.f}; 
+    u32 ButtonFlags = (Flags | 
+                       UI_BoxFlag_AnimateColorOnHover |
+                       UI_BoxFlag_AnimateColorOnPress);
+    UI_AddBox(S8("Open"), ButtonFlags, Size);
+    UI_AddBox(S8("Save"), ButtonFlags, Size);
+    // TODO(luca): Spacer
+    if(UI_AddBox(S8("Close"), ButtonFlags, Size)->Clicked)
+    {
+        ShouldQuit = true;
+    }
+    UI_PopBox();
+    
+    // TODO(luca): 
+    //UI_SetNextAxis(Axis2_Y);
+    //UI_AddBox(S8("Textarea"), UI_BoxFlag_DrawBorders, Size);
+    
+    UI_DrawBoxes(Root);
     
     //- Rendering 
     
@@ -514,7 +461,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
         // Uniforms
         {
             gl_handle UViewport = glGetUniformLocation(RectShader, "Viewport");
-            glUniform2f(UViewport, (f32)(Buffer->Width), (f32)(Buffer->Height));
+            glUniform2f(UViewport, V2Arg(BufferDim));
+            
+            gl_LoadTextureFromImage(Textures[0], Atlas->Width, Atlas->Height, Atlas->Data, GL_RED, RectShader, "Texture");
+            
+            
         }
         
         glBindBuffer(GL_ARRAY_BUFFER, VBOs[2]);
@@ -529,32 +480,18 @@ UPDATE_AND_RENDER(UpdateAndRender)
         u64 Offset = ArrayCount(QuadPosData);
         
         // TODO(luca): Metaprogram
-        s32 Counts[] = {4, 4,4,4,4, 4, 1,1};
+        s32 Counts[] = {4,4, 4,4,4,4, 4, 1,1, 1};
+        
+        s32 TotalSize = 0;
         for EachElement(Idx, Counts)
         {            
             gl_SetQuadAttribute((s32)Idx + 1, Counts[Idx], &Offset);
+            TotalSize += Counts[Idx];
         }
+        Assert(TotalSize == (sizeof(rect_instance)/sizeof(f32)));
         
         glEnable(GL_MULTISAMPLE);
         glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GlobalRectsCount);
-    }
-    
-    // Render text
-    {
-        glBindVertexArray(VAOs[1]);
-        TextShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
-                                           S8("../source/shaders/text_vert.glsl"),
-                                           S8("../source/shaders/text_frag.glsl"));
-        glUseProgram(TextShader);
-        
-        gl_LoadTextureFromImage(Textures[0], Atlas->Width, Atlas->Height, Atlas->Data, GL_RED, TextShader);
-        gl_LoadFloatsIntoBuffer(VBOs[0], TextShader, "pos", TextVerticesCount, 2, TextPositions);
-        gl_LoadFloatsIntoBuffer(VBOs[1], TextShader, "tex", TextVerticesCount, 2, TextTexCoords);
-        gl_handle UTextColor = glGetUniformLocation(TextShader, "TextColor"); 
-        glUniform4f(UTextColor, 0.f, 0.f, 0.f, 1.0f);
-        
-        glDisable(GL_MULTISAMPLE);
-        glDrawArrays(GL_TRIANGLES, 0, TextVerticesCount);
     }
     
     // Cleanup
@@ -562,7 +499,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glDeleteVertexArrays(ArrayCount(VAOs), &VAOs[0]);
         glDeleteTextures(ArrayCount(Textures), &Textures[0]);
         glDeleteBuffers(ArrayCount(VBOs), &VBOs[0]);
-        glDeleteProgram(TextShader);
         glDeleteProgram(RectShader);
     }
     

@@ -91,7 +91,7 @@ gl_LoadFloatsIntoBuffer(gl_handle BufferHandle, gl_handle ShaderHandle, char *At
 }
 
 internal void
-gl_LoadTextureFromImage(gl_handle Texture, s32 Width, s32 Height, u8 *Image, s32 Format, gl_handle ShaderProgram)
+gl_LoadTextureFromImage(gl_handle Texture, s32 Width, s32 Height, u8 *Image, s32 Format, gl_handle ShaderProgram, char *TextureHandle)
 {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, Texture);
@@ -117,7 +117,7 @@ gl_LoadTextureFromImage(gl_handle Texture, s32 Width, s32 Height, u8 *Image, s32
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, Color);
 #endif
     
-    gl_handle UTexture = glGetUniformLocation(ShaderProgram, "Texture"); 
+    gl_handle UTexture = glGetUniformLocation(ShaderProgram, TextureHandle); 
     glUniform1i(UTexture, 0);
 }
 

@@ -63,7 +63,7 @@ OS_ReadEntireFileIntoMemory(char *FileName)
             int Error = fstat(File, &StatBuffer);
             AssertErrno(Error != -1);
             
-            Result.Size = (umm)StatBuffer.st_size;
+            Result.Size = (u64 )StatBuffer.st_size;
             
             if(Result.Size != 0)
             {                
@@ -75,7 +75,7 @@ OS_ReadEntireFileIntoMemory(char *FileName)
         }
         else
         {
-            DebugBreak;
+            DebugBreak();
             ErrorLog("Could not read file '%s', " ERRNO_FMT, FileName, ERRNO_ARG);
         }
         
@@ -149,7 +149,7 @@ OS_SetThreadName(str8 ThreadName)
 }
 
 internal void *
-OS_Allocate(umm Size)
+OS_Allocate(u64  Size)
 {
     void *Result = mmap(0, Size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
     return Result;
@@ -241,7 +241,7 @@ LinuxSetDebuggerAttached()
     u8 FileBuffer[KB(2)] = {0};
     int File = open("/proc/self/status", O_RDONLY);
     smm Size = read(File, FileBuffer, sizeof(FileBuffer));
-    str8 Out = {FileBuffer, (umm)Size};
+    str8 Out = {FileBuffer, (u64 )Size};
     
     str8 TracerPidKey = S8("TracerPid:\t");
     
@@ -300,7 +300,7 @@ LinuxMainEntryPoint(int ArgsCount, char **Args)
     s64 ThreadsCount = get_nprocs();
 #endif
     
-    os_thread *Threads = PushArray(Arena, os_thread, (umm)ThreadsCount);
+    os_thread *Threads = PushArray(Arena, os_thread, (u64 )ThreadsCount);
     s32 Ret = 0;
     
     Ret = prctl(PR_SET_NAME, ThreadName);

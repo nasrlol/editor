@@ -10,6 +10,15 @@
 # include "editor_platform_windows.cpp"
 #endif
 
+#if OS_WINDOWS
+# define RADDBG_MARKUP_IMPLEMENTATION
+#else
+# define RADDBG_MARKUP_STUBS
+#endif
+#include "lib/raddbg_markup.h"
+
+read_only global_variable u8 ReadOnlyMemoryBlock[KB(4)];
+
 C_LINKAGE ENTRY_POINT(EntryPoint)
 {
     if(LaneIdx() == 0)
@@ -65,6 +74,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         app_memory AppMemory = {};
         AppMemory.MemorySize = AppMemorySize;
         AppMemory.Memory = ArenaPush(PermanentArena, AppMemory.MemorySize, false);
+        
         AppMemory.ExeDirPath = ExeDirPath;
 #if EDITOR_INTERNAL
         AppMemory.IsDebuggerAttached = GlobalDebuggerIsAttached;
@@ -115,7 +125,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         OS_ProfileInit("P");
         while(*Running)
         {
-            umm CPUBackPos = BeginScratch(FrameArena);
+            u64 CPUBackPos = BeginScratch(FrameArena);
             
             OS_ProfileAndPrint("InitSetup");
             
@@ -199,7 +209,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                         }
                         else
                         {
-                            InvalidPath;
+                            InvalidPath();
                         }
                         Log("Playing/Recording %d/%d\n", IsPlaying, IsRecording);
                     }

@@ -46,7 +46,7 @@ internal b32   OS_WriteEntireFile(char *FileName, str8 File);
 internal void  OS_PrintFormat(char *Format, ...);
 internal void  OS_BarrierWait(barrier Barrier);
 internal void  OS_SetThreadName(str8 ThreadName);
-internal void *OS_Allocate(umm Size);
+internal void *OS_Allocate(u64  Size);
 internal void  OS_BarrierWait(barrier Barrier);
 internal f64   OS_GetWallClock(void);
 internal void  OS_Sleep(u32 MicroSeconds);

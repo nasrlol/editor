@@ -15,3 +15,6 @@ platform:
 Archived:
  platform:
  x loop editing
+ windows:
+ x editor_libs.o in .bat script
+ x rename to editor.exe

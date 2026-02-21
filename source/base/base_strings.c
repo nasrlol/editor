@@ -3,7 +3,7 @@
 internal str8 
 S8SkipLastSlash(str8 String)
 {
-	umm LastSlash = 0;
+	u64 LastSlash = 0;
 	for EachIndex(i, String.Size)
 	{
 		if(String.Data[i] == '/')
@@ -42,10 +42,10 @@ S8Match(str8 A, str8 B, b32 AIsPrefix)
     return Match;
 }
 
-internal umm
+internal u64
 StringLength(char *String)
 {
-    umm Result = 0;
+    u64 Result = 0;
     
     while(*String)
     {
@@ -53,5 +53,59 @@ StringLength(char *String)
         Result += 1;
     }
     
+    return Result;
+}
+
+internal str8
+StringCat(arena *Arena, str8 Prefix, str8 Suffix)
+{
+    str8 Result = PushS8(Arena, Prefix.Size + Suffix.Size);
+    
+    for EachIndex(Idx, Prefix.Size)
+    {
+        Result.Data[Idx] = Prefix.Data[Idx];
+    }
+    
+    for EachIndex(Idx, Suffix.Size)
+    {
+        Result.Data[Idx] = Suffix.Data[Idx];
+    }
+    
+    return Result;
+}
+
+internal str8
+StringFormat(arena *Arena, char *Format, ...)
+{
+    str8 Result = {0};
+    
+    Result.Data = PushArray(Arena, u8, 256);
+    
+    va_list Args;
+    va_start(Args, Format);
+    
+    Result.Size = vsprintf((char *)Result.Data, Format, Args);
+    
+    return Result;
+}
+
+#if !defined(XXH_IMPLEMENTATION)
+# define XXH_INLINE_ALL
+# define XXH_IMPLEMENTATION
+# define XXH_STATIC_LINKING_ONLY
+# include "lib/xxHash/xxhash.h"
+#endif
+
+internal u64
+U64HashFromSeedStr8(u64 Seed, str8 String)
+{
+    u64 Result = XXH3_64bits_withSeed(String.Data, String.Size, Seed);
+    return Result;
+}
+
+internal u64
+U64HashFromStr8(str8 String)
+{
+    u64 Result = U64HashFromSeedStr8(5381, String);
     return Result;
 }

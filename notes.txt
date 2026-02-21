@@ -1,0 +1,89 @@
+# Ryan UI series
+##  Part 1
+
+The user must be able to map inputs to outputs, the machine must map inputs to outputs.
+
+Builder code vs Core code.
+Builder code is used way more often so it must remain small and simple.
+
+Core provides common codepaths.
+Escape hatches provide code for fastpaths and program specific needs.
+
+## Part 2
+
+Immediate mode removes a lot of (unecessary) code paths.
+
+Uniformity is more present in UIs that lots of different widgets.
+
+You can select a global variable that you use often to reduce the number of parameters a function takes.
+
+Layouts have behavior similar to widgets so they can be unified.
+
+Use the previous frame's information to do autolayout pass.
+
+Animation data can be kept on the core side.
+
+## Part 3
+
+Some widgets have overlapping features with others, so they shouldn't be exclusive.
+
+# Part 4
+
+
+# Part 5
+We cannot cache empty string nodes, since you could have multiple of them.
+-> Disable caching for them by mapping an empty string to a null id
+
+The keying mechanism is only used for interactions.
+
+# Part 7
+The user interaction of the UI element dictates the builder code.
+The builder code will have the mapping with the state management requirements already, so it should not go into the core.
+
+Important state management actions can be deferred to a command list to avoid bugs.
+
+
+# Part 8
+
+# Questions 
+What bout DPI?
+(Part 2)
+ What are self-correcting exponential animation curves
+
+
+It’s also possible to have rules that change the way the hash is seeded. In the above example, it may be interesting to try seeding the hash by the previous sibling’s seed. It’s also often desirable to seed the hash with the parent key’s hash as well. There’s a tradeoff to these tricks, however, which is that it becomes more difficult to generate a key “out-of-context”, but this may be mitigated by offering an explicit “opt-out-of-hash-seed-tricks” path in the API.
+
+How are nodes touched?
+
+(Part 3)
+Bypassing text-truncation with ellipses?
+
+(Part 4)
+Look at raddbg for tooltips and dropdown and how their hierarchies are prebuilt.
+
+(Part 5)
+Why would you not identify your spacers?
+-> Because that's the common case
+
+One alternative approach might be to systematically generate spacer IDs, but this has the familiar issues of uniquely identifying one particular call in a frame across multiple frames
+
+
+
+# Misc
+The Design of Everyday Things by Don Norman
+
+What this means is that any given layout is nested within another (or, alternatively, it’s the root layout).
+
+Mathis was right that specifying pixel coordinates is cumbersome.
+
+Check out which skills ryan feels like are rotting.
+
+Check out all the code snippets against the raddbg codebase.
+
+Please ryan use videos instead of gifs.
+
+Try this out.
+For example, if I want to make a button appear embossed when it is hovered by the user, I can render a gradient that fades from semi-transparent white on the top vertices to full-transparency on the bottom vertices. To make the same button appear debossed, I can render gradients that fade from a semi-transparent black to full-transparency to emulate shadows on the edge of the button, to make it appear “pressed”:
+
+https://dqfft.github.io/DirectWrite-quick-start/
+https://mr4th.com/blog/reference-dynamic-linking

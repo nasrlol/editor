@@ -22,7 +22,7 @@ struct app_font
 //~ API
 
 internal f32
-GetBaseLine(app_font *Font, f32 Scale)
+GetBaseline(app_font *Font, f32 Scale)
 {
     f32 Result = Scale*(f32)(Font->Ascent - Font->Descent + Font->LineGap);
     return Result;
@@ -55,13 +55,6 @@ InitFont(app_font *Font, char *FilePath)
     {
         // TODO(luca): Logging
     }
-}
-
-internal f32
-Lerp(f32 A, f32 B, f32 t)
-{
-    f32 Result = A*t + B*(1-t);
-    return Result;
 }
 
 //- Rendering 
@@ -189,7 +182,7 @@ DrawText(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font,
     }
     else
     {
-        DebugBreak;
+        DebugBreak();
     }
     
 }
@@ -289,7 +282,7 @@ DrawTextInBox(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font,
         }
     }
     
-    f32 YAdvance = GetBaseLine(Font, FontScale);
+    f32 YAdvance = GetBaseline(Font, FontScale);
     v2 TextOffset = BoxMin;
     TextOffset.Y += YAdvance;
     

@@ -36,7 +36,7 @@
 
 internal Token *ParseBuffer(app_state *app, arena *Arena)
 {
-
+    
     /*
      * Lets say we have a line \\ int main() { return 0; }
      * this line shows that a function has a return type, a name, braces
@@ -46,7 +46,7 @@ internal Token *ParseBuffer(app_state *app, arena *Arena)
      * now the tricky part about c is that most things are seperated by spaces but not all
      * T value = {0}; \\ this for example is allowed.
      **/
-
+    
     /*
      * TODO(nasr): think about the new lines,
      * a new line doesnt define a new branch or scope of syntax
@@ -57,18 +57,18 @@ internal Token *ParseBuffer(app_state *app, arena *Arena)
     /**
      * I think i misunderstood the difference between a parser and a lexer
      **/
-
+    
     Token *FirstToken = 0;
     Token *LastToken = 0;
-
+    
     s32 TextIndex = 0;
     s32 Line = 1;
     s32 Column = 1;
-
+    
     while(TextIndex < app->TextCount)
     {
         rune CurrentChar = app->Text[TextIndex];
-
+        
         // NOTE(nasr): skip whitespace but track position
 #if !defined(OS_WINDOWS)
         while(TextIndex < app->TextCount &&
@@ -91,16 +91,16 @@ internal Token *ParseBuffer(app_state *app, arena *Arena)
             TextIndex += 1;
             if(TextIndex < app->TextCount) { CurrentChar = app->Text[TextIndex]; }
         }
-
+        
         if(TextIndex >= app->TextCount)
         {
             break;
         }
-
+        
         s32 TokenStart = TextIndex;
         s32 TokenStartColumn = Column;
         b32 IsDelimiter = false;
-
+        
         // NOTE(nasr): check if current char is a delimiter
         for(s32 DelimiterIndex = 0; DelimiterIndex < ArrayCount(Delimiters); ++DelimiterIndex)
         {
@@ -110,9 +110,9 @@ internal Token *ParseBuffer(app_state *app, arena *Arena)
                 break;
             }
         }
-
+        
         s32 TokenEnd = TextIndex;
-
+        
         if(IsDelimiter)
         {
             TokenEnd = TextIndex + 1;
@@ -124,12 +124,12 @@ internal Token *ParseBuffer(app_state *app, arena *Arena)
             while(TextIndex < app->TextCount)
             {
                 CurrentChar = app->Text[TextIndex];
-
+                
                 if(CurrentChar == ' ' || CurrentChar == '\t' || CurrentChar == '\n' || CurrentChar == '\r')
                 {
                     break;
                 }
-
+                
                 b32 IsDelimiter = false;
                 for(s32 DelimiterIndex = 0; DelimiterIndex < ArrayCount(Delimiters); ++DelimiterIndex)
                 {
@@ -139,38 +139,38 @@ internal Token *ParseBuffer(app_state *app, arena *Arena)
                         break;
                     }
                 }
-
+                
                 if(IsDelimiter)
                 {
                     break;
                 }
-
+                
                 TextIndex += 1;
                 Column += 1;
             }
-
+            
             TokenEnd = TextIndex;
         }
-
+        
         s32 TokenSize = TokenEnd - TokenStart;
         if(TokenSize > 0)
         {
             Token *NewToken = PushStruct(Arena, Token);
-
+            
             u8 *TokenStr = PushArray(Arena, u8, TokenSize + 1);
             for(s32 i = 0; i < TokenSize; ++i)
             {
                 TokenStr[i] = (u8)app->Text[TokenStart + i];
             }
             TokenStr[TokenSize] = 0;
-
+            
             NewToken->Lexeme.Data = TokenStr;
             NewToken->Lexeme.Size = TokenSize;
             NewToken->Line = Line;
             NewToken->Column = TokenStartColumn;
             NewToken->Type = TokenInvalid;
             NewToken->Next = 0;
-
+            
             if(LastToken)
             {
                 LastToken->Next = NewToken;
@@ -182,10 +182,10 @@ internal Token *ParseBuffer(app_state *app, arena *Arena)
                 LastToken = NewToken;
             }
         }
-
+        
         TextIndex = TokenEnd;
     }
-
+    
     return FirstToken;
 }
 
@@ -197,21 +197,21 @@ internal Token *ParseBuffer(app_state *app, arena *Arena)
 
 internal Token *Tokenize(str8 ParsedWord, arena *Arena)
 {
-
+    
     /* NOTE(nasr):
      * maybe put the tokenizing in a seperate function
      * no need for doing that at the moment */
-
+    
     Token *TokenOut = PushStruct(Arena, Token);
-
+    
     TokenOut->Type   = TokenInvalid;
     TokenOut->Lexeme = ParsedWord;
     TokenOut->Line   = 0;
     TokenOut->Column = 0;
     TokenOut->Next   = 0;
-
+    
     // NOTE(nasr): check for keywords
-    for(umm KeywordIndex = 0; KeywordIndex < ArrayCount(Keywords); ++KeywordIndex)
+    for(u64  KeywordIndex = 0; KeywordIndex < ArrayCount(Keywords); ++KeywordIndex)
     {
         if(S8Match(ParsedWord, Keywords[KeywordIndex], false))
         {
@@ -219,12 +219,12 @@ internal Token *Tokenize(str8 ParsedWord, arena *Arena)
             return TokenOut;
         }
     }
-
+    
     // NOTE(nasr): check for single-character tokens
     if(ParsedWord.Size == 1)
     {
         char c = (char)ParsedWord.Data[0];
-
+        
         /*
          * TODO(nasr): how do we handle unary expressions?
          * */
@@ -233,7 +233,7 @@ internal Token *Tokenize(str8 ParsedWord, arena *Arena)
             TokenOut->Type = TokenOperator;
             return TokenOut;
         }
-
+        
         /*
          * for preprocessor stuff
          * #include #endif
@@ -243,26 +243,26 @@ internal Token *Tokenize(str8 ParsedWord, arena *Arena)
             TokenOut->Type = TokenDirective;
             return TokenOut;
         }
-
+        
         if(c == ';')
         {
             TokenOut->Type = TokenSemicolon;
             return TokenOut;
         }
-
+        
         if(c == '(' || c == ')' || c == '{' || c == '}' || c == '[' || c == ']')
         {
             TokenOut->Type = TokenDelimiter;
             return TokenOut;
         }
-
+        
         if(c == ',' || c == '.')
         {
             TokenOut->Type = TokenPunctuation;
             return TokenOut;
         }
     }
-
+    
     // NOTE(nasr): check if it's a number literal
     if(ParsedWord.Size > 0)
     {
@@ -273,7 +273,7 @@ internal Token *Tokenize(str8 ParsedWord, arena *Arena)
             return TokenOut;
         }
     }
-
+    
     // NOTE(nasr): check if it's a string literal
     if(ParsedWord.Size >= 2)
     {
@@ -285,7 +285,7 @@ internal Token *Tokenize(str8 ParsedWord, arena *Arena)
             return TokenOut;
         }
     }
-
+    
     // NOTE(nasr): if nothing else, it's probably an identifier
     if(ParsedWord.Size > 0)
     {
@@ -298,7 +298,7 @@ internal Token *Tokenize(str8 ParsedWord, arena *Arena)
             return TokenOut;
         }
     }
-
+    
     return TokenOut;
 }
 
@@ -311,22 +311,22 @@ internal Token *Tokenize(str8 ParsedWord, arena *Arena)
  * */
 internal void AddToCST(ConcreteSyntaxTree *tree, SyntaxNode *node)
 {
-
-        /* NOTE(nasr): building the concretee syntax tree */
-
-        /**
-         * What defines the root of a concrete syntax tree
-         * when do branches get created?
-         * not at the start of a line because this is possible ->
-         * \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-         * internal int
-         * main(int argc, char **argv)
-         * { retur 0; }
-         * \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-         **/
-
-        /* NOTE(nasr): we know that a semicolon defines the end of of a branch */
-
+    
+    /* NOTE(nasr): building the concretee syntax tree */
+    
+    /**
+     * What defines the root of a concrete syntax tree
+     * when do branches get created?
+     * not at the start of a line because this is possible ->
+     * \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+     * internal int
+     * main(int argc, char **argv)
+     * { retur 0; }
+     * \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+     **/
+    
+    /* NOTE(nasr): we know that a semicolon defines the end of of a branch */
+    
     /**
      * check if a token is a sort of token
      * does that token take children or something else
@@ -336,7 +336,7 @@ internal void AddToCST(ConcreteSyntaxTree *tree, SyntaxNode *node)
         tree->root = node;
         tree->current = node;
     }
-
+    
     else
     {
         if(tree->current->child_count < tree->current->child_capacity)
@@ -348,7 +348,7 @@ internal void AddToCST(ConcreteSyntaxTree *tree, SyntaxNode *node)
         else
         {
             Log("max tree");
-
+            
             /* TODO(nasr): expand tree or something */
         }
     }

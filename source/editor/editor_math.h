@@ -214,6 +214,14 @@ IsInside(f32 X, f32 Y, v2 Min, v2 Max)
     return Result;
 }
 
+internal inline b32
+IsInsideV2(v2 P, v2 Min, v2 Max)
+{
+    b32 Result = (P.X >= Min.X && P.X <= Max.X &&
+                  P.Y >= Min.Y && P.Y <= Max.Y);
+    return Result;
+}
+
 internal inline v4
 V4FromRec(rect Rec)
 {
@@ -248,6 +256,13 @@ internal inline f32
 Square(f32 X)
 {
     f32 Result = X*X;
+    return Result;
+}
+
+internal f32
+Lerp(f32 A, f32 B, f32 t)
+{
+    f32 Result = A*t + B*(1-t);
     return Result;
 }
 

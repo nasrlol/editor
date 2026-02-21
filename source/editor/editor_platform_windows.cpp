@@ -277,7 +277,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                 else 
                                 {
                                     // Not implemented
-                                    DebugBreak;
+                                    DebugBreak();
                                 };
                             }
                         }
@@ -339,14 +339,15 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
     HMODULE Library = (HMODULE)Code->LibraryHandle;
     
     char *LockFileName = PathFromExe(Arena, Memory->ExeDirPath, S8("lock.tmp"));
-    char *TempDLLPath = PathFromExe(Arena, Memory->ExeDirPath, S8("editor_app_temp.dll"));
+    
+    str8 TempDLLFileName = StringFormat(Arena, "editor_app_temp_%lu.dll", (u64)OS_GetWallClock());
+    char *TempDLLPath = PathFromExe(Arena, Memory->ExeDirPath, TempDLLFileName);
     
     WIN32_FILE_ATTRIBUTE_DATA Data;
     
     WIN32_FILE_ATTRIBUTE_DATA Ignored;
     if(!GetFileAttributesEx(LockFileName, GetFileExInfoStandard, &Ignored))
     {
-        
         s64 WriteTime = Code->LastWriteTime;
         if(GetFileAttributesEx(Code->LibraryPath, GetFileExInfoStandard, &Data))
         {
@@ -360,7 +361,6 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
             
             if(Library)
             {
-                FreeLibrary(Library);
                 Code->Loaded = false;
                 Code->LibraryHandle = 0;
             }
@@ -368,7 +368,7 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
             b32 Result = CopyFile(Code->LibraryPath, TempDLLPath, FALSE);
             if(!Result)
             {
-                DebugBreak;
+                DebugBreak();
                 Win32LogIfError();
             }
             
@@ -380,7 +380,7 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
                 {
                     Code->Loaded = true;
                     Memory->Reloaded = true;
-                    Code->LibraryHandle = (umm)Library;
+                    Code->LibraryHandle = (u64)Library;
                     Log("\nLibrary reloaded.\n");
                 }
                 else
