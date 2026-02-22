@@ -246,77 +246,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                         
                         app_text_button *Button = &Input->Text.Buffer[Input->Text.Count];
                         *Button = {};
-                        Input->Text.Count += 1;
-                        
-                        if(Alt)   Button->Modifiers |= PlatformKeyModifier_Alt;
-                        if(Shift) Button->Modifiers |= PlatformKeyModifier_Shift;
-                        if(Ctrl)  Button->Modifiers |= PlatformKeyModifier_Control;
-                        
-                        // Try to convert to Unicode character
-                        BYTE KeyboardState[256];
-                        GetKeyboardState(KeyboardState);
-                        
-                        WCHAR UnicodeBuffer[4] = {0};
-                        int CharCount = ToUnicode(VKCode, ScanCode, KeyboardState, UnicodeBuffer, 4, 0);
-                        
-                        if(CharCount > 0)
-                        {
-                            rune Codepoint = (rune)UnicodeBuffer[0];
-                            if(Codepoint >= ' ')
-                            {
-                                Button->Codepoint = Codepoint;
-                            }
-                            else
-                            {
-                                Button->IsSymbol = true;
-                                if(0) {}
-                                else if(Codepoint == '\b') Button->Symbol = PlatformKey_BackSpace;
-                                else if(Codepoint == '\t') Button->Symbol = PlatformKey_Tab;
-                                else if(Codepoint == 27) Button->Symbol = PlatformKey_Escape;
-                                else if(Codepoint == 13) Button->Symbol = PlatformKey_Return; 
-                                else 
-                                {
-                                    // Not implemented
-                                    DebugBreak;
-                                };
-                            }
-                        }
-                        else
-                        {
-                            Button->IsSymbol = true;
-                            if(0) {}
-                            else if(VKCode == VK_UP) Button->Symbol = PlatformKey_Up;
-                            else if(VKCode == VK_DOWN) Button->Symbol = PlatformKey_Down;
-                            else if(VKCode == VK_LEFT) Button->Symbol = PlatformKey_Left;
-                            else if(VKCode == VK_RIGHT) Button->Symbol = PlatformKey_Right;
-                        }
-                    }
-                } break;
-                
-                default:
-                {
-                    TranslateMessage(&Message);
-                    DispatchMessageA(&Message);
-                } break;
-            }
-        }
-        
-#if 0       
-        // TODO(luca): Does not work when window is minimized.
-        Buffer->Width = GlobalBufferWidth;
-        Buffer->Height = GlobalBufferHeight;
-#endif
-        
-        // Mouse
-        {        
-            POINT MouseP;
-            GetCursorPos(&MouseP);
-            ScreenToClient(Win32Context->Window, &MouseP);
-            
-            if(MouseP.x >= 0 && MouseP.x < Buffer->Width &&
-               MouseP.y >= 0 && MouseP.y < Buffer->Height)
-            {                    
-                Input->MouseX = MouseP.x;
+                        Input->MouseX = MouseP.x;
                 Input->MouseY = MouseP.y;
             }
             

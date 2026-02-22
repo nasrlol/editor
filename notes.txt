@@ -79,6 +79,12 @@ Branches are created when:
 
 Semicolon defines statement termination, not always scope.
 
+
+TODO:
+
+Does defining a function create a new branch in the syntax tree when the function is from a "differnet unit"
+we've been thinking about one file but what when you have multiple
+
 ---
 
 ## Example
@@ -239,3 +245,38 @@ TranslationUnit {
     RootNode
 }
 ```
+////////////////////////////////////////////////////////////////////////////////////////////
+
+
+traversing trees
+
+ www.geeksforgeeks.org/dsa/tree-traversals-inorder-preorder-and-postorder/
+
+
+ options: 
+
+ - DFT
+ - BFT
+ - ...
+
+
+to know  which one we want we need to know how we are what kind of traverling we want
+nah
+branch per branch
+so 
+like
+
+////////////////////////////////////
+
+     int
+      |
+     main
+    /   \
+ int     int
+ /         \
+x           y
+
+////////////////////////////////////
+
+anyway we want to see the definitoi of x and trhen go back up and then see the defintioin of y 
+and then go back up

@@ -12,8 +12,8 @@
 #include "editor/editor_lexer.c"
 #include "editor/editor_parser.h"
 #include "editor/editor_parser.c"
-#include "editor/editor_tree_visualizer.h"
-#include "editor/editor_tree_visualizer.c"
+#include "editor/editor_tree.h"
+#include "editor/editor_tree.c"
 
 int main(s32 argc, char **argv)
 {

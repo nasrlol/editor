@@ -7,13 +7,13 @@ typedef struct str8 str8;
 struct str8
 {
     u8 *Data;
-    umm Size;
+    u64 Size;
 };
 raddbg_type_view(str8, no_addr(array((char *)Data, Size)));
 
 internal str8 S8SkipLastSlash(str8 String);
 internal b32  S8Match(str8 A, str8 B, b32 AIsPrefix);
-internal umm  StringLength(char *String);
+internal u64  StringLength(char *String);
 
 #if LANG_CPP
 # define S8Cast str8

@@ -1,0 +1,3 @@
+[debug mode]
+[clang compile]
+./editor/editor_app.cpp

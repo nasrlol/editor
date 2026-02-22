@@ -1,219 +1,178 @@
-internal TokenList *
-Lex(app_state *app, arena *Arena)
+internal b32
+Is_Alpha(rune Character)
 {
-	TokenList *List		 = PushStruct(Arena, TokenList);
-	s32		   TextIndex = 0;
-	s32		   Line		 = 1;
-	s32		   Column	 = 1;
+ return ((Character >= 'a' && Character <= 'z') ||
+         (Character >= 'A' && Character <= 'Z') ||
+         (Character == '_'));
+}
 
-	while (TextIndex < app->TextCount)
-	{
-		rune character = app->Text[TextIndex];
+internal b32
+Is_Digit(rune Character)
+{
+ return (Character >= '0' && Character <= '9');
+}
 
-		if (character == ' ' || character == '\t')
-		{
-			TextIndex++;
-			Column++;
-			continue;
-		}
-		if (character == '\n' || character == '\r')
-		{
-			TextIndex++;
-			Line++;
-			Column = 1;
-			continue;
-		}
+internal b32
+Is_Alpha_Num(rune Character)
+{
+ return (Is_Alpha(Character) || Is_Digit(Character));
+}
 
-		Token *NewToken	 = PushStruct(Arena, Token);
-		NewToken->Line	 = Line;
-		NewToken->Column = Column;
+internal token_list *
+Lex(app_state *App, arena *Arena)
+{
+ token_list *List        = PushStruct(Arena, token_list);
+ b32         Initialized = 0;
 
-		s32 TokenStart = TextIndex;
-		if ((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z'))
-		{
-			while (TextIndex < app->TextCount)
-			{
-				rune next_character = app->Text[TextIndex];
-				if ((next_character >= 'a' && next_character <= 'z') ||
-					(next_character >= 'A' && next_character <= 'Z') ||
-					(next_character >= '0' && next_character <= '9') ||
-					(next_character == '_'))
-				{
-					TextIndex++;
-				}
-				else
-				{
-					break;
-				}
-			}
+ s32 Line   = 1;
+ s32 Column = 1;
 
-			NewToken->Type = TokenIdentifier;
-		}
-		else if (character >= '0' && character <= '9')
-		{
-			while (TextIndex < app->TextCount &&
-				   app->Text[TextIndex] >= '0' && app->Text[TextIndex] <= '9')
-			{
-				TextIndex++;
-			}
-			NewToken->Type = TokenNumber;
-		}
-		else
-		{
-			TextIndex++;
-			NewToken->Type = (TokenType)character;
-		}
+ for (s32 TextIndex = 0; TextIndex < App->TextCount; TextIndex++)
+ {
+  rune Character = App->Text[TextIndex];
 
-		s32 TokenEnd		  = TextIndex;
-		NewToken->Lexeme.Data = (u8 *)&app->Text[TokenStart];
-		NewToken->Lexeme.Size = (umm)(TokenEnd - TokenStart);
-		umm Size			  = NewToken->Lexeme.Size;
+  if (Character == ' ' || Character == '\t')
+  {
+   Column++;
+   continue;
+  }
+  if (Character == '\n' || Character == '\r')
+  {
+   Line++;
+   Column = 1;
+   continue;
+  }
 
-		switch (NewToken->Lexeme.Data[TokenStart + Size])
-		{
-			case ('('):
-			{
-				NewToken->Type = (TokenType)'(';
-				break;
-			}
+  token_node *Node  = PushStruct(Arena, token_node);
+  token      *Token = PushStruct(Arena, token);
+  Node->Token       = Token;
 
-			case (')'):
-			{
-				NewToken->Type = (TokenType)')';
-				break;
-			}
+  Token->Line       = Line;
+  Token->Column     = Column;
+  Token->ByteOffset = (u64)TextIndex;
 
-			case ('{'):
-			{
-				NewToken->Type = (TokenType)'{';
-				break;
-			}
+  s32 TokenStart = TextIndex;
 
-			case ('}'):
-			{
-				NewToken->Type = (TokenType)'}';
-				break;
-			}
+  if (Is_Alpha(Character))
+  {
+   while (TextIndex + 1 < App->TextCount &&
+          Is_Alpha_Num(App->Text[TextIndex + 1]))
+   {
+    TextIndex++;
+   }
+   Token->Type = TokenIdentifier;
+  }
 
-			case (','):
-			{
-				NewToken->Type = (TokenType)',';
-				break;
-			}
+  else if (Is_Digit(Character))
+  {
+   while (TextIndex + 1 < App->TextCount &&
+          Is_Digit(App->Text[TextIndex + 1]))
+     
+    TextIndex++;
+   }
+   Token->Type = TokenNumber;
+  }
 
-			case (';'):                            
-			{
-				NewToken->Type = (TokenType)';';
-				break;
-			}
+  else
+  {
+   if (Character > 126)
+   {
+    Token->Type = TokenUnwantedChild;
+   }
+   else
+   {
+    rune Next = (TextIndex + 1 < App->TextCount) ? App->Text[TextIndex + 1] : 0;
 
-			case ('+'):
-			{
-				NewToken->Type = (TokenType)'+';
-				break;
-			}
+    switch (Character)
+    {
+     case '=':
+     {
+      if (Next == '=')
+      {
+       Token->Type = TokenDoubleEqual;
+       TextIndex++;
+      }
+      else
+      {
+       Token->Type = (token_type)'=';
+      }
+      break;
+     }
 
-			case '-':
-			{
-				if (NewToken->Lexeme.Data[TokenStart + Size + 1] == '>')
-				{
-					NewToken->Type = (TokenType)'>';
-					Size++;
-				}
-				else
-				{
-					NewToken->Type = (TokenType)'-';
-				}
-				break;
-			}
+     case '>':
+     {
+      if (Next == '=')
+      {
+       Token->Type = TokenGreaterEqual;
+       TextIndex++;
+      }
+      else if (Next == '>')
+      {
+       Token->Type = TokenRightShift;
+       TextIndex++;
+      }
+      else
+      {
+       Token->Type = (token_type)'>';
+      }
+      break;
+     }
 
-			case '*':
-			{
-				NewToken->Type = (TokenType)'*';
-				break;
-			}
+     case '<':
+     {
+      if (Next == '=')
+      {
+       Token->Type = TokenLesserEqual;
+       TextIndex++;
+      }
+      else if (Next == '<')
+      {
+       Token->Type = TokenLeftShift;
+       TextIndex++;
+      }
+      else
+      {
+       Token->Type = (token_type)'<';
+      }
+     break;
+     }
 
-			case '/':
-			{
-				NewToken->Type = (TokenType)'/';
-				break;
-			}
+     default:
+     {
+      Token->Type = (token_type)Character;
+      break;
+     }
+    }
+   }
+  }
 
-			case '=':
-			{
-				if (NewToken->Lexeme.Data[TokenStart + Size + 1] == '=')
-				{
-					NewToken->Type = TokenDoubleEqual;
-					Size++;
-				}
-				else
-				{
-					NewToken->Type = (TokenType)'=';
-				}
-				break;
-			}
+  // convert utf8 size to rune
+  // and calculate lexeme sizes
+  s32 TokenEnd       = TextIndex + 1;
+  Token->Lexeme.Data = (u8 *)&App->Text[TokenStart];
+  ////////////////////////////////////////////////////////////////////
+  // suggested fix for utf8 multiplying the size of the thing by the
+  // size of rune so we have fitting stuff
+  // [failed]
+  //////////////////////////////////////////////////////
+  // TODO(nasr): convert all of this to utf8 handling
+  Token->Lexeme.Size = (u64)(TokenEnd - TokenStart) * sizeof(rune);
 
-			case '>':
-			{
-				if (NewToken->Lexeme.Data[TokenStart + Size + 1] == '=')
-				{
-					NewToken->Type = TokenGreaterEqual;
-					Size++;
-				}
-				else
-				{
-					NewToken->Type = (TokenType)'>';
-				}
-				break;
-			}
+  if (!Initialized)
+  {
+   Initialized   = 1;
+   List->Root    = Node;
+   List->Current = Node;
+  }
+  else
+  {
+   Node->Previous      = List->Current;
+   List->Current->Next = Node;
+   List->Current       = Node;
+  }
 
-			case '<':
-			{
-				if (NewToken->Lexeme.Data[TokenStart + Size + 1] == '=')
-				{
-					NewToken->Type = TokenLesserEqual;
-					Size++;
-				}
-				else
-				{
-					NewToken->Type = (TokenType)'<';
-				}
-				break;
-			}
+  Column += (s32)Token->Lexeme.Size;
+ }
 
-			case ' ':
-			case '\t':
-			case '\n':
-			case '\r':
-			{
-				NewToken->Type = TokenWhiteSpace;
-				break;
-			}
-
-			default:
-			{
-				NewToken->Type = TokenUndefined;
-				break;
-			}
-		}
-
-		NewToken->Next = 0;
-
-		if (!List->Root)
-		{
-			List->Root = NewToken;
-			List->Leaf = NewToken;
-		}
-		else
-		{
-			List->Leaf->Next = NewToken;
-			List->Leaf		 = NewToken;
-		}
-
-		List->Count++;
-
-		Column += (s32)NewToken->Lexeme.Size;
-	}
-
-	return List;
+ return List;
 }

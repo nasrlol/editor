@@ -10,6 +10,12 @@
 #include "editor_app.h"
 
 
+#include "editor_lexer.h"
+#include "editor_lexer.c"
+
+#include "editor_parser.h"
+#include "editor_parser.c"
+
 
 #define U32ToV3Arg(Hex) \
 ((f32)((Hex >> 8*2) & 0xFF)/255.0f), \
@@ -38,9 +44,11 @@ SET(Orange,           0xffd08770) \
 SET(Magenta,          0xffb48ead) \
 SET(Yellow,           0xffebcb8b)
 
+
 #define SET(Name, Value) u32 ColorU32_##Name = Value;
 ColorList
 #undef SET
+
 
 #define SET(Name, Value) v4 Color_##Name = {U32ToV3Arg(Value), 1.f};
 ColorList
@@ -149,6 +157,7 @@ InitAtlas(arena *Arena, app_font *Font, font_atlas *Atlas, f32 HeightPx)
     
 }
 
+
 void
 DrawChar(font_atlas *Atlas, v2 *Positions, v2 *TexCoords, s32 *VerticesCount, 
          v2 Pos, rune Codepoint)
@@ -174,10 +183,10 @@ DrawChar(font_atlas *Atlas, v2 *Positions, v2 *TexCoords, s32 *VerticesCount,
     MakeQuadV2(TexCoord, V2(Quad->s0, Quad->t0), V2(Quad->s1, Quad->t1));
 }
 
-internal rect_quad_data *
+internal rect_instance *
 DrawRect(rect Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
 {
-    rect_quad_data *Result = GlobalRectQuadData + GlobalRectsCount;
+    rect_instance *Result = GlobalRectQuadData + GlobalRectsCount;
     GlobalRectsCount += 1;
     
     Result->Dest = Dest;
@@ -195,19 +204,18 @@ DrawRect(rect Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softnes
     return Result;
 }
 
-#include "editor_lexer.h"
-#include "editor_lexer.c"
 
-#include "editor_parser.h"
-#include "editor_parser.c"
-
-#include "editor_tree_visualizer.h"
-#include "editor_tree_visualizer.c"
+#include "editor_tree.h"
+#include "editor_tree.c"
 
 C_LINKAGE
 UPDATE_AND_RENDER(UpdateAndRender)
 {
     b32 ShouldQuit = false;
+    local_persist token_list *list;
+    local_persist concrete_syntax_tree *tree;
+
+    DebugBreak;
     
 #if EDITOR_INTERNAL
     GlobalDebuggerIsAttached = Memory->IsDebuggerAttached;
@@ -300,13 +308,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 {
                     App->HeightPx = DefaultHeightPx;
                 }
-                else if(Key.Codepoint == 't')
-                {
-                    // NOTE(nasr): here
-                    TokenList *list = Lex(App, FrameArena);
-                    ConcreteSyntaxTree *tree = Parse(FrameArena, list);
-                    tree_visualizer(tree, FrameArena, Buffer, Memory);
-                }
             }
             
             if(Key.Modifiers == PlatformKeyModifier_None)
@@ -329,9 +330,15 @@ UPDATE_AND_RENDER(UpdateAndRender)
             {
                 ShouldQuit = true;
             }
+            else if (Key.Codepoint == PlatformKey_F2)
+            {
+
+             list = Lex(App, PermanentArena);
+             tree = Parse(PermanentArena, list);
+            }
         }
     }
-    
+
     gl_handle VAOs[2] = {};
     gl_handle VBOs[3] = {};
     gl_handle Textures[2] = {};
@@ -363,7 +370,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     else WindowBorderColor = Color_Background;
     
     //- Prepare rects rendering 
-    u64 BufferMaxSize = KB(1)/sizeof(f32);
+    u64 BufferMaxSize = KB(64)/sizeof(f32);
     f32 *RectsBufferData = PushArray(FrameArena, f32, BufferMaxSize);
     f32 QuadPosData[] =
     {
@@ -375,7 +382,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     MemoryCopy(RectsBufferData, QuadPosData, sizeof(QuadPosData));
     GlobalRectsCount = 0;
-    GlobalRectQuadData = (rect_quad_data *)(RectsBufferData + ArrayCount(QuadPosData));
+    GlobalRectQuadData = (rect_instance *)(RectsBufferData + ArrayCount(QuadPosData));
+
+    if (tree) visualize_tree(tree, PermanentArena, Buffer, Input);
     
     //- Render text (rasterized on CPU)
     app_offscreen_buffer TextImage;
@@ -469,13 +478,55 @@ UPDATE_AND_RENDER(UpdateAndRender)
         f32 Time = (f32)OS_GetWallClock();
         // Window borders
         {
-            rect Dest = {0.f, 0.f, (f32)Buffer->Width, (f32)Buffer->Height};
-            rect_quad_data *Rec = DrawRect(Dest, WindowBorderColor, 0.f, (f32)WindowBorderSize, 0.f);
-            Rec->Color0 = WindowBorderColor;
-            Rec->Color1.W = 0.2f;
-            Rec->Color2.W = 0.2f;
-            Rec->Color3 = WindowBorderColor;
+            rect Dest = RectFromSize(V2(0.f, 0.f), V2S32(Buffer->Width, Buffer->Height));
+            rect_instance *Inst = DrawRect(Dest, WindowBorderColor, 0.f, (f32)WindowBorderSize, 0.f);
+            Inst->Color0 = WindowBorderColor;
+            Inst->Color1.W = 0.2f;
+            Inst->Color2.W = 0.2f;
+            Inst->Color3 = WindowBorderColor;
         }
+        
+#if 0        
+        // Demo rectangles
+        {
+            rect Dest = RectFromSize(V2(80.f, 80.f), V2(100.f, 60.f));
+            rect ShadowDest = Dest;
+            
+            f32 ShadowPx = 4.f;
+            V2Math
+            {
+                ShadowDest.Min.E += ShadowPx/2.f - ShadowPx;
+                ShadowDest.Max.E += ShadowPx/2.f + ShadowPx;
+            }
+            rect_instance *ShadowInst = DrawRect(ShadowDest, V4(0.f, 0.f, 0.f, 1.f), 0.8f, 0.f, ShadowPx);
+            
+            rect_instance *Inst = DrawRect(Dest, Color_Yellow, 8.f, 0.f, 1.f);
+            ShadowInst->CornerRadii = Inst->CornerRadii;
+            
+            Inst->Color2.W = 0.4f;
+            Inst->Color3.W = 0.4f;
+            Inst->Color0.W = 0.8f;
+            Inst->Color1.W = 0.8f;
+            
+            if(IsInsideRec((f32)Input->MouseX, (f32)Input->MouseY, Dest))
+            {
+                Inst->Color0.W = 0.9f;
+                Inst->Color1.W = 0.9f;
+                if(Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
+                {
+                    Inst->Color0.W = 1.f;
+                    Inst->Color1.W = 1.f;
+                }
+            }
+            
+            DrawRect(RectFromSize(V2(283.f, 400.f), V2(396.f, 1.f)), Color_Red, 0.f, 0.f, 0.f);
+            DrawRect(RectFromSize(V2(280.f, 300.f), V2(200.f, 200.f)), Color_Blue, 100.f, 2.f, 1.f);
+            DrawRect(RectFromSize(V2(380.f, 300.f), V2(200.f, 200.f)), Color_Orange, 100.f, 2.f, 1.f);
+            DrawRect(RectFromSize(V2(480.f, 300.f), V2(200.f, 200.f)), Color_Green, 100.f, 2.f, 1.f);
+            
+        }
+#endif
+        
     }
     
     //- Rendering 
@@ -483,10 +534,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // Render rectangles
     {
         glBindVertexArray(VAOs[0]);
-
-        // RectShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
-        //                                   S8("../source/shaders/soft_vert.glsl"),
-        //                                  S8("../source/shaders/soft_rect.glsl"));
+        RectShader = gl_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
+                                           S8("../source/shaders/rect_vert.glsl"),
+                                           S8("../source/shaders/rect_frag.glsl"));
         glUseProgram(RectShader);
         
         // Uniforms
@@ -497,7 +547,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         glBindBuffer(GL_ARRAY_BUFFER, VBOs[2]);
         
-        u64 Size = sizeof(QuadPosData) + GlobalRectsCount*sizeof(rect_quad_data);
+        u64 Size = sizeof(QuadPosData) + GlobalRectsCount*sizeof(rect_instance);
         glBufferData(GL_ARRAY_BUFFER, Size, RectsBufferData, GL_STATIC_DRAW);
         
         glEnableVertexAttribArray(0);
@@ -534,7 +584,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glDisable(GL_MULTISAMPLE);
         glDrawArrays(GL_TRIANGLES, 0, TextVerticesCount);
     }
-
+    
     // Cleanup
     {
         glDeleteVertexArrays(ArrayCount(VAOs), &VAOs[0]);

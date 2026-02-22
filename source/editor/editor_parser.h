@@ -1,29 +1,30 @@
 #ifndef EDITOR_PARSER_H
 #define EDITOR_PARSER_H
 
-typedef struct SyntaxNode		  SyntaxNode;
-typedef struct ConcreteSyntaxTree ConcreteSyntaxTree;
-typedef struct TranslationUnit	  TranslationUnit;
+typedef struct syntax_node          syntax_node;
+typedef struct concrete_syntax_tree concrete_syntax_tree;
+typedef struct translation_unit     translation_unit;
 
-struct SyntaxNode
+struct syntax_node
 {
-	SyntaxNode	*Parent;
-	SyntaxNode **Child;
-	SyntaxNode	*NextNode;
-	token		*Token;
-	umm			 Scope;
+ syntax_node *First;
+ syntax_node *Last;
+ syntax_node *Parent;
+ syntax_node *NextNode;
+ token       *Token;
 };
 
-struct ConcreteSyntaxTree
+struct concrete_syntax_tree
 {
-	SyntaxNode *Root;
-	SyntaxNode *Current;
+ syntax_node *Root;
+ syntax_node *Current;
 };
 
-struct TranslationUnit
+// TODO(nasr): implement this later together with file handling
+struct translation_unit
 {
-	s32					FileID;
-	ConcreteSyntaxTree *Tree;
+ s32                   FileID;
+ concrete_syntax_tree *Tree;
 };
 
-#endif
+#endif // EDITOR_PARSER_H

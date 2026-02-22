@@ -1,71 +1,74 @@
 #ifndef EDITOR_LEXER_H
 #define EDITOR_LEXER_H
 
-typedef struct Token token;
+typedef struct token      token;
+typedef struct token_node token_node;
 
-enum TokenType
+enum token_type
 {
-	TokenUndefined = 256,
-	TokenIdentifier,
-	TokenIdentifierValue,
-	TokenString,
-	TokenNumber,
-	TokenDoubleEqual,
-	TokenGreaterEqual,
-	TokenLesserEqual,
-    TokenParam,
-	TokenFunc,
-	TokenReturn,
-	TokenIf,
-	TokenElse,
-	TokenFor,
-	TokenWhile,
-	TokenBreak,
-	TokenContinue,
-	TokenExpression,
-    TokenWhiteSpace,
-    TokenComparisonParam,
-    TokenFuncBody
+ TokenUndefined = 256,
+ TokenIdentifier,
+ TokenIdentifierValue,
+ TokenString,
+ TokenNumber,
+ TokenDoubleEqual,
+ TokenGreaterEqual,
+ TokenLesserEqual,
+ TokenParam,
+ TokenFunc,
+ TokenReturn,
+ TokenIf,
+ TokenElse,
+ TokenFor,
+ TokenWhile,
+ TokenBreak,
+ TokenContinue,
+ TokenExpression,
+ TokenWhiteSpace,
+ TokenComparisonParam,
+ TokenFuncBody,
+ TokenUnwantedChild,
+ TokenNewLine,
+ TokenRightShift,
+ TokenLeftShift
 };
 
-typedef enum TokenFlags
+enum token_flags
 {
-	FlagNone			= (0),
-	FlagConstant		= (1 << 0),
-	FlagGlobal			= (1 << 1),
-	FlagsValue			= (1 << 2),
-	FlagDeprecated		= (1 << 3),
-	FlagDefinition		= (1 << 4),
-	FlagComparison		= (1 << 5),
-	FlagTranslationUnit = (1 << 6),
-	FlagDirty			= (1 << 7),
-
-} TokenFlags;
-
-struct Token
-{
-    str8       Lexeme;
-	TokenType  Type;
-	TokenFlags Flags;
-	s32		   Line;
-	s32		   Column;
-	u64		   ByteOffset;
-
-	/**
-    * NOTE(nasr): used for the lexer part
-	* since i'm trying to seperate them because of increaasing complexity
-	* which i wasn't able to follow im making
-    * a linked list of the current tokens and attaching
-    **/
-	Token *Next;
-    Token *Previous;
+ FlagNone            = (0),
+ FlagConstant        = (1 << 0),
+ FlagGlobal          = (1 << 1),
+ FlagsValue          = (1 << 2),
+ FlagDefinition      = (1 << 3),
+ FlagComparison      = (1 << 4),
+ FlagTranslationUnit = (1 << 5),
+ FlagDeprecated      = (1 << 6),
+ FlagDirty           = (1 << 7),
 };
 
-struct TokenList
+struct token
 {
-	Token *Root;
-    Token *Leaf;
-	s32	   Count;
+ str8        Lexeme;
+ token_type  Type;
+ token_flags Flags;
+ u64         ByteOffset;
+ s32         Column;
+ s32         Line;
 };
 
-#endif
+struct token_node
+{
+ token_node *Next;
+ token_node *Previous;
+ u64         ParentHandle;
+ u64         ChildHandle;
+ token      *Token;
+};
+
+struct token_list
+{
+ token_node *Root;
+ token_node *Current;
+};
+
+#endif // EDITOR_LEXER_H

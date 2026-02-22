@@ -1,203 +1,201 @@
-internal ConcreteSyntaxTree *
-Parse(arena *Arena, TokenList *List)
+internal syntax_node *
+Peek(syntax_node *Node, token_type Type)
 {
-	ConcreteSyntaxTree *tree = PushStruct(Arena, ConcreteSyntaxTree);
+    for (; Node; Node = Node->NextNode)
+    {
+        if (Node->Token->Type == Type)
+        {
+            return Node;
+        }
+    }
+    return 0;
+}
 
-	for (Token *token = List->Root; token != 0; token = token->Next)
-	{
-		SyntaxNode *node = PushStruct(Arena, SyntaxNode);
-		node->Token		 = token;
+internal concrete_syntax_tree *
+Parse(arena *Arena, token_list *List)
+{
+ concrete_syntax_tree *Tree = PushStruct(Arena, concrete_syntax_tree);
+ MemoryZero(Tree);
 
-		if (!tree->Root)
-		{
-			tree->Root	  = node;
-			tree->Current = node;
-		}
+ for (token_node *Node = List->Root; Node != 0; Node = Node->Next)
+ {
+  token *Token = Node->Token;
 
-		switch ((int)token->Type)
-		{
-			case (TokenUndefined):
-			{
-				tree->Current->Token->Flags = (TokenFlags)(tree->Current->Token->Flags | FlagDirty);
-                /**
-                 * TODO(nasr): If we are ever going to implement incremental parsing this is going to be usefull
-                 * to do a search for the dirty flags and try fixing those up or something
-                 **/
-                break;
-			}
+  syntax_node *SyntaxNode = PushStruct(Arena, syntax_node);
+  SyntaxNode->Token       = Token;
 
-			case (TokenIdentifier):
-			{
-				if (token->Next && token->Next->Type == (TokenType)'=')
-				{
-					if (token->Next && token->Next->Lexeme.Size != 0)
-					{
-						token->Next->Next->Type = TokenIdentifierValue;
-					}
-				}
+  if (!Tree->Root)
+  {
+   Tree->Root    = SyntaxNode;
+   Tree->Current = SyntaxNode;
+   continue;
+  }
 
-				break;
-			}
+  // Append child
+  {
+   syntax_node *Parent = Tree->Current;
+   syntax_node *Child  = SyntaxNode;
 
-			case ((TokenType)'{'):
-			{
-				if (tree->Current->Parent->Token->Type == TokenFunc)
-				{
-					SyntaxNode *node = PushStruct(Arena, SyntaxNode);
-					while (node->NextNode)
-					{
-                        node = node->NextNode;
-                        // TODO(nasr): assume for now that the parent is the function token
-                        node->Scope = (umm)&node->Parent;
-                        
-					}
-					// TODO(nasr):
-				}
-			}
+   if (!Parent) continue;
+   Child->Parent = Parent;
 
-			case (TokenIdentifierValue):
-			{
-				// TODO(nasr): check if the previous nodes are correct etc;
+   // TODO(nasr): segfaults for some reason
+   if (Parent->First == NULL)
+   {
+    Parent->First = Child;
+    Parent->Last  = Child;
+   }
+   else
+   {
+    Parent->Last->NextNode = Child;
+    Parent->Last           = Child;
+   }
+  }
 
-				break;
-			}
+  switch ((token_type)Token->Type)
+  {
+   case (TokenUndefined):
+   {
+    // mark dirty for incremental parsing later
+    // TODO(nasr): if we ever implement incremental parsing, search
+    // for dirty flags and attempt fixup
+    Token->Flags = (token_flags)(Token->Flags | FlagDirty);
+   }
+   break;
 
-			case (TokenNumber):
-			case (TokenString):
-			{
-				if (tree->Current->Parent->Token->Type == (TokenType)'{')
-				{
-					// TODO(nasr): i was doing something with this but forgot what :)
-					// tree->Current->Token;
-				}
-				else if (tree->Current->Parent->Token->Type == (TokenType)'=')
-				{
-					tree->Current->Token->Type = TokenIdentifierValue;
+   case (TokenIdentifier):
+   {
+    // if followed by '=' this is an assignment
+    // the token after '=' is the value so bassically a double equal
+    if (Node->Next && Node->Next->Token->Type == (token_type)'=')
+    {
+     token_node *ValueNode = Node->Next->Next;
+     if (ValueNode)
+     {
+      ValueNode->Token->Type = TokenIdentifierValue;
+     }
+    }
+   }
+   break;
 
-					if (tree->Current->Parent->Token->Type == TokenIdentifier)
-					{
-						// TODO(nasr): macro for simplifying this
-						tree->Current->Token->Flags = (TokenFlags)(tree->Current->Token->Flags | FlagDirty);
-					}
-				}
+   case (TokenIdentifierValue):
+   {
+    // TODO(nasr): validate that preceding nodes are well-formed
+   }
+   break;
 
-				break;
-			}
+   case (TokenNumber):
+   case (TokenString):
+   {
+    if (Tree->Current->Token->Type == (token_type)'=')
+    {
+     Token->Type = TokenIdentifierValue;
 
-			case (TokenDoubleEqual):
-			case (TokenGreaterEqual):
-			case (TokenLesserEqual):
-			{
-				break;
-			}
+     // if the parent of '=' is not an identifier, something is wrong
+     if (Tree->Current->Parent &&
+         Tree->Current->Parent->Token->Type != TokenIdentifier)
+     {
+      Token->Flags = (token_flags)(Token->Flags | FlagDirty);
+     }
+    }
+    // NOTE(nasr): number/string inside a block body -- no action yet
+    // TODO(nasr): figure out what to do here
+   }
+   break;
 
-			case ((TokenType)'<'):
-			{
-				break;
-			}
+   case (TokenDoubleEqual):
+   case (TokenGreaterEqual):
+   case (TokenLesserEqual):
+   case ((token_type)'<'):
+   case ((token_type)'>'):
+   {
+    // comparison operators -- children will be lhs and rhs
+    // descend so subsequent tokens attach as children
+    Tree->Current = SyntaxNode;
+   }
+   break;
 
-			case ((TokenType)'>'):
-			{
-				break;
-			}
+   case ((token_type)'{'):
+   {
+    Tree->Current = SyntaxNode;
+   }
+   break;
 
-			case (TokenFunc):
-			{
-				if (tree->Current->NextNode->Token->Type == (TokenType)'(')
-				{
-					SyntaxNode *BodyNode = PushStruct(Arena, SyntaxNode);
-					// find closing bracket
-					SyntaxNode *nextNode = tree->Current->NextNode;
+   case ((token_type)'}'):
+   {
+    while (Tree->Current &&
+           Tree->Current->Token->Type != (token_type)'{')
+    {
+     Tree->Current = Tree->Current->Parent;
+    }
 
-					while (nextNode)
-					{
-						if ((nextNode->Token->Type != (TokenType)'}'))
-						{
-						}
-						else
-						{
-							// TODO(nasr): macro for simplifying this
-							tree->Current->Token->Flags = (TokenFlags)(tree->Current->Token->Flags | FlagDirty);
-							break;
-						}
+    if (Tree->Current)
+    {
+     Tree->Current = Tree->Current->Parent;
+    }
+   }
+   break;
 
-						if (tree->Current->NextNode)
-						{
-							break;
-						}
+   case ((token_type)'('):
+   {
+    Tree->Current = SyntaxNode;
+   }
+   break;
 
-						nextNode = tree->Current->NextNode;
-					}
+   case ((token_type)')'):
+   {
+    while (Tree->Current &&
+           Tree->Current->Token->Type != (token_type)'(')
+    {
+     Tree->Current = Tree->Current->Parent;
+    }
 
-					/**
-                     * NOTE(nasr): first child is opening bracket
-                     * second child is body
-                     * third one is closing bracket 
-                     **/
+    if (Tree->Current)
+    {
+     Tree->Current = Tree->Current->Parent;
+    }
+   }
+   break;
 
-					tree->Current->Child[0]->Token->Type = (TokenType)'{';
-					tree->Current->Child[1]->Token->Type = TokenFuncBody;
-					tree->Current->Child[2]->Token->Type = (TokenType)'{';
-				}
-				break;
-			}
-			case (TokenReturn):
-			{
-				break;
-			}
-			case (TokenIf):
-			{
-				break;
-			}
-			case (TokenElse):
-			{
-				if (tree->Current->NextNode->Token->Type == (TokenType)'{')
-				{
-				}
+   case (TokenParam):
+   {
+   }
+   break;
 
-				break;
-			}
+   case (TokenFunc):
+   case (TokenReturn):
+   case (TokenIf):
+   case (TokenElse):
+   case (TokenWhile):
+   case (TokenFor):
+   {
+    Tree->Current = SyntaxNode;
+   }
+   break;
 
-			case (TokenWhile):
-			case (TokenFor):
-			{
-				SyntaxNode *BodyNode = PushStruct(Arena, SyntaxNode);
-				// find closing bracket
-				SyntaxNode *nextNode = tree->Current->NextNode;
-				if (nextNode && nextNode->NextNode->Token->Type == (TokenType)'(')
-				{
-					nextNode->NextNode->NextNode->Token->Type = TokenParam;
-				}
+   case (TokenBreak):
+   {
+    // break must be inside a loop or switch if no parent, mark dirty
+    if (!Tree->Current->Parent)
+    {
+     Token->Flags = (token_flags)(Token->Flags | FlagDirty);
+    }
+   }
+   break;
 
-				break;
-			}
+   case (TokenContinue):
+   {
+    // TODO(nasr): same validation as break
+   }
+   break;
 
-			case (TokenBreak):
-			{
-				/**
-                 * NOTE(nasr): this assumes the parent is correct
-                 **/
-				if (!tree->Current->Parent)
-				{
-					tree->Current->Token->Flags =
-                        (TokenFlags)(tree->Current->Token->Flags | FlagDirty);
-				}
-				break;
-			}
-			case (TokenContinue):
-			{
-				break;
-			}
-			case (TokenExpression):
-			{
-				break;
-			}
-		}
+   case (TokenExpression):
+   {
+    Tree->Current = SyntaxNode;
+   }
+   break;
+  }
+ }
 
-		tree->Current->NextNode = node;
-		node->Parent			= tree->Current;
-		tree->Current			= node;
-	}
-
-	return tree;
+ return Tree;
 }
