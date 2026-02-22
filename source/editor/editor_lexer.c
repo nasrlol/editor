@@ -67,9 +67,11 @@ Lex(app_state *App, arena *Arena)
   {
    while (TextIndex + 1 < App->TextCount &&
           Is_Digit(App->Text[TextIndex + 1]))
-     
+
+   {
     TextIndex++;
    }
+
    Token->Type = TokenNumber;
   }
 
@@ -134,7 +136,7 @@ Lex(app_state *App, arena *Arena)
       {
        Token->Type = (token_type)'<';
       }
-     break;
+      break;
      }
 
      default:
@@ -144,34 +146,34 @@ Lex(app_state *App, arena *Arena)
      }
     }
    }
-  }
 
-  // convert utf8 size to rune
-  // and calculate lexeme sizes
-  s32 TokenEnd       = TextIndex + 1;
-  Token->Lexeme.Data = (u8 *)&App->Text[TokenStart];
-  ////////////////////////////////////////////////////////////////////
-  // suggested fix for utf8 multiplying the size of the thing by the
-  // size of rune so we have fitting stuff
-  // [failed]
-  //////////////////////////////////////////////////////
-  // TODO(nasr): convert all of this to utf8 handling
-  Token->Lexeme.Size = (u64)(TokenEnd - TokenStart) * sizeof(rune);
+   // convert utf8 size to rune
+   // and calculate lexeme sizes
+   s32 TokenEnd       = TextIndex + 1;
+   Token->Lexeme.Data = (u8 *)&App->Text[TokenStart];
+   ////////////////////////////////////////////////////////////////////
+   // suggested fix for utf8 multiplying the size of the thing by the
+   // size of rune so we have fitting stuff
+   // [failed]
+   //////////////////////////////////////////////////////
+   // TODO(nasr): convert all of this to utf8 handling
+   Token->Lexeme.Size = (u64)(TokenEnd - TokenStart) * sizeof(rune);
 
-  if (!Initialized)
-  {
-   Initialized   = 1;
-   List->Root    = Node;
-   List->Current = Node;
-  }
-  else
-  {
-   Node->Previous      = List->Current;
-   List->Current->Next = Node;
-   List->Current       = Node;
-  }
+   if (!Initialized)
+   {
+    Initialized   = 1;
+    List->Root    = Node;
+    List->Current = Node;
+   }
+   else
+   {
+    Node->Previous      = List->Current;
+    List->Current->Next = Node;
+    List->Current       = Node;
+   }
 
-  Column += (s32)Token->Lexeme.Size;
+   Column += (s32)Token->Lexeme.Size;
+  }
  }
 
  return List;
