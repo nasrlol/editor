@@ -7,8 +7,6 @@
 #define b32 int
 
 // TODO(luca): Metaprogram location offsets.
-layout (location = 0)  in v2  P_Pos;
-
 layout (location = 1)  in v4  I_Dest;
 layout (location = 2)  in v4  I_TexSrc;
 
@@ -38,14 +36,14 @@ flat out f32 VS_HasTexture;
 void main()
 {
     v4 Colors[] = v4[](I_Color0, I_Color1, I_Color2, I_Color3);
-    v2 Vertices[] = v2[](v2(-1.0, -1.0), v2(-1.0, +1.0), v2(+1.0, -1.0), v2(+1.0, +1.0));
+    v2 Vertices[] = v2[](v2(-1.0, +1.0), v2(+1.0, +1.0), v2(-1.0, -1.0), v2(+1.0, -1.0));
     
     v2 PixelPos, HalfSize, Center, ClipPos;
     {    
         v2 Min = I_Dest.xy;
         v2 Max = I_Dest.zw;
         
-        v2 PosInQuad = (P_Pos + 1.0) * 0.5;
+        v2 PosInQuad = (Vertices[gl_VertexID] + 1.0) * 0.5;
         PixelPos = mix(Min, Max, PosInQuad);
         
         ClipPos = (PixelPos / Viewport) * 2.0 - 1.0;

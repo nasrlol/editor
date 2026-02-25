@@ -1,24 +1,35 @@
-- center text vertically & horizontally
-- fix text rendering (xoff & leftsidebearing)
-- specify vertical & horizontal padding for text, or maybe don't
+- windows: repaint and resizing.
+- 24:36
+
+- Evict boxes from cache when they aren't touched anymore
+- Smooth smooth animations
+
+- profile compile times on linux
 - Spacer
-- Ryan's layout algorithm
+- Add back text rendering of the input buffer
+- Check text rendering extensively (xoff & leftsidebearing)
 
 - kb_text_shape()
 
-- Strictness
-- Constraints
+- Strictness and constraints
 - Assertion that the text fits into the rectangle
 		- otherwise clip?
 
 - Shader:
-  - find a way to push a texture for a number of rectangles
-  - then pop when not adding characters anymore
   - group draw calls with those that need the same texture and those that don't without changing draw order (because foreground&background) 
-  
+   - find a way to push a texture for a number of rectangles
+  - then pop when not adding characters anymore
 
-- Stacks for selecting options like ryan
+- UI: Specify to attach to parent or sibling? AppendToParent
 
+x Ryan's layout algorithm
+x Specify axis
 x Draw background + border + gradient
 x ui_comm from UI_AddBox()
 x draw text from same shader
+x center text vertically & horizontally
+x specify vertical & horizontal padding for text, or maybe don't
+x Assert that rect instances does not exceed the max instances allowed.\
+x Use DrawRect() in DrawRectChar()
+x Remove ReadOnlyMemoryBlock
+x Stacks for selecting options like ryan

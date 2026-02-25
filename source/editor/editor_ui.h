@@ -77,7 +77,6 @@ struct ui_box
     
     v2 FixedPosition;
     v2 FixedSize;
-    rect Rec;
     
     str8 DisplayString;
     
@@ -91,18 +90,76 @@ struct ui_box
     v4 BorderColor;
     v4 TextColor;
     v4 CornerRadii;
+    axis2 LayoutAxis;
+};
+
+//- Stack nodes 
+typedef struct b32_stack_node b32_stack_node;
+struct b32_stack_node
+{
+    b32_stack_node *Prev;
+    b32 Value;
+};
+
+typedef struct ui_size_stack_node ui_size_stack_node;
+struct ui_size_stack_node
+{
+    ui_size_stack_node *Prev;
+    ui_size Value;
+};
+
+typedef struct f32_stack_node f32_stack_node;
+struct f32_stack_node
+{
+    f32_stack_node *Prev;
+    f32 Value;
+};
+
+typedef struct v4_stack_node v4_stack_node;
+struct v4_stack_node
+{
+    v4_stack_node *Prev;
+    v4 Value;
+};
+
+typedef struct axis2_stack_node axis2_stack_node;
+struct axis2_stack_node
+{
+    axis2_stack_node *Prev;
+    axis2 Value;
+};
+
+//-
+
+typedef struct ui_state ui_state;
+struct ui_state
+{
+    ui_box *Root;
+    ui_box *Current;
+    b32 AppendToParent;
+    
+    app_input *Input;
+    font_atlas *Atlas;
+    
+    v4_stack_node *BackgroundColorTop;
+    v4_stack_node *BorderColorTop;
+    v4_stack_node *TextColorTop;
+    f32_stack_node *SoftnessTop;
+    f32_stack_node *BorderThicknessTop;
+    v4_stack_node *CornerRadiiTop;
+    axis2_stack_node *LayoutAxisTop;
+    ui_size_stack_node *SemanticHeightTop;
+    ui_size_stack_node *SemanticWidthTop;
+    
+    b32 RectDebugMode;
 };
 
 //~ Globals
-global_variable ui_box *UI_Root = 0;
-global_variable ui_box *UI_Current = 0;
 global_variable arena *UI_BoxArena = 0;
-global_variable font_atlas *UI_Atlas = 0; 
-global_variable b32 AppendToParent = false;
-global_variable b32 UI_GlobalDebugMode = false;
-global_variable app_input *UI_Input = 0;
 global_variable ui_box *UI_BoxTable = 0;
 global_variable u64 UI_BoxTableSize = 0;
+
+global_variable ui_state *UI_State = 0;
 
 read_only global_variable ui_box _UI_NilBox =
 {
@@ -116,5 +173,56 @@ read_only global_variable ui_box _UI_NilBox =
 };
 
 global_variable ui_box *UI_NilBox = 0;
+
+#define StackPush(Arena, t, PushValue, Top) \
+t *Push = PushStruct((Arena), t); \
+Push->Value = (PushValue); \
+Push->Prev = (Top); \
+Top = Push;
+
+#define StackPop(Top) \
+((Top)->Value, (Top = Top->Prev)->Value)
+
+#define UI_StackPush(t, Name) StackPush(FrameArena, t##_stack_node, Name, UI_State->Name##Top)
+#define UI_StackPop(Name) StackPop(UI_State->Name##Top)
+
+internal void UI_PushBackgroundColor(v4 BackgroundColor)  { UI_StackPush(v4, BackgroundColor); }
+internal void UI_PopBackgroundColor()                     { UI_StackPop(BackgroundColor); }
+
+internal void UI_PushTextColor(v4 TextColor)              { UI_StackPush(v4, TextColor); }
+internal void UI_PopTextColor()                           { UI_StackPop(TextColor); }
+
+internal void UI_PushBorderColor(v4 BorderColor)          { UI_StackPush(v4, BorderColor); }
+internal void UI_PopBorderColor()                         { UI_StackPop(BorderColor); }
+
+internal void UI_PushBorderThickness(f32 BorderThickness) { UI_StackPush(f32, BorderThickness); }
+internal void UI_PopBorderThickness()                     { UI_StackPop(BorderThickness); }
+
+internal void UI_PushSoftness(f32 Softness)               { UI_StackPush(f32, Softness); }
+internal void UI_PopSoftness()                            { UI_StackPop(Softness); }
+
+internal void UI_PushCornerRadii(v4 CornerRadii)          { UI_StackPush(v4, CornerRadii); }
+internal void UI_PopCornerRadii()                         { UI_StackPop(CornerRadii); }
+
+internal void UI_PushLayoutAxis(axis2 LayoutAxis)         { UI_StackPush(axis2, LayoutAxis); }
+internal void UI_PopLayoutAxis()                          { UI_StackPop(LayoutAxis); }
+
+internal void UI_PushSemanticWidth(ui_size SemanticWidth) { UI_StackPush(ui_size, SemanticWidth); }
+internal void UI_PopSemanticWidth() { UI_StackPop(SemanticWidth); }
+
+internal void UI_PushSemanticHeight(ui_size SemanticHeight) { UI_StackPush(ui_size, SemanticHeight); }
+internal void UI_PopSemanticHeight()                        { UI_StackPop(SemanticHeight); }
+
+#define UI_BackgroundColor(Value) DeferLoop(UI_PushBackgroundColor(Value), UI_PopBackgroundColor())
+#define UI_BackgroundColor(Value) DeferLoop(UI_PushBackgroundColor(Value), UI_PopBackgroundColor())
+#define UI_TextColor(Value) DeferLoop(UI_PushTextColor(Value), UI_PopTextColor())
+#define UI_BorderColor(Value) DeferLoop(UI_PushBorderColor(Value), UI_PopBorderColor())
+#define UI_BorderThickness(Value) DeferLoop(UI_PushBorderThickness(Value), UI_PopBorderThickness())
+#define UI_Softness(Value) DeferLoop(UI_PushSoftness(Value), UI_PopSoftness())
+#define UI_CornerRadii(Value) DeferLoop(UI_PushCornerRadii(Value), UI_PopCornerRadii())
+#define UI_LayoutAxis(Value) DeferLoop(UI_PushLayoutAxis(Value), UI_PopLayoutAxis())
+#define UI_Softness(Value) DeferLoop(UI_PushSoftness(Value), UI_PopSoftness())
+#define UI_SemanticHeight(Value) DeferLoop(UI_PushSemanticHeight(Value), UI_PopSemanticHeight())
+#define UI_SemanticWidth(Value) DeferLoop(UI_PushSemanticWidth(Value), UI_PopSemanticWidth())
 
 #endif //EDITOR_UI_H

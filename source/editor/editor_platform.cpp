@@ -17,8 +17,6 @@
 #endif
 #include "lib/raddbg_markup.h"
 
-read_only global_variable u8 ReadOnlyMemoryBlock[KB(4)];
-
 C_LINKAGE ENTRY_POINT(EntryPoint)
 {
     if(LaneIdx() == 0)

@@ -150,7 +150,7 @@ LinuxSetSizeHint(Display *DisplayHandle, Window WindowHandle,
 internal void
 LinuxSigIntHandler(int Signal)
 {
-    // TODO(luca): Add the receivied signal as an event to a queue to unify the processing.
+    // TODO(luca): Add the received signal as an event to a queue to unify the processing.
     *GlobalRunning = false;
 }
 

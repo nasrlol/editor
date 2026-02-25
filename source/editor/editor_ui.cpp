@@ -1,3 +1,22 @@
+internal ui_size
+UI_Size(ui_size_kind Kind, f32 Value, f32 Strictness)
+{
+    ui_size Size = {};
+    Size.Kind = Kind;
+    Size.Value = Value;
+    Size.Strictness = Strictness;
+    return Size;
+}
+
+#define DeferLoop(Begin, End)        for(int _i_ = ((Begin), 0); !_i_; _i_ += 1, (End))
+
+
+#define UI_SizePx(Value, Strictness) UI_Size(UI_SizeKind_Pixels, Value, Strictness)
+#define UI_SizeText(Value, Strictness) UI_Size(UI_SizeKind_TextContent, Value, Strictness)
+#define UI_SizeEm(Value, Strictness) UI_Size(UI_SizeKind_Pixels, Value*HeightPx, Strictness)
+#define UI_SizeParent(Value, Strictness) UI_Size(UI_SizeKind_PercentOfParent, Value, Strictness)
+#define UI_SizeChildren(Strictness) UI_Size(UI_SizeKind_ChildrenSum, 0.f, Strictness)
+
 internal b32
 UI_IsNilBox(ui_box *Box)
 {
@@ -9,9 +28,9 @@ internal void
 UI_PushBox(void)
 {
     // NOTE(luca): You may not double push cause it makes no sense
-    Assert(!AppendToParent);
+    Assert(!UI_State->AppendToParent);
     
-    AppendToParent = true;
+    UI_State->AppendToParent = true;
 }
 
 internal ui_key
@@ -29,7 +48,7 @@ UI_KeyMatch(ui_key A, ui_key B)
 }
 
 internal ui_box *
-UI_AddBox(str8 DisplayString, u32 Flags, ui_size Size[Axis2_Count])
+UI_AddBox(str8 DisplayString, u32 Flags)
 {
 #if 0    
     // TODO(luca): Seed with parent key and avoid null boxes and keys.
@@ -37,7 +56,7 @@ UI_AddBox(str8 DisplayString, u32 Flags, ui_size Size[Axis2_Count])
     //2. Otherwise go to parent's parent
     //3. Step 1
 #else
-    u64 AncestorKey = UI_Current->Parent->Key.U64[0];
+    u64 AncestorKey = UI_State->Current->Parent->Key.U64[0];
 #endif
     ui_key Key = {U64HashFromSeedStr8(AncestorKey, DisplayString)};
     ui_box *Box = 0;
@@ -96,24 +115,24 @@ UI_AddBox(str8 DisplayString, u32 Flags, ui_size Size[Axis2_Count])
     Box->Key = Key;
     Box->DisplayString = DisplayString;
     Box->Flags = Flags;
-    Box->SemanticSize[Axis2_X] = Size[Axis2_X];
-    Box->SemanticSize[Axis2_Y] = Size[Axis2_Y];
     
-    // TODO(luca): Override these default settings.
-    Box->BackgroundColor = Color_ButtonBackground;
-    Box->BorderColor = Color_ButtonBorder;
-    Box->TextColor = Color_ButtonText;
-    Box->CornerRadii = V4(5.f, 5.f, 5.f, 5.f);
-    Box->BorderThickness = 2.f;
-    Box->Softness = .5f;
+    Box->BackgroundColor = UI_State->BackgroundColorTop->Value;
+    Box->BorderColor = UI_State->BorderColorTop->Value;
+    Box->TextColor = UI_State->TextColorTop->Value;
+    Box->BorderThickness = UI_State->BorderThicknessTop->Value;
+    Box->Softness = UI_State->SoftnessTop->Value;
+    Box->CornerRadii = UI_State->CornerRadiiTop->Value;
+    Box->LayoutAxis = UI_State->LayoutAxisTop->Value;
+    Box->SemanticSize[Axis2_X] = UI_State->SemanticWidthTop->Value;
+    Box->SemanticSize[Axis2_Y] = UI_State->SemanticHeightTop->Value;
     
     if(!FirstTime)
     {
-        v2 MouseP = V2S32(UI_Input->MouseX, UI_Input->MouseY);
+        v2 MouseP = V2S32(UI_State->Input->MouseX, UI_State->Input->MouseY);
         
         b32 Hovered = IsInsideRectV2(MouseP, RectFromSize(Box->FixedPosition, Box->FixedSize));
-        b32 Clicked = (Hovered && (WasPressed(UI_Input->MouseButtons[PlatformMouseButton_Left]))); 
-        b32 Pressed = (Hovered && UI_Input->MouseButtons[PlatformMouseButton_Left].EndedDown);
+        b32 Clicked = (Hovered && (WasPressed(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))); 
+        b32 Pressed = (Hovered && UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown);
         
         Box->Clicked = Clicked;
         Box->Hovered = Hovered;
@@ -122,27 +141,27 @@ UI_AddBox(str8 DisplayString, u32 Flags, ui_size Size[Axis2_Count])
     
     // Add box to the tree
     {    
-        if(AppendToParent)
+        if(UI_State->AppendToParent)
         {
-            UI_Current->First = Box;
-            Box->Parent = UI_Current;
+            UI_State->Current->First = Box;
+            Box->Parent = UI_State->Current;
         }
         else
         {    
-            Box->Parent = UI_Current->Parent;
+            Box->Parent = UI_State->Current->Parent;
             
             if(!UI_IsNilBox(Box->Parent))
             {
                 Box->Parent->Last = Box;
             }
             
-            Box->Prev = UI_Current;
-            UI_Current->Next = Box;
+            Box->Prev = UI_State->Current;
+            UI_State->Current->Next = Box;
         }
         
-        UI_Current = Box;
+        UI_State->Current = Box;
         
-        AppendToParent = false;
+        UI_State->AppendToParent = false;
     }
     
     return Box;
@@ -151,7 +170,7 @@ UI_AddBox(str8 DisplayString, u32 Flags, ui_size Size[Axis2_Count])
 internal void
 UI_PopBox()
 {
-    UI_Current = UI_Current->Parent;
+    UI_State->Current = UI_State->Current->Parent;
 }
 
 internal f32
@@ -162,7 +181,7 @@ UI_MeasureTextWidth(str8 String)
     for EachIndex(Idx, String.Size)
     {
         u8 Char = String.Data[Idx];
-        f32 CharWidth = (UI_Atlas->PackedChars[Char].xadvance);
+        f32 CharWidth = (UI_State->Atlas->PackedChars[Char].xadvance);
         
         Result += CharWidth;
     }
@@ -170,15 +189,260 @@ UI_MeasureTextWidth(str8 String)
     return Result;
 }
 
+//- Calculations Start 
+
+internal void
+UI_CalculateStandaloneSizes(ui_box *Box, axis2 Axis)
+{
+    // TODO(luca): Use size .Value as padding
+    f32 BorderWidth = Box->BorderThickness;
+    
+    switch(Box->SemanticSize[Axis].Kind)
+    {
+        default: {}break;
+        case UI_SizeKind_Pixels:
+        {
+            Box->FixedSize.e[Axis] = Box->SemanticSize[Axis].Value;
+        } break;
+        case UI_SizeKind_TextContent:
+        {
+            if(Axis == Axis2_X)
+            {
+                Box->FixedSize.e[Axis] = (UI_MeasureTextWidth(Box->DisplayString) + 
+                                          2.f*BorderWidth);
+            }
+            else
+            {
+                Box->FixedSize.e[Axis] = (UI_State->Atlas->HeightPx + 
+                                          2.f*BorderWidth);
+            }
+        } break;
+    }
+    
+    if(!UI_IsNilBox(Box->Next))
+    {
+        UI_CalculateStandaloneSizes(Box->Next, Axis);
+    }
+    if(!UI_IsNilBox(Box->First))
+    {
+        UI_CalculateStandaloneSizes(Box->First, Axis);
+    }
+}
+
+internal void
+UI_CalculateUpwardSizes(ui_box *Box, axis2 Axis)
+{
+    if(Box->SemanticSize[Axis].Kind == UI_SizeKind_PercentOfParent)
+    {
+        Box->FixedSize.e[Axis] = (Box->SemanticSize[Axis].Value * 
+                                  Box->Parent->FixedSize.e[Axis]);
+    }
+    
+    if(!UI_IsNilBox(Box->First))
+    {
+        UI_CalculateUpwardSizes(Box->First, Axis);
+    }
+    if(!UI_IsNilBox(Box->Next))
+    {
+        UI_CalculateUpwardSizes(Box->Next, Axis);
+    }
+}
+
+internal void
+UI_CalculateDownwardSizes(ui_box *Box, axis2 Axis)
+{
+    if(!UI_IsNilBox(Box->First))
+    {
+        UI_CalculateDownwardSizes(Box->First, Axis);
+    }
+    if(!UI_IsNilBox(Box->Next))
+    {
+        UI_CalculateDownwardSizes(Box->Next, Axis);
+    }
+    
+    if(Box->SemanticSize[Axis].Kind == UI_SizeKind_ChildrenSum)
+    {
+        ui_box *Child = Box->First;
+        
+        f32 TotalSize = 0.f;
+        while(!UI_IsNilBox(Child))
+        {
+            b32 IsFirstChild = (Child == Box->First);
+            b32 IsPreviousAligned = (Child->Prev->LayoutAxis == Axis); 
+            if(IsFirstChild || IsPreviousAligned)
+            {                
+                TotalSize += Child->FixedSize.e[Axis];
+            }
+            
+            Child = Child->Next;
+        }
+        
+        Box->FixedSize.e[Axis] = TotalSize;
+    }
+    
+}
+
+internal void
+UI_CalculateViolations(ui_box *Box, axis2 Axis)
+{
+    NotImplemented();
+    
+    if(!UI_IsNilBox(Box->Next))
+    {
+        UI_CalculateViolations(Box->Next, Axis);
+    }
+    
+    if(!UI_IsNilBox(Box->First))
+    {
+        UI_CalculateViolations(Box->First, Axis);
+    }
+}
+
+internal void
+UI_CalculatePositionsAndDrawBoxes(ui_box *Box)
+{
+    if(Box->Parent->First == Box)
+    {
+        Box->FixedPosition.X = Box->Parent->FixedPosition.X;
+        Box->FixedPosition.Y = Box->Parent->FixedPosition.Y;
+    }
+    else
+    {            
+        switch(Box->LayoutAxis)
+        {
+            default: InvalidPath(); break;
+            case Axis2_X:
+            {
+                Box->FixedPosition.X = (Box->Prev->FixedPosition.X + 
+                                        Box->Prev->FixedSize.X);
+                Box->FixedPosition.Y = (Box->Prev->FixedPosition.Y);
+            } break;
+            case Axis2_Y:
+            {
+                Box->FixedPosition.X = (Box->Prev->FixedPosition.X);
+                Box->FixedPosition.Y = (Box->Prev->FixedPosition.Y +
+                                        Box->Prev->FixedSize.Y);
+                
+            } break;
+        }
+    }
+    
+    rect Dest = RectFromSize(Box->FixedPosition, Box->FixedSize);
+    
+    if(Box->Flags & UI_BoxFlag_DrawBackground)
+    {    
+        rect_instance *Inst = DrawRect(Dest, Box->BackgroundColor, 0.f, 0.f, Box->Softness);
+        V4Math Inst->CornerRadii.E = Box->CornerRadii.E;
+        
+        if(Box->Flags & UI_BoxFlag_AnimateColorOnHover)
+        {
+            if(Box->Hovered)
+            {
+                Inst->Color0.W = .2f;
+                Inst->Color1.W = .2f;
+                
+                if(Box->Pressed)
+                {
+                    Inst->Color0.W = 1.f;
+                    Inst->Color1.W = 1.f;
+                    Inst->Color2.W = .2f;
+                    Inst->Color3.W = .2f;
+                }
+                
+            }
+        }
+    }
+    
+    
+    if(Box->Flags & UI_BoxFlag_DrawDisplayString)
+    {
+        v2 TextPos = Box->FixedPosition;
+        TextPos.Y += Box->BorderThickness;
+        TextPos.X += Box->BorderThickness;
+        
+        if(Box->Flags & UI_BoxFlag_CenterTextHorizontally)
+        {
+            f32 TextWidth = UI_MeasureTextWidth(Box->DisplayString);
+            TextPos.X += .5f*((Box->FixedSize.X - 2.f*Box->BorderThickness) - TextWidth);
+        }
+        
+        if(Box->Flags & UI_BoxFlag_CenterTextVertically)
+        {
+            f32 TextHeight = UI_State->Atlas->HeightPx;
+            TextPos.Y += .5f*((Box->FixedSize.Y - 2.f*Box->BorderThickness) - TextHeight);
+        }
+        
+        for EachIndex(Idx, Box->DisplayString.Size)
+        {
+            rune Char = Box->DisplayString.Data[Idx];
+            
+            f32 CharWidth = (UI_State->Atlas->PackedChars[Char].xadvance);
+            
+            DrawRectChar(UI_State->Atlas, TextPos, Char, Color_ButtonText);
+            
+            TextPos.X += CharWidth;
+        }
+    }
+    
+    if(Box->Flags & UI_BoxFlag_DrawBorders)
+    {    
+        rect_instance *Inst = DrawRect(Dest, Box->BorderColor, 0.f, Box->BorderThickness, Box->Softness);
+        V4Math Inst->CornerRadii.E = Box->CornerRadii.E;
+    }
+    
+    if(UI_State->RectDebugMode || Box->Flags & UI_BoxFlag_DrawDebugBorder)
+    {    
+        DrawRect(Dest, V4(1.f, 0.f, 1.f, 1.f), 0.f, 1.f, 0.f);
+    }
+    
+    if(!UI_IsNilBox(Box->First))
+    {
+        UI_CalculatePositionsAndDrawBoxes(Box->First);
+    }
+    if(!UI_IsNilBox(Box->Next))
+    {
+        UI_CalculatePositionsAndDrawBoxes(Box->Next);
+    }
+}
+
+global_variable u32 UI_DebugIndentation = 0;
+
+internal void
+UI_DebugPrintBoxes(ui_box *Box)
+{
+    Log("%*s" S8Fmt ":\n"
+        "%*s %d,%d\n"
+        "%*s %.0f,%.0f %.0fx%.0f\n"
+        ,
+        UI_DebugIndentation, "", S8Arg(Box->DisplayString),
+        UI_DebugIndentation, "", Box->SemanticSize[0].Kind, Box->SemanticSize[1].Kind, 
+        UI_DebugIndentation, "", 
+        Box->FixedPosition.X, Box->FixedPosition.Y, Box->FixedSize.X, Box->FixedSize.Y);
+    
+    if(!UI_IsNilBox(Box->First))
+    {
+        UI_DebugIndentation += 1;
+        UI_DebugPrintBoxes(Box->First);
+        UI_DebugIndentation -= 1;
+    }
+    
+    if(!UI_IsNilBox(Box->Next))
+    {
+        UI_DebugPrintBoxes(Box->Next);
+    }
+}
+
+//- Calculations End
+
 internal void
 UI_DrawBoxes(ui_box *Box)
 {
     f32 BorderWidth = Box->BorderThickness;
     f32 Softness = Box->Softness;
-    v4 DebugBorderColor = V4(0.f, 0.f, 1.f, 1.f);;
+    v4 DebugBorderColor = V4(0.f, 0.f, 1.f, 1.f);
     
     // NOTE(luca): We might not have to special case the root element since it has references to the NilBox
-    if(Box != UI_Root)
+    if(Box != UI_State->Root)
     {
         if(Box->Parent->First == Box)
         {
@@ -187,9 +451,25 @@ UI_DrawBoxes(ui_box *Box)
         }
         else
         {            
-            Box->FixedPosition.Y = Box->Parent->FixedPosition.Y;
-            Box->FixedPosition.X = (Box->Prev->FixedPosition.X + 
-                                    Box->Prev->FixedSize.X);
+            if(0) {}
+            else if(Box->LayoutAxis == Axis2_X)
+            {                
+                Box->FixedPosition.X = (Box->Prev->FixedPosition.X + 
+                                        Box->Prev->FixedSize.X);
+                Box->FixedPosition.Y = (Box->Prev->FixedPosition.Y);
+            }
+            else if(Box->LayoutAxis == Axis2_Y)
+            {
+                Box->FixedPosition.X = (Box->Prev->FixedPosition.X);
+                Box->FixedPosition.Y = (Box->Prev->FixedPosition.Y +
+                                        Box->Prev->FixedSize.Y);
+                
+            }
+            else
+            {
+                InvalidPath();
+            }
+            
         }
         
         for EachIndex(Idx, Axis2_Count)
@@ -211,13 +491,22 @@ UI_DrawBoxes(ui_box *Box)
                 }
                 else
                 {
-                    *FixedSize = (UI_Atlas->HeightPx + 
+                    *FixedSize = (UI_State->Atlas->HeightPx + 
                                   2.f*BorderWidth);
                 }
             }
             else if(SemanticSize.Kind == UI_SizeKind_PercentOfParent)
             {
+                Assert(Box->Parent->SemanticSize[Idx].Kind != UI_SizeKind_ChildrenSum);
                 *FixedSize = Box->Parent->FixedSize.e[Idx] * SemanticSize.Value;
+            }
+            else if(SemanticSize.Kind == UI_SizeKind_ChildrenSum)
+            {
+                // NOTE(luca): Do nothing yet.
+            }
+            else
+            {
+                InvalidPath();
             }
         }
     }
@@ -262,7 +551,7 @@ UI_DrawBoxes(ui_box *Box)
         
         if(Box->Flags & UI_BoxFlag_CenterTextVertically)
         {
-            f32 TextHeight = UI_Atlas->HeightPx;
+            f32 TextHeight = UI_State->Atlas->HeightPx;
             TextPos.Y += .5f*((Box->FixedSize.Y - 2.f*BorderWidth) - TextHeight);
         }
         
@@ -270,9 +559,9 @@ UI_DrawBoxes(ui_box *Box)
         {
             rune Char = Box->DisplayString.Data[Idx];
             
-            f32 CharWidth = (UI_Atlas->PackedChars[Char].xadvance);
+            f32 CharWidth = (UI_State->Atlas->PackedChars[Char].xadvance);
             
-            DrawRectChar(UI_Atlas, TextPos, Char, Color_ButtonText);
+            DrawRectChar(UI_State->Atlas, TextPos, Char, Color_ButtonText);
             
             TextPos.X += CharWidth;
         }
@@ -284,7 +573,7 @@ UI_DrawBoxes(ui_box *Box)
         V4Math Inst->CornerRadii.E = Box->CornerRadii.E;
     }
     
-    if(UI_GlobalDebugMode || Box->Flags & UI_BoxFlag_DrawDebugBorder)
+    if(UI_State->RectDebugMode || Box->Flags & UI_BoxFlag_DrawDebugBorder)
     {    
         DrawRect(Dest, DebugBorderColor, 0.f, 1.f, 0.f);
     }
@@ -298,5 +587,4 @@ UI_DrawBoxes(ui_box *Box)
     {
         UI_DrawBoxes(Box->First);
     }
-    
 }

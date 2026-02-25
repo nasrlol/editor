@@ -142,15 +142,14 @@ DrawRect(rect Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softnes
 internal rect_instance *
 DrawRectChar(font_atlas *Atlas, v2 Pos, rune Codepoint, v4 Color)
 {
-    rect_instance *Result = GlobalRectsInstances + GlobalRectsCount;
-    GlobalRectsCount += 1;
-    
-    MemoryZero(Result);
+    rect_instance *Result = 0;
+    rect Dest = {};
     
     // NOTE(luca): Evereything happens in pixel coordinates in here.
     
     rune CharIdx = Codepoint - Atlas->FirstCodepoint;
     stbtt_packedchar *PackedChar = &Atlas->PackedChars[CharIdx];
+    stbtt_aligned_quad *Quad = &Atlas->AlignedQuads[CharIdx];
     f32 Width = (PackedChar->x1 - PackedChar->x0);
     f32 Height = (PackedChar->y1 - PackedChar->y0);
     {    
@@ -162,16 +161,12 @@ DrawRectChar(font_atlas *Atlas, v2 Pos, rune Codepoint, v4 Color)
         
         v2 Max = V2(Min.X + Width, Min.Y + Height);
         
-        Result->Dest = Rect(Min.X, Min.Y, Max.X, Max.Y);
+        Result = DrawRect(Dest, Color, 0.f, 0.f, 0.f);
         
-        stbtt_aligned_quad *Quad = &Atlas->AlignedQuads[CharIdx];
+        Result->Dest = Rect(Min.X, Min.Y, Max.X, Max.Y);
         Result->TexSrc = Rect(Quad->s0, Quad->t0, Quad->s1, Quad->t1);
     }
     
-    Result->Color0 = Color;
-    Result->Color1 = Color;
-    Result->Color2 = Color;
-    Result->Color3 = Color;
     Result->HasTexture = true;
     
 #if 0    
@@ -196,7 +191,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
 #endif
     
     ui_box *UI_Boxes;
-    arena *PermanentArena, *FrameArena;
+    arena *PermanentArena;
     app_state *App;
     {    
         PermanentArena = (arena *)Memory->Memory;
@@ -232,7 +227,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         App->UIBoxTableSize = 4096;
         App->UIBoxTable = PushArray(PermanentArena, ui_box, App->UIBoxTableSize);
-        App->UIArena = PushArena(PermanentArena, 256*sizeof(ui_box));
+        App->UIBoxArena = PushArena(PermanentArena, 256*sizeof(ui_box));
         
         App->TrackerForUI_NilBox = &_UI_NilBox;
         
@@ -344,20 +339,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     else WindowBorderColor = Color_Night3;
     
     //- Prepare rects rendering 
-    u64 BufferMaxSize = KB(40)/sizeof(f32);
-    f32 *RectsBufferData = PushArray(FrameArena, f32, BufferMaxSize);
-    // TODO(luca): These should go in the vertex shader as a constant.
-    f32 QuadPosData[] =
-    {
-        -1.f, +1.f,
-        +1.f, +1.f,
-        -1.f, -1.f,
-        +1.f, -1.f,
-    };
-    
-    MemoryCopy(RectsBufferData, QuadPosData, sizeof(QuadPosData));
+    u64 MaxRectsCount = 1024;
     GlobalRectsCount = 0;
-    GlobalRectsInstances = (rect_instance *)(RectsBufferData + ArrayCount(QuadPosData));
+    GlobalRectsInstances = PushArray(FrameArena, rect_instance, MaxRectsCount);
     
     //- Draw text
     
@@ -390,19 +374,22 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // Open | Save                                                   Close
     
     ui_box *Root = PushStructZero(FrameArena, ui_box);
-    
     Root->FixedPosition = V2(0.f, 0.f);
     Root->FixedSize = BufferDim;
     Root->FixedPosition = V2AddF32(Root->FixedPosition, WindowBorderSize);
     Root->FixedSize = V2SubF32(Root->FixedSize, 2.f*WindowBorderSize);
     
-    UI_Root = Root;
-    UI_Current = Root;
-    UI_Input = Input;
+    UI_State = PushStructZero(FrameArena, ui_state);
+    UI_State->Root = Root;
+    UI_State->Current = Root;
+    UI_State->AppendToParent = false;
+    UI_State->Input = Input;
+    UI_State->Atlas = &App->FontAtlas;
+    UI_State->RectDebugMode = false;
+    
     UI_BoxTableSize = App->UIBoxTableSize;
     UI_BoxTable = App->UIBoxTable;
-    UI_BoxArena = App->UIArena;
-    UI_Atlas = &App->FontAtlas;
+    UI_BoxArena = App->UIBoxArena;
     
     // TODO(luca): 
     //1. Have a hash table
@@ -412,41 +399,69 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     Root->Parent = Root->First = Root->Next = Root->Last = UI_NilBox;
     
-    ui_size Size[Axis2_Count] = {};
-    
-    u32 Flags = (UI_BoxFlag_DrawBorders | UI_BoxFlag_DrawBackground |
-                 UI_BoxFlag_DrawDisplayString |
-                 UI_BoxFlag_CenterTextHorizontally | UI_BoxFlag_CenterTextVertically );
-    
-    UI_PushBox();
-    Size[Axis2_X] = {UI_SizeKind_PercentOfParent, 1.f, 1.f};
-    Size[Axis2_Y] = {UI_SizeKind_TextContent, 50.f, 1.f};
-    UI_AddBox(S8("titlebar"), (Flags ^ 
-                               UI_BoxFlag_DrawDisplayString ^ 
-                               UI_BoxFlag_DrawBackground), Size);
-    UI_PushBox();
-    
-    Size[Axis2_X] = {UI_SizeKind_Pixels, 80.f, 1.f}; 
-    Size[Axis2_X] = {UI_SizeKind_PercentOfParent, 1.0f/3.f, 1.f}; 
-    
-    Size[Axis2_Y] = {UI_SizeKind_TextContent, 50.f, 1.f}; 
-    u32 ButtonFlags = (Flags | 
-                       UI_BoxFlag_AnimateColorOnHover |
-                       UI_BoxFlag_AnimateColorOnPress);
-    UI_AddBox(S8("Open"), ButtonFlags, Size);
-    UI_AddBox(S8("Save"), ButtonFlags, Size);
-    // TODO(luca): Spacer
-    if(UI_AddBox(S8("Close"), ButtonFlags, Size)->Clicked)
-    {
-        ShouldQuit = true;
+    // Create UI tree
+    {    
+        u32 Flags = (UI_BoxFlag_DrawBorders | UI_BoxFlag_DrawBackground |
+                     UI_BoxFlag_DrawDisplayString |
+                     UI_BoxFlag_CenterTextHorizontally | UI_BoxFlag_CenterTextVertically );
+        u32 ButtonFlags = (Flags | 
+                           UI_BoxFlag_AnimateColorOnHover |
+                           UI_BoxFlag_AnimateColorOnPress);
+        u32 TitlebarFlags = (Flags ^ 
+                             UI_BoxFlag_DrawDisplayString ^ 
+                             UI_BoxFlag_DrawBackground);
+        
+        UI_PushBox();
+        
+        UI_BackgroundColor(Color_ButtonBackground) UI_TextColor(Color_ButtonText) UI_BorderColor(Color_ButtonBorder) UI_Softness(.5f) UI_BorderThickness(2.f) UI_CornerRadii(V4(5.f, 5.f, 5.f, 5.f)) UI_LayoutAxis(Axis2_X)
+        {    
+            UI_SemanticHeight(UI_SizeChildren(1.f)) UI_SemanticWidth(UI_SizeParent(1.f, 1.f))
+            {
+                UI_AddBox(S8("titlebar"), TitlebarFlags);
+            }
+            
+            UI_PushBox();
+            
+            UI_SemanticWidth(UI_SizeParent(1.f/4.f, 1.f)) UI_SemanticHeight(UI_SizeText(2.f, 1.f))
+            {    
+                UI_AddBox(S8("Open"), ButtonFlags);
+                
+                UI_BackgroundColor(Color_Yellow) UI_BorderColor(Color_Yellow)
+                {            
+                    UI_AddBox(S8("Help"), ButtonFlags);
+                    UI_AddBox(S8("Save"), ButtonFlags);
+                }
+                
+                // TODO(luca): Spacer
+                // UI_AddBox();
+                
+                if(UI_AddBox(S8("Close"), ButtonFlags)->Clicked)
+                {
+                    ShouldQuit = true;
+                }
+                
+                UI_PopBox();
+                
+                UI_LayoutAxis(Axis2_Y) UI_BorderColor(Color_Black) UI_SemanticWidth(UI_SizeParent(1.f, 1.f)) UI_SemanticHeight(UI_SizeParent(.5f, 1.f))
+                {
+                    UI_AddBox(S8("Textarea"), UI_BoxFlag_DrawBorders);
+                }
+            }
+        }
     }
-    UI_PopBox();
     
-    // TODO(luca): 
-    //UI_SetNextAxis(Axis2_Y);
-    //UI_AddBox(S8("Textarea"), UI_BoxFlag_DrawBorders, Size);
+    for EachIndex(Idx, Axis2_Count)
+    {        
+        axis2 Axis = (axis2)Idx;
+        
+        UI_CalculateStandaloneSizes(Root->First, Axis);
+        UI_CalculateUpwardSizes(Root->First, Axis);
+        UI_CalculateDownwardSizes(Root->First, Axis);
+        //UI_CalculateViolations(Root->First, Axis);
+    }
+    UI_CalculatePositionsAndDrawBoxes(Root->First);
     
-    UI_DrawBoxes(Root);
+    UI_DebugPrintBoxes(Root->First);
     
     //- Rendering 
     
@@ -470,14 +485,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         glBindBuffer(GL_ARRAY_BUFFER, VBOs[2]);
         
-        u64 Size = sizeof(QuadPosData) + GlobalRectsCount*sizeof(rect_instance);
-        glBufferData(GL_ARRAY_BUFFER, Size, RectsBufferData, GL_STATIC_DRAW);
+        Assert(GlobalRectsCount < MaxRectsCount);
+        u64 Size = GlobalRectsCount*sizeof(rect_instance);
+        glBufferData(GL_ARRAY_BUFFER, Size, GlobalRectsInstances, GL_STATIC_DRAW);
         
-        glEnableVertexAttribArray(0);
-        glVertexAttribDivisor(0, 0);  
-        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2*sizeof(f32), 0);
-        
-        u64 Offset = ArrayCount(QuadPosData);
+        u64 Offset = 0;
         
         // TODO(luca): Metaprogram
         s32 Counts[] = {4,4, 4,4,4,4, 4, 1,1, 1};

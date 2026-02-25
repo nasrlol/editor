@@ -164,7 +164,6 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
             HDC OwnDC = GetDC(Window);
             
             int Win32RefreshRate = GetDeviceCaps(OwnDC, VREFRESH);
-            // TODO(luca): Use this one.
             
             PIXELFORMATDESCRIPTOR PixelFormat = {};
             PixelFormat.nSize = sizeof(PixelFormat);

@@ -62,7 +62,8 @@ struct app_state
     u64 TextCount;
     rune Text[KB(1)];
     
-    arena *UIArena;
+    // TODO(luca): Move this over to UI state
+    arena *UIBoxArena;
     u64 UIBoxTableSize;
     ui_box *UIBoxTable;
     
@@ -75,6 +76,8 @@ struct app_state
 //~ Globals
 global_variable rect_instance *GlobalRectsInstances;
 global_variable s32 GlobalRectsCount;
+
+global_variable arena *FrameArena = 0;
 
 // X macros
 
