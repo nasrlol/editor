@@ -1,5 +1,8 @@
 //~ Strings
 
+#include <stdarg.h>
+#include <stdio.h>
+
 internal str8 
 S8SkipLastSlash(str8 String)
 {
