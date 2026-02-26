@@ -135,7 +135,7 @@ Swap(t& A, t& B) { t T = A; A = B; B = T; }
 
 #define Var(Name) Glue(Name, __LINE__)
 #define DoOnce local_persist s32 Var(X) = 0; Var(X) += 1; if(Var(X) < 2)
-#define DebugBreakOnce() DoOnce { DebugBreak(); }
+#define DebugBreakOnce() do { DoOnce { DebugBreak(); }; } while(0);
 
 # define TrapMsg(Format, ...) do { ErrorLog(Format, ##__VA_ARGS__); Trap(); } while(0)
 #define AssertMsg(Expression, Format, ...) \

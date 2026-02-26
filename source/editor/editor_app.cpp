@@ -67,8 +67,8 @@ DeleteChar(app_state *App)
 internal inline b32
 EqualsWithEpsilon(f32 A, f32 B, f32 Epsilon)
 {
-    b32 Result = (A < (B + 0.001f) && 
-                  A > (B - 0.001f));
+    b32 Result = (A < (B + Epsilon) && 
+                  A > (B - Epsilon));
     return Result;
 }
 
@@ -190,7 +190,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     GlobalPerfCountFrequency = Memory->PerfCountFrequency;
 #endif
     
-    ui_box *UI_Boxes;
     arena *PermanentArena;
     app_state *App;
     {    
@@ -311,10 +310,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
     gl_handle VAOs[2] = {};
     gl_handle VBOs[3] = {};
     gl_handle Textures[2] = {};
-    gl_handle SoftwareShader, RectShader;
+    gl_handle RectShader;
     glGenVertexArrays(ArrayCount(VAOs), &VAOs[0]);
-    glGenBuffers(ArrayCount(VBOs), &VBOs[0]);
     glGenTextures(ArrayCount(Textures), &Textures[0]);
+    glGenBuffers(ArrayCount(VBOs), &VBOs[0]);
     glBindVertexArray(VAOs[0]);
     
     glViewport(0, 0, Buffer->Width, Buffer->Height);
@@ -358,7 +357,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     // Draw rectangles 
     {
-        f32 Time = (f32)OS_GetWallClock();
         // Window borders
         {
             rect Dest = RectFromSize(V2(0.f, 0.f), BufferDim);
@@ -461,7 +459,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     UI_CalculatePositionsAndDrawBoxes(Root->First);
     
-    UI_DebugPrintBoxes(Root->First);
+    //UI_DebugPrintBoxes(Root->First);
     
     //- Rendering 
     

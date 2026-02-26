@@ -3,6 +3,9 @@ misc:
   - replace X macros
   - f32 buffers, sizes and offsets
 - profiler
+		- toggle key bind
+- unified logs
+		- with date, system, level and stacktraces
 
 platform:
 - fix keyboard input (pressing & holding, vs text)

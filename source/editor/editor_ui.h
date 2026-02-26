@@ -174,6 +174,7 @@ read_only global_variable ui_box _UI_NilBox =
 
 global_variable ui_box *UI_NilBox = 0;
 
+// TODO(luca): Freelist?
 #define StackPush(Arena, t, PushValue, Top) \
 t *Push = PushStruct((Arena), t); \
 Push->Value = (PushValue); \

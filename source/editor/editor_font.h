@@ -59,7 +59,7 @@ InitFont(app_font *Font, char *FilePath)
 
 //- Rendering 
 internal void
-DrawCharacter(arena *Arena, app_offscreen_buffer *Buffer,  u8 *FontBitmap,
+DrawCharacter(app_offscreen_buffer *Buffer,  u8 *FontBitmap,
               int FontWidth, int FontHeight, 
               int XOffset, int YOffset,
               u32 Color)
@@ -175,7 +175,7 @@ DrawText(arena *Arena, app_offscreen_buffer *Buffer, app_font *Font,
             s32 XOffset = (s32)floorf(Offset.X + (f32)LeftSideBearing*FontScale);
             s32 YOffset = (s32)Offset.Y + Y0;
             
-            DrawCharacter(Arena, Buffer, FontBitmap, FontWidth, FontHeight, XOffset, YOffset, Color);
+            DrawCharacter(Buffer, FontBitmap, FontWidth, FontHeight, XOffset, YOffset, Color);
             
             Offset.X += roundf((f32)AdvanceWidth*FontScale);
         }

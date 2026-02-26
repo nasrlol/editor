@@ -243,7 +243,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                     NewInput->PlatformIsPlaying = IsPlaying;
                 }
                 
-                b32 ShouldQuit = Code.UpdateAndRender(ThreadContext, &AppMemory, &Buffer, NewInput, OldInput);
+                b32 ShouldQuit = Code.UpdateAndRender(ThreadContext, &AppMemory, &Buffer, NewInput);
                 // NOTE(luca): Since UpdateAndRender can take some time, there could have been a signal sent to INT the app.
                 ReadWriteBarrier;
                 *Running = *Running && !ShouldQuit;
@@ -297,7 +297,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
             
 #if EDITOR_PROFILE
             // TODO(luca): Sometimes we hit more than 4ms/f
-            if(WorkMSPerFrame >= 4000.0f) DebugBreakOnce;
+            if(WorkMSPerFrame >= 4000.0f) DebugBreakOnce();
 #endif
             
             Swap(OldInput, NewInput);
