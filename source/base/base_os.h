@@ -30,6 +30,12 @@ global_variable u8 LogBuffer[KB(64)];
 global_variable OS_profiler GlobalProfiler = {}; 
 global_variable char *GlobalProfilerPrefix = ""; 
 
+#if EDITOR_PROFILE
+global_variable b32 GlobalIsProfiling = true;
+#else
+global_variable b32 GlobalIsProfiling = false;
+#endif
+
 //~ Functions
 #define ENTRY_POINT(Name) void *Name(entry_point_params *Params)
 typedef ENTRY_POINT(entry_point_func);

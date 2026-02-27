@@ -152,6 +152,7 @@ struct app_memory
 #if EDITOR_INTERNAL
     b32 IsDebuggerAttached;
 #endif
+    b32 IsProfiling;
     b32 Reloaded;
     
     f64 PerfCountFrequency;

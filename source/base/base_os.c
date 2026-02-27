@@ -28,15 +28,13 @@ OS_ProfileInit(char *Prefix)
     GlobalProfilerPrefix = Prefix;
 }
 
-#if EDITOR_PROFILE
 internal void
 OS_ProfileAndPrint(char *Label)
 {
-    GlobalProfiler.End = OS_GetWallClock();
-    Log(" %s_%s: %.4f\n", GlobalProfilerPrefix, Label, OS_MSElapsed(GlobalProfiler.Start, GlobalProfiler.End));
-    GlobalProfiler.Start = GlobalProfiler.End;
+    if(GlobalIsProfiling)
+    {        
+        GlobalProfiler.End = OS_GetWallClock();
+        Log(" %s_%s: %.4f\n", GlobalProfilerPrefix, Label, OS_MSElapsed(GlobalProfiler.Start, GlobalProfiler.End));
+        GlobalProfiler.Start = GlobalProfiler.End;
+    }
 }
-#else
-// NOTE(luca): stub
-internal void OS_ProfileAndPrint(char *Label) {}
-#endif

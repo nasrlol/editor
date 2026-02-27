@@ -158,6 +158,11 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 Log("%s\n", (Paused) ? "Paused" : "Unpaused");
             }
             
+            if(CharPressed(NewInput, 'p', PlatformKeyModifier_Alt | PlatformKeyModifier_Shift)) 
+            {
+                GlobalIsProfiling = !GlobalIsProfiling;
+            }
+            
             if(CharPressed(NewInput, 'g', PlatformKeyModifier_Alt)) 
             {
                 Logging = !Logging;
@@ -242,6 +247,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                     NewInput->PlatformIsRecording = IsRecording;
                     NewInput->PlatformIsPlaying = IsPlaying;
                 }
+                
+                AppMemory.IsProfiling = GlobalIsProfiling;
                 
                 b32 ShouldQuit = Code.UpdateAndRender(ThreadContext, &AppMemory, &Buffer, NewInput);
                 // NOTE(luca): Since UpdateAndRender can take some time, there could have been a signal sent to INT the app.

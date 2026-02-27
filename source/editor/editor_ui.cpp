@@ -90,7 +90,9 @@ UI_AddBox(str8 String, u32 Flags)
                 Box->HashNext = Box->HashPrev = UI_NilBox;
             }
             else
-            {     
+            {
+                //2.
+                // TODO(luca): If the Box has not been touched in the last frame we can evict it ?
                 while(!UI_IsNilBox(HashBox))
                 {        
                     if(UI_KeyMatch(HashBox->Key, Key))

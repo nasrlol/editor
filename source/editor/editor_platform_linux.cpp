@@ -886,6 +886,8 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
     s64 TimeDiff = (CurrentWriteTime - Code->LastWriteTime);  
     b32 WasWritten = (TimeDiff > (s64)(100 * 1000 * 1000));
     
+    Memory->Reloaded = false;
+    
     if(Size && (!Code->Loaded || WasWritten))
     {
         Code->LastWriteTime = CurrentWriteTime;

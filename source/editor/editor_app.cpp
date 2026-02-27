@@ -237,6 +237,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
 #if OS_WINDOWS
     GlobalPerfCountFrequency = Memory->PerfCountFrequency;
 #endif
+    GlobalIsProfiling = Memory->IsProfiling;
+    
+    OS_ProfileInit(" G");
     
     arena *PermanentArena;
     app_state *App;
@@ -259,7 +262,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
     if(!Memory->Initialized || Memory->Reloaded)
     {
         GLADVersion = gladLoaderLoadGL();
+        OS_ProfileAndPrint("glad Init");
     }
+    
+    OS_ProfileAndPrint("Init");
     
     if(!Memory->Initialized)
     {
@@ -315,6 +321,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             
         }
         Memory->Initialized = true;
+        OS_ProfileAndPrint("Memory Init");
     }
     
     UI_NilBox = App->TrackerForUI_NilBox;
@@ -405,22 +412,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
     }
     
+    OS_ProfileAndPrint("Input");
     
     glViewport(0, 0, Buffer->Width, Buffer->Height);
-    
-    v4 BackgroundColor = Color_Night3;
-    
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_BLEND);
-    glDisable(GL_DEPTH_TEST);
-    
-    glClearColor(BackgroundColor.X, BackgroundColor.Y, BackgroundColor.Z, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    OS_ProfileAndPrint("GL setup");
     
     f32 WindowBorderSize = 2.f;
     v4 WindowBorderColor;
-    
     if(0) {}
     else if(Input->PlatformIsRecording) WindowBorderColor = Color_Red;
     else if(Input->PlatformIsPlaying) WindowBorderColor = Color_Green;
@@ -432,8 +430,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     GlobalRectsCount = 0;
     GlobalRectsInstances = PushArray(FrameArena, rect_instance, MaxRectsCount);
     
-    //- Draw text
+    OS_ProfileAndPrint("Misc setup");
     
+    //- Draw text
     if(App->Font.Initialized)
     {
         if(App->PreviousHeightPx != App->HeightPx)
@@ -442,6 +441,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
             InitAtlas(App->FontAtlasArena, &App->Font, &App->FontAtlas, App->HeightPx);
         }
     }
+    
+    OS_ProfileAndPrint("Atlas");
     
     v2 BufferDim = V2S32(Buffer->Width, Buffer->Height);
     
@@ -468,10 +469,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
         GetPanelRegion(App->FirstPanel, RectFromSize(Pos, Size));
     }
     
-    
     UI_BoxTableSize = App->UIBoxTableSize;
     UI_BoxTable = App->UIBoxTable;
     UI_BoxArena = App->UIBoxArena;
+    UI_State = PushStructZero(FrameArena, ui_state);
     
     u32 Flags = (UI_BoxFlag_DrawBorders | UI_BoxFlag_DrawBackground |
                  UI_BoxFlag_DrawDisplayString |
@@ -484,7 +485,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
                          UI_BoxFlag_DrawBackground ^
                          UI_BoxFlag_DrawBorders);
     
-    UI_State = PushStructZero(FrameArena, ui_state);
+    
+    OS_ProfileAndPrint("UI setup");
     
     // First panel
     {    
@@ -546,7 +548,19 @@ UPDATE_AND_RENDER(UpdateAndRender)
         UI_ResolveLayout(UI_State->Root);
     }
     
+    OS_ProfileAndPrint("UI");
+    
     //- Rendering 
+    
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    
+    glClearColor(V3Arg(Color_Background), 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+    OS_ProfileAndPrint("R Clear");
     
     // Render rectangles
     {
@@ -594,6 +608,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
         glEnable(GL_MULTISAMPLE);
         glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GlobalRectsCount);
     }
+    
+    OS_ProfileAndPrint("R rects");
     
     App->FrameIndex += 1;
     
