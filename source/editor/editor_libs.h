@@ -11,6 +11,12 @@ C_LINKAGE_BEGIN
 # define STB_TRUETYPE_IMPLEMENTATION
 # define STB_SPRINTF_IMPLEMENTATION
 # define EDITOR_FONT_IMPLEMENTATION
+
+# define XXH_STATIC_LINKING_ONLY
+# define XXH_IMPLEMENTATION
+// TODO(luca): Does not work because this implies XXH_IMPLEMENTATION and will make the function signatures mismatch
+//# define XXH_INLINE_ALL
+
 #else
 void GLADDisableCallbacks();
 void GLADEnableCallbacks();
@@ -22,6 +28,7 @@ NO_WARNINGS_BEGIN
 # include "lib/stb_image_write.h"
 # include "lib/stb_sprintf.h"
 # include "lib/stb_truetype.h"
+# include "lib/xxHash/xxhash.h"
 NO_WARNINGS_END
 
 //~ GLAD helper functions

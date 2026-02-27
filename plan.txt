@@ -15,6 +15,7 @@
 - Smooth smooth animations
   - self-correcting exponential animation curves for hot_t & active_t
 - profile compile times on linux
+  - standard libraries (linux et al): 100ms, math.h: 100ms, gl_core: 50ms
 - Add back text rendering of the input buffer
 - Improve text rendering
   - Check text rendering extensively (xoff & leftsidebearing)

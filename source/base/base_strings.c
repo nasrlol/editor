@@ -92,12 +92,15 @@ StringFormat(arena *Arena, char *Format, ...)
     return Result;
 }
 
-#if !defined(XXH_IMPLEMENTATION)
+#if !defined(BASE_EXTERNAL_LIBS)
+# if !defined(XXH_IMPLEMENTATION)
 # define XXH_INLINE_ALL
-# define XXH_IMPLEMENTATION
 # define XXH_STATIC_LINKING_ONLY
-# include "lib/xxHash/xxhash.h"
+# define XXH_IMPLEMENTATION
+# endif
 #endif
+
+#include "lib/xxHash/xxhash.h"
 
 internal u64
 U64HashFromSeedStr8(u64 Seed, str8 String)
