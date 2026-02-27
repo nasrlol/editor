@@ -50,6 +50,7 @@ struct app_state
     u8 Text[1024];
     
     s32 CursorPos;
+    u64 CurrentScopeHandle;
 };
 
 //~ Globals

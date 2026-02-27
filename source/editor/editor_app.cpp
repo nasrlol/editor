@@ -89,10 +89,11 @@ GetPixel(app_offscreen_buffer *Buffer, s32 X, s32 Y)
 void
 AppendChar(app_state *App, rune Codepoint)
 {
-    if (Codepoint == ' ')
+    if (Is_Delimiter(Codepoint))
     {
-        // NOTE(nasr): do we check the space here?
+        // TODO(nasr): do something if its a delimiter when inputting
     }
+
     App->Text[App->TextCount] = Codepoint;
     App->TextCount += 1;
     App->CursorPos += 1;
@@ -212,8 +213,6 @@ C_LINKAGE
 UPDATE_AND_RENDER(UpdateAndRender)
 {
     b32 ShouldQuit = false;
-    local_persist token_list *list;
-    local_persist concrete_syntax_tree *tree;
 
     DebugBreak;
     
@@ -231,8 +230,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
         PermanentArena->Size = Memory->MemorySize - sizeof(arena);
         PermanentArena->Base = (u8 *)Memory->Memory + sizeof(arena);
         PermanentArena->Pos = 0;
+
         AsanPoisonMemoryRegion(PermanentArena->Base, PermanentArena->Size);
-        
         FrameArena = PushArena(PermanentArena, Memory->MemorySize/2);
         
         App = PushStruct(PermanentArena, app_state);
@@ -246,7 +245,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
     {
         GLADVersion = gladLoaderLoadGL();
     }
-    
+
+    local_persist concrete_syntax_tree *Tree; 
+    local_persist token_list           *List; 
+
+    if (!List) List = PushStruct(PermanentArena, token_list);
+
     if(!Memory->Initialized)
     {
         char *FontPath = PathFromExe(FrameArena, Memory->ExeDirPath, S8("../data/font_regular.ttf"));
@@ -315,6 +319,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 AppendChar(App, Key.Codepoint);
             }
         }
+
         else
         {
             if(0) {}
@@ -332,9 +337,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
             }
             else if (Key.Codepoint == PlatformKey_F2)
             {
+                Lex(App, PermanentArena, List);
+                Tree = Parse(PermanentArena, List);
 
-             list = Lex(App, PermanentArena);
-             tree = Parse(PermanentArena, list);
+                if (Tree)
+                {
+                    visualize_tree(Tree, PermanentArena, Buffer, Input);
+                }
             }
         }
     }
@@ -384,7 +393,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     GlobalRectsCount = 0;
     GlobalRectQuadData = (rect_instance *)(RectsBufferData + ArrayCount(QuadPosData));
 
-    if (tree) visualize_tree(tree, PermanentArena, Buffer, Input);
     
     //- Render text (rasterized on CPU)
     app_offscreen_buffer TextImage;
