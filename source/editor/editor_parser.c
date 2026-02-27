@@ -4,15 +4,6 @@ CreateNode(concrete_syntax_tree *Tree, arena *Arena, token *Token)
   syntax_node *SyntaxNode = PushStruct(Arena, syntax_node);
   SyntaxNode->Token       = Token;
 
-  if (!Tree->Root)
-  {
-    Tree          = &nil_concrete_syntax_tree;
-    Tree->Root    = SyntaxNode;
-    Tree->Current = SyntaxNode;
-
-    return &nil_syntax_node;
-  }
-
   return SyntaxNode;
 }
 
@@ -34,14 +25,22 @@ PeekForward(syntax_node *Node, token_type type)
 
 /* pushing parsed node on on the syntax tree */
 internal void
-NodePush(concrete_syntax_tree *Tree, syntax_node *node)
+NodePush(concrete_syntax_tree *Tree, syntax_node *Node)
 {
+  assert(Tree);
+  assert(Node);
+
+  if (!Tree->Root)
+  {
+    Tree->Root = Node;
+    Tree->Current = Tree->Root;
+  }
+
   syntax_node *Parent = Tree->Current;
-  syntax_node *Child  = node;
+  syntax_node *Child  = Node;
 
-  Parent = Child->Parent;
 
-  if(Parent->First == 0)
+  if(!Parent->First)
   {
     Parent->First = Child;
     Parent->Last  = Child;
@@ -51,6 +50,8 @@ NodePush(concrete_syntax_tree *Tree, syntax_node *node)
     Parent->Last->NextNode = Child;
     Parent->Last           = Child;
   }
+
+  Child->Parent = Parent;
 }
 
 internal concrete_syntax_tree *
@@ -66,15 +67,11 @@ Parse(arena *Arena, token_list *List)
     // 2. this is an action that is going to be repeated quite a few times
     
     syntax_node *SyntaxNode = CreateNode(Tree, Arena, Token);
+    Assert(SyntaxNode);
 
     // TODO(nasr): passing the syntax node here gives a null pointed parent
     // and a null pointed root, but when creating the syntax node it's fine
     NodePush(Tree, SyntaxNode);
-
-    if (!Tree->Current)
-    {
-      Tree->Root = Tree->Current;
-    }
 
     switch ((token_type)Token->Type)
     {

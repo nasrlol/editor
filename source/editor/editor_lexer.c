@@ -197,4 +197,6 @@ Lex(app_state *App, arena *Arena)
         Column += (s32)Token->Lexeme.Size;
     }
 
+    return List;
+
 }
