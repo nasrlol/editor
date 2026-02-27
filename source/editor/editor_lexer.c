@@ -32,9 +32,11 @@ Is_Delimiter(rune Character)
     return 0;
 }
 
-internal void
-Lex(app_state *App, arena *Arena, token_list *List)
+internal token_list *
+Lex(app_state *App, arena *Arena)
 {
+  token_list *List = PushStruct(Arena, token_list);
+
     // TODO(nasr): we are counting one idnex to much somewhere 
     // Lexeme: [int x ] [4]
     // Lexeme: [int x ] [4]

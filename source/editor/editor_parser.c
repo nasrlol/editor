@@ -9,6 +9,8 @@ CreateNode(concrete_syntax_tree *Tree, arena *Arena, token *Token)
     Tree          = &nil_concrete_syntax_tree;
     Tree->Root    = SyntaxNode;
     Tree->Current = SyntaxNode;
+
+    return &nil_syntax_node;
   }
 
   return SyntaxNode;
@@ -26,14 +28,8 @@ PeekToOffset(syntax_node *Node, s32 peekOffset)
 internal syntax_node *
 PeekForward(syntax_node *Node, token_type type)
 {
-
-  while (Node->Token->Type != type)
-  {
-    Node = Node->NextNode;
-  }
-
+  while (Node->Token->Type != type) Node = Node->NextNode;
   return Node;
-
 }
 
 /* pushing parsed node on on the syntax tree */
@@ -42,9 +38,10 @@ NodePush(concrete_syntax_tree *Tree, syntax_node *node)
 {
   syntax_node *Parent = Tree->Current;
   syntax_node *Child  = node;
+
   Parent = Child->Parent;
 
-  if (Parent->First == 0)
+  if(Parent->First == 0)
   {
     Parent->First = Child;
     Parent->Last  = Child;
@@ -68,10 +65,7 @@ Parse(arena *Arena, token_list *List)
     // 1. this is an action that requires multiple steps
     // 2. this is an action that is going to be repeated quite a few times
     
-
     syntax_node *SyntaxNode = CreateNode(Tree, Arena, Token);
-
-
 
     // TODO(nasr): passing the syntax node here gives a null pointed parent
     // and a null pointed root, but when creating the syntax node it's fine
@@ -283,4 +277,6 @@ Parse(arena *Arena, token_list *List)
         }
     }
   }
+
+  return Tree;
 }

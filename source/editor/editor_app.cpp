@@ -55,6 +55,7 @@ ColorList
 #undef SET
 
 
+
 internal app_offscreen_buffer
 LoadImage(arena *Arena, str8 ExeDirPath, str8 Path)
 {
@@ -246,10 +247,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
         GLADVersion = gladLoaderLoadGL();
     }
 
-    local_persist concrete_syntax_tree *Tree; 
-    local_persist token_list           *List; 
 
-    if (!List) List = PushStruct(PermanentArena, token_list);
+
 
     if(!Memory->Initialized)
     {
@@ -337,13 +336,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
             }
             else if (Key.Codepoint == PlatformKey_F2)
             {
-                Lex(App, PermanentArena, List);
-                Tree = Parse(PermanentArena, List);
-
-                if (Tree)
-                {
-                    visualize_tree(Tree, PermanentArena, Buffer, Input);
-                }
+                token_list           *List = Lex(App, PermanentArena);
+                concrete_syntax_tree *Tree = Parse(PermanentArena, List);
+                visualize_tree(Tree, PermanentArena, Buffer, Input);
             }
         }
     }
