@@ -31,7 +31,7 @@ BraceWrapping:
   SplitEmptyFunction: true
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
-SpaceBeforeParens: ControlStatements
+SpaceBeforeParens: Never
 SpaceBeforeAssignmentOperators: true
 SpaceBeforeRangeBasedForLoopColon: true
 SpacesInParentheses: false

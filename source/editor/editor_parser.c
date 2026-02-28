@@ -10,16 +10,18 @@ CreateNode(concrete_syntax_tree *Tree, arena *Arena, token *Token)
 internal syntax_node *
 PeekToOffset(syntax_node *Node, s32 peekOffset)
 {
-  for (s32 peekCount = 0; peekCount < peekOffset; peekCount++) Node = Node->NextNode;
-  if (!Node) return &nil_syntax_node;
+  for(s32 peekCount = 0; peekCount < peekOffset; peekCount++)
+    Node = Node->NextNode;
+  if(!Node)
+    return &nil_syntax_node;
 
   return Node;
 }
-                                                                         
+
 internal syntax_node *
 PeekForward(syntax_node *Node, token_type type)
 {
-  while (Node->Token->Type != type) Node = Node->NextNode;
+  while(Node->Token->Type != type) Node = Node->NextNode;
   return Node;
 }
 
@@ -30,28 +32,30 @@ NodePush(concrete_syntax_tree *Tree, syntax_node *Node)
   assert(Tree);
   assert(Node);
 
-  if (!Tree->Root)
+  if(Tree->Root == NULL)
   {
-    Tree->Root = Node;
+    Tree->Root    = Node;
     Tree->Current = Tree->Root;
+
+    return;
   }
 
-  syntax_node *Parent = Tree->Current;
-  syntax_node *Child  = Node;
+  syntax_node *Current = Tree->Current;
 
-
-  if(!Parent->First)
+  if(!Current->First)
   {
-    Parent->First = Child;
-    Parent->Last  = Child;
+    Current->First = Node;
+    Current->Last = Node;
   }
-  else
+  else 
   {
-    Parent->Last->NextNode = Child;
-    Parent->Last           = Child;
+    Current->Last = Node;
+    Current->Last->NextNode = Node;
   }
 
-  Child->Parent = Parent;
+  Node->Parent = Current;
+
+  return;
 }
 
 internal concrete_syntax_tree *
@@ -59,219 +63,215 @@ Parse(arena *Arena, token_list *List)
 {
   concrete_syntax_tree *Tree = PushStruct(Arena, concrete_syntax_tree);
 
-  for (token_node *Node = List->Root; Node != 0; Node = Node->Next)
+  for(token_node *TokenNode = List->Root; TokenNode != NULL ; TokenNode = TokenNode->Next)
   {
-    token *Token = Node->Token;
-    // creating the node in a seperaate function
-    // 1. this is an action that requires multiple steps
-    // 2. this is an action that is going to be repeated quite a few times
-    
+    token *Token = TokenNode->Token;
     syntax_node *SyntaxNode = CreateNode(Tree, Arena, Token);
-    Assert(SyntaxNode);
 
-    // TODO(nasr): passing the syntax node here gives a null pointed parent
-    // and a null pointed root, but when creating the syntax node it's fine
+    assert(SyntaxNode);
+
     NodePush(Tree, SyntaxNode);
 
-    switch ((token_type)Token->Type)
+    switch((token_type)Token->Type)
     {
-      case (TokenUndefined):
+      case(TokenUndefined):
+      {
+        // TODO(nasr): if we ever implement incremental parsing, search
+        // mark dirty for incremental parsing later
+        // for dirty flags and attempt fixup
+        Token->Flags = (token_flags)(Token->Flags | FlagDirty);
+      }
+      break;
+
+      case(TokenIdentifier):
+      {
+        // if followed by '=' this is an assignment
+        // the token after '=' is the value so bassically a double equal
+        // check if the next node exists
+        if(TokenNode->Next && TokenNode->Next->Token->Type == (token_type)'=')
         {
-          // TODO(nasr): if we ever implement incremental parsing, search
-          // mark dirty for incremental parsing later
-          // for dirty flags and attempt fixup
-          Token->Flags = (token_flags)(Token->Flags | FlagDirty);
+          token_node *ValueNode = TokenNode->Next->Next;
+          if(ValueNode)
+          {
+            ValueNode->Token->Type = TokenIdentifierAssignmentValue;
+          }
         }
+
+        if(!Is_Alpha((TokenNode->Token->Lexeme.Data[0])))
+          TokenNode->Token->Flags = (token_flags)(Token->Flags | FlagDirty);
+      }
+      break;
+
+      case(TokenIdentifierAssignmentValue):
+      {
+        // TODO(nasr): validate that preceding nodes are well-formed
         break;
+      }
 
-      case (TokenIdentifier):
+      case(TokenNumber):
+      case(TokenString):
+      {
+        if(Tree->Current->Token->Type == (token_type)'=')
         {
-          // if followed by '=' this is an assignment
-          // the token after '=' is the value so bassically a double equal
-          // check if the next node exists
-          if (Node->Next && Node->Next->Token->Type == (token_type)'=')
-          {
-            token_node *ValueNode = Node->Next->Next;
-            if (ValueNode)
-            {
-              ValueNode->Token->Type = TokenIdentifierAssignmentValue;
-            }
-          }
+          Token->Type = TokenIdentifierAssignmentValue;
 
-          if (!Is_Alpha((Node->Token->Lexeme.Data[0]))) Node->Token->Flags = (token_flags)(Token->Flags | FlagDirty);
-        }
-        break;
-
-      case (TokenIdentifierAssignmentValue):
-        {
-          // TODO(nasr): validate that preceding nodes are well-formed
-          break;
-        }
-
-      case (TokenNumber):
-      case (TokenString):
-        {
-          if (Tree->Current->Token->Type == (token_type)'=')
-          {
-            Token->Type = TokenIdentifierAssignmentValue;
-
-            // if the parent of '=' is not an identifier, something is wrong
-            if (Tree->Current->Parent &&
-                Tree->Current->Parent->Token->Type != TokenIdentifier)
-            {
-              Token->Flags = (token_flags)(Token->Flags | FlagDirty);
-            }
-          }
-
-          // NOTE(nasr): number/string inside a block body -- no action yet
-          // TODO(nasr): figure out what to do here
-          break;
-        }
-
-      case (TokenDoubleEqual):
-        {
-          /* if (1==1) */
-
-          // TODO(nasr): take the parent if its a '('
-          if (Tree->Current->Parent->Token->Type != (token_type)'(')
-          {
-            break;
-          }
-
-          // TODO(nasr): handle comparison operators
-
-          Tree->Current = SyntaxNode;
-          break;
-        }
-
-      case (TokenGreaterEqual):
-      case (TokenLesserEqual):
-      case ((token_type)'<'):
-      case ((token_type)'>'):
-        {
-          token_type CurrentType = Tree->Current->Parent->Token->Type;
-
-          if (CurrentType == TokenIdentifier || CurrentType == TokenIdentifierAssignmentValue)
-          {
-          }
-
-          Tree->Current = SyntaxNode;
-          break;
-        }
-
-      case ((token_type)'{'):
-        {
-          if (Tree->Current && Tree->Current != Tree->Root)
-          {
-            Tree->Current = Tree->Current->Parent;
-          }
-
-          break;
-        }
-
-      case ((token_type)'}'):
-        {
-          if (Tree->Current->Parent)
-          {
-            Tree->Current = Tree->Current->Parent;
-          }
-          break;
-        }
-
-      case ((token_type)'('):
-        {
-          Tree->Current = SyntaxNode;
-          break;
-        }
-
-      case ((token_type)')'):
-        {
-          while (Tree->Current && Tree->Current->Token->Type != (token_type)'(')
-          {
-            Tree->Current = Tree->Current->Parent;
-          }
-
-          if (Tree->Current)
-          {
-            Tree->Current = Tree->Current->Parent;
-          }
-          break;
-        }
-
-      case (TokenParam):
-        {
-          break;
-        }
-
-      case (TokenFunc):
-        {
-          syntax_node *current_node = Tree->Current;
-          if (current_node->NextNode && current_node->NextNode->Token->Type != (token_type)'{')
-          {
-            Tree->Current->Token->Flags = (token_flags)(Token->Flags | FlagDirty);
-            break;
-          }
-        }
-
-      case (TokenReturn):
-        {
-          if (Tree->Current->Parent && Tree->Current->Parent->Token->Type != TokenFunc)
-          {
-          }
-        }
-
-      case (TokenIf):
-        {
-          if (Tree->Current->Parent &&
-              (Tree->Current->Parent->Token->Type != (token_type)'(' &&
-               Tree->Current->Parent->Token->Type != (token_type)')'))
-          {
-          }
-        }
-
-      case (TokenElse):
-      case (TokenWhile):
-      case (TokenFor):
-        {
-          Tree->Current = SyntaxNode;
-
-          break;
-        }
-
-      case (TokenBreak):
-        {
-          // break must be inside a loop or switch if no parent, mark dirty
-          if (!Tree->Current->Parent)
+          // if the parent of '=' is not an identifier, something is wrong
+          if(Tree->Current->Parent &&
+             Tree->Current->Parent->Token->Type != TokenIdentifier)
           {
             Token->Flags = (token_flags)(Token->Flags | FlagDirty);
           }
-          break;
         }
 
-      case (TokenContinue):
+        // NOTE(nasr): number/string inside a block body -- no action yet
+        // TODO(nasr): figure out what to do here
+        break;
+      }
+
+      case(TokenDoubleEqual):
+      {
+        /* if (1==1) */
+
+        // TODO(nasr): take the parent if its a '('
+        if(Tree->Current->Parent->Token->Type != (token_type)'(')
         {
-          // TODO(nasr): same validation as break
           break;
         }
 
-      case (TokenExpression):
+        // TODO(nasr): handle comparison operators
+
+        Tree->Current = SyntaxNode;
+        break;
+      }
+
+      case(TokenGreaterEqual):
+      case(TokenLesserEqual):
+      case((token_type)'<'):
+      case((token_type)'>'):
+      {
+        token_type CurrentType = Tree->Current->Parent->Token->Type;
+
+        if(CurrentType == TokenIdentifier || CurrentType == TokenIdentifierAssignmentValue)
         {
-          Tree->Current = SyntaxNode;
-          break;
         }
 
-      case ((token_type)';'):
+        Tree->Current = SyntaxNode;
+        break;
+      }
+
+      case((token_type)'{'):
+      {
+        if(Tree->Current && Tree->Current != Tree->Root)
         {
-          // TODO(nasr): do something to make the end of line clear
-          Tree->Current = SyntaxNode;
-          break;
+          Tree->Current = Tree->Current->Parent;
         }
 
-      default:
+        break;
+      }
+
+      case((token_type)'}'):
+      {
+        if(Tree->Current->Parent)
+        {
+          Tree->Current = Tree->Current->Parent;
+        }
+        break;
+      }
+
+      case((token_type)'('):
+      {
+        Tree->Current = SyntaxNode;
+        break;
+      }
+
+      case((token_type)')'):
+      {
+        while(Tree->Current && Tree->Current->Token->Type != (token_type)'(')
+        {
+          Tree->Current = Tree->Current->Parent;
+        }
+
+        if(Tree->Current)
+        {
+          Tree->Current = Tree->Current->Parent;
+        }
+        break;
+      }
+
+      case(TokenParam):
+      {
+        break;
+      }
+
+      case(TokenFunc):
+      {
+        syntax_node *current_node = Tree->Current;
+        if(current_node->NextNode && current_node->NextNode->Token->Type != (token_type)'{')
         {
           Tree->Current->Token->Flags = (token_flags)(Token->Flags | FlagDirty);
           break;
         }
+      }
+
+      case(TokenReturn):
+      {
+        if(Tree->Current->Parent && Tree->Current->Parent->Token->Type != TokenFunc)
+        {
+        }
+      }
+
+      case(TokenIf):
+      {
+        if(Tree->Current->Parent &&
+           (Tree->Current->Parent->Token->Type != (token_type)'(' &&
+            Tree->Current->Parent->Token->Type != (token_type)')'))
+        {
+        }
+      }
+
+      case(TokenElse):
+      case(TokenWhile):
+      case(TokenFor):
+      {
+        Tree->Current = SyntaxNode;
+
+        break;
+      }
+
+      case(TokenBreak):
+      {
+        // break must be inside a loop or switch if no parent, mark dirty
+        if(!Tree->Current->Parent)
+        {
+          Token->Flags = (token_flags)(Token->Flags | FlagDirty);
+        }
+        break;
+      }
+
+      case(TokenContinue):
+      {
+        // TODO(nasr): same validation as break
+        break;
+      }
+
+      case(TokenExpression):
+      {
+        Tree->Current = SyntaxNode;
+        break;
+      }
+
+      case((token_type)';'):
+      {
+        // TODO(nasr): do something to make the end of line clear
+        Tree->Current = SyntaxNode;
+        break;
+      }
+
+      default:
+      {
+        Tree->Current->Token->Flags = (token_flags)(Token->Flags | FlagDirty);
+        break;
+      }
     }
   }
 
