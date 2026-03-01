@@ -37,6 +37,9 @@ struct font_atlas
     stbtt_aligned_quad *AlignedQuads;
 };
 
+// forward declaration  for now
+struct concrete_syntax_tree;
+
 typedef struct app_state app_state;
 struct app_state
 {
@@ -51,6 +54,7 @@ struct app_state
     
     s32 CursorPos;
     u64 CurrentScopeHandle;
+    concrete_syntax_tree *tree;
 };
 
 //~ Globals

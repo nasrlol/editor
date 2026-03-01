@@ -7,13 +7,14 @@
 #include "editor_random.h"
 #include "editor_libs.h"
 #include "editor_gl.h"
-#include "editor_app.h"
 
 #include "editor_lexer.h"
 #include "editor_lexer.c"
 
 #include "editor_parser.h"
 #include "editor_parser.c"
+
+#include "editor_app.h"
 
 #define U32ToV3Arg(Hex) \
   ((f32)((Hex >> 8 * 2) & 0xFF) / 255.0f), \
@@ -329,8 +330,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
           else if(Key.Codepoint == PlatformKey_F2)
           {
             token_list           *List = Lex(App, PermanentArena);
-            concrete_syntax_tree *Tree = Parse(PermanentArena, List);
-            visualize_tree(Tree, PermanentArena, Buffer, Input);
+            App->tree = Parse(PermanentArena, List);
           }
         }
       }
@@ -389,6 +389,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
     MemoryCopy(RectsBufferData, QuadPosData, sizeof(QuadPosData));
     GlobalRectsCount   = 0;
     GlobalRectQuadData = (rect_instance *)(RectsBufferData + ArrayCount(QuadPosData));
+
+
+    // in the draw rectangles block, after the window border:
+    if(App->tree)
+    {
+      visualize_tree(App->tree, PermanentArena, Buffer, Input);
+    }
 
     //- Render text (rasterized on CPU)
     app_offscreen_buffer TextImage;
