@@ -1,0 +1,9 @@
+@table(Name, String) generation_methods:
+{
+ { None    "None"    }
+ { Uniform "Uniform" }
+ { Cluster "Cluster" }
+}
+
+@table_gen_enum(generation_methods, "Method_", Name) generation_method
+@table_gen_data(generation_methods, `char *`, String) GenerationMethodStrings

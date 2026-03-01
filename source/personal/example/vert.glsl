@@ -1,0 +1,57 @@
+#version 330 core
+
+#define v2 vec2
+#define v3 vec3
+#define v4 vec4 
+#define f32 float
+
+in v3 pos;
+in v2 tex;
+
+uniform v3 color;
+uniform v3 offset;
+uniform v2 angle;
+
+out v3 Color;
+out v2 TexCoord;
+
+f32 deg2rad(f32 degrees)
+{
+    f32 Result = degrees*3.14159265359f/180.0;
+    return Result;
+}
+
+v3 rotate(v3 Pos, f32 Angle)
+{
+    v3 Result;
+    
+    f32 c = cos(Angle);
+    f32 s = sin(Angle);
+    Result.x = Pos.x*c - Pos.z*s;
+    Result.z = Pos.x*s + Pos.z*c;
+    Result.y = Pos.y;
+    
+    return Result;
+}
+
+void main()
+{
+    Color = color;
+    TexCoord = tex;
+    
+#if 1   
+    f32 x, y, z;;
+    
+    v3 inc = rotate(pos.yxz, angle.y).yxz;
+    v3 rot = rotate(inc, angle.x);
+    x = rot.x + offset.x;
+    y = rot.y + offset.y;
+    z = rot.z;
+    
+    f32 depth = z + offset.z;
+    gl_Position = v4(x, y, z, depth);
+#else
+    gl_Position = v4(pos, 1.0);
+#endif
+    
+}

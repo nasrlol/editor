@@ -1,0 +1,48 @@
+// raddbg 0.9.24 project file
+
+recent_file: path: "src/json_parser/json.cpp"
+recent_file: path: "src/json_parser/json_parser.cpp"
+recent_file: path: "D:/a/_work/1/s/src/vctools/crt/vcstartup/src/startup/exe_common.inl"
+recent_file: path: "src/haversine_processor/json_parser.cpp"
+recent_file: path: "src/haversine_processor/os.c"
+recent_file: path: "d:/os/obj/amd64fre/minkernel/crts/ucrt/src/appcrt/heap/mt/objfre/amd64/minkernel/crts/ucrt/src/appcrt/heap/malloc_base.cpp"
+recent_file: path: "d:/os/obj/amd64fre/minkernel/crts/ucrt/src/appcrt/heap/mt/objfre/amd64/minkernel/crts/ucrt/src/appcrt/heap/malloc.cpp"
+recent_file: path: "src/haversine_processor/libs/listing_0070_platform_metrics.cpp"
+recent_file: path: "src/haversine_processor/haversine_processor.cpp"
+debug_info:
+{
+  path: "C:/Users/zebra/Projects/compenhance/build/haversine_processor.pdb"
+  timestamp: 66199539299082
+}
+breakpoint:
+{
+  address_location: 0x7ffee97d01c4
+  hit_count: 0
+}
+breakpoint:
+{
+  source_location: "src/haversine_processor/json_parser.cpp:228:1"
+  hit_count: 0
+}
+breakpoint:
+{
+  source_location: "src/haversine_processor/json_parser.cpp:218:1"
+  enabled: 0
+  hit_count: 0
+}
+target:
+{
+  executable: "build/json_parser.exe"
+  working_directory: "build/"
+  enabled: 1
+}
+debug_info:
+{
+  path: "C:/Users/zebra/Projects/compenhance/build/json_parser.pdb"
+  timestamp: 66199607313953
+}
+breakpoint:
+{
+  source_location: "src/json_parser/json.cpp:281:1"
+  hit_count: 0
+}

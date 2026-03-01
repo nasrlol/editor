@@ -1,0 +1,59 @@
+version(2);
+project_name = "Computer Enhance";
+patterns = 
+{
+    "*.c",
+    "*.mdesk",
+    "*.cpp",
+    "*.h",
+    "*.m",
+    "*.bat",
+    "*.sh",
+    "*.4coder",
+};
+blacklist_patterns = 
+{
+    "_old.*",
+};
+
+paths =
+{
+    { .path = ".",                       .recursive = false, .relative = true, },
+    { .path = "src/haversine_processor", .recursive = true , .relative = true, },
+    { .path = "src/lib",                 .recursive = true , .relative = true, },
+};
+
+load_paths = 
+{
+    .win = paths,
+    .linux = paths,
+    .mac = paths,
+};
+
+commands = 
+{
+    .build_haversine_processor_debug =
+    {
+        .out = "*compilation*", .save_dirty_files = true,
+        .win = ".\src\haversine_processor\build.bat",
+        .linux = "./src/haversine_processor/build.sh",
+    },
+    .build_haversine_generator =
+    {
+        .out = "*compilation*", .save_dirty_files = true,
+        .win = ".\src\haversine_generator\build.bat",
+        .linux = "./src/haversine_generator/build.sh",
+    },
+    .haversine_processor_release =
+    {
+        .out = "*compilation*", .save_dirty_files = true,
+        .win = ".\src\haversine_processor\build.bat",
+        .linux = "./src/haversine_processor/build.sh release",
+    },
+    
+};
+
+fkey_command =
+{
+    .F1 = "haversine_processor_debug",
+};
