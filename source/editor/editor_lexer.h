@@ -1,8 +1,5 @@
-#ifndef EDITOR_LEXER_H
+   #ifndef EDITOR_LEXER_H
 #define EDITOR_LEXER_H
-
-typedef struct token      token;
-typedef struct token_node token_node;
 
 enum token_type
 {
@@ -31,7 +28,7 @@ enum token_type
     TokenUnwantedChild,
     TokenNewLine,
     TokenRightShift,
-    TokenLeftShift
+    TokenLeftShift,
 };
 
 enum token_flags
@@ -47,6 +44,7 @@ enum token_flags
     FlagDirty           = (1 << 7),
 };
 
+typedef struct token token;
 struct token
 {
     str8        Lexeme;
@@ -57,6 +55,7 @@ struct token
     s32         Line;
 };
 
+typedef struct token_node token_node;
 struct token_node
 {
     token_node *Next;
@@ -66,26 +65,28 @@ struct token_node
     token      *Token;
 };
 
+typedef struct token_list token_list;
 struct token_list
 {
     token_node *Root;
     token_node *Current;
 };
 
-global_variable const
-rune delimiters[]
+typedef struct lexer lexer;
+struct lexer
 {
-        '{',
-        '}',
-        '(',
-        ')',
-        '[',
-        ']',
-        ';',
+    u8 *Text;
+    u64 TextCount;
+    u8 *EndOfFile;
+    u8 *UndefinedTokens;
 };
 
-read_only global_variable
-token nil_token =
+global_variable const rune Delimiters[] =
+{
+    '{', '}', '(', ')', '[', ']', ';',
+};
+
+read_only global_variable token nil_token =
 {
     .Lexeme     = {NULL, 0},
     .Type       = TokenUndefined,
@@ -95,14 +96,13 @@ token nil_token =
     .Line       = 0,
 };
 
-read_only global_variable
-token_node nil_token_node =
+read_only global_variable token_node nil_token_node =
 {
     .Next         = &nil_token_node,
     .Previous     = &nil_token_node,
     .ParentHandle = 0,
     .ChildHandle  = 0,
-    .Token        = 0,
+    .Token        = NULL,
 };
 
 #endif // EDITOR_LEXER_H
