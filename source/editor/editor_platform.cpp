@@ -146,6 +146,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                     NewInput->GameButtons[Idx].HalfTransitionCount = 0;
                 }
                 NewInput->dtForFrame = TargetSecondsPerFrame;
+                NewInput->PlatformCursor = OldInput->PlatformCursor;
                 
                 P_ProcessMessages(PlatformContext, NewInput, &Buffer, Running);
             }
@@ -208,7 +209,6 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                             {
                                 IsPlaying = false;
                             }
-                            
                         }
                         else
                         {

@@ -249,16 +249,25 @@ IsInsideV4(f32 X, f32 Y, v4 Rec)
 }
 
 internal inline b32
-IsInsideRec(f32 X, f32 Y, rect Rec)
+IsInsideRect(f32 X, f32 Y, rect Rec)
 {
     b32 Result = IsInside(X, Y, Rec.Min, Rec.Max);
     return Result;
 }
 
 internal inline b32
-IsInsideRecV2(v2 Pos, rect Rec)
+IsInsideRectV2(v2 Pos, rect Rec)
 {
-    b32 Result = IsInsideRec(Pos.X, Pos.Y, Rec);
+    b32 Result = IsInsideRect(Pos.X, Pos.Y, Rec);
+    return Result;
+}
+
+internal inline rect
+RectShrink(rect Rec, f32 Size)
+{
+    rect Result = Rec;
+    V2Math Result.Min.E += Size;
+    V2Math Result.Max.E -= Size;
     return Result;
 }
 

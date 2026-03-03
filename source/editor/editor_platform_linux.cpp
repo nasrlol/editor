@@ -753,8 +753,8 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                 
                 case MotionNotify:
                 {
+                    // TODO(luca): There can be multiple MotionNotify events per frame.  We should handle this if we want higher precision mouse movement.
                     XMotionEvent *Event = (XMotionEvent *)&WindowEvent;
-                    Log("Mouse event: (%d, %d) %lu\n", Event->x, Event->y, Event->time);
                     if(Event->x >= 0 && Event->x < Buffer->Width &&
                        Event->y >= 0 && Event->y < Buffer->Height)
                     {                    

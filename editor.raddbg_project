@@ -28,21 +28,15 @@ debug_info:
 debug_info:
 {
   path: "C:/Users/zebra/Projects/editor/build/editor_app.pdb"
-  timestamp: 66208233410743
+  timestamp: 66208307630207
 }
 debug_info:
 {
   path: "C:/Users/zebra/Projects/editor/build/editor.pdb"
-  timestamp: 66208233411490
+  timestamp: 66208307316742
 }
 debug_info:
 {
   path: "C:/Users/zebra/Projects/editor/build/editor.rdi"
   timestamp: 66207518490596
-}
-breakpoint:
-{
-  source_location: "source/editor/editor_app.cpp:319:1"
-  hit_count: 0
-  enabled: 0
 }

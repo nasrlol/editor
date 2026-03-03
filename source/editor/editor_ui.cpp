@@ -146,7 +146,7 @@ UI_AddBox(str8 String, u32 Flags)
     {
         v2 MouseP = V2S32(UI_State->Input->MouseX, UI_State->Input->MouseY);
         
-        b32 Hovered = IsInsideRecV2(MouseP, RectFromSize(Box->FixedPosition, Box->FixedSize));
+        b32 Hovered = IsInsideRectV2(MouseP, RectFromSize(Box->FixedPosition, Box->FixedSize));
         b32 Clicked = (Hovered && (WasPressed(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))); 
         b32 Pressed = (Hovered && UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown);
         

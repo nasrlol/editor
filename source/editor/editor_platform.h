@@ -90,6 +90,8 @@ enum platform_cursor_shape
 {
     PlatformCursorShape_None = 0,
     PlatformCursorShape_Grab,
+    PlatformCursorShape_ResizeHorizontal,
+    PlatformCursorShape_ResizeVertical,
 };
 typedef enum platform_cursor_shape platform_cursor_shape;
 
@@ -140,6 +142,9 @@ struct app_input
     b32 PlatformWindowIsFocused;
     b32 PlatformIsRecording;
     b32 PlatformIsPlaying;
+    u32 PlatformCursor;
+    
+    b32 Consumed;
 };
 
 typedef struct app_memory app_memory;

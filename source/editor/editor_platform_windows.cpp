@@ -6,7 +6,7 @@ struct win32_context
 };
 
 global_variable b32 *GlobalRunning;
-global_variable b32 GlobalShowCursor;
+global_variable LPSTR GlobalCursor;
 global_variable s32 GlobalBufferWidth;
 global_variable s32 GlobalBufferHeight;
 global_variable b32 GlobalWindowIsFocused;
@@ -82,9 +82,11 @@ Win32MainWindowCallback(HWND Window,
         
         case WM_SETCURSOR:
         {
-            if(GlobalShowCursor)
+            if(GlobalCursor)
             {
                 Result = DefWindowProcA(Window, Message, WParam, LParam);
+                
+                SetCursor(LoadCursorA(0, GlobalCursor));
             }
             else
             {
@@ -122,7 +124,7 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
     
     win32_context *Context = PushStruct(Arena, win32_context);
     
-    GlobalShowCursor = true;
+    GlobalCursor = IDC_ARROW;
     GlobalRunning = Running;
     
     HINSTANCE Instance = GetModuleHandle(0);
@@ -208,6 +210,27 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
     win32_context *Win32Context = (win32_context *)Context;
     
     Input->PlatformWindowIsFocused = GlobalWindowIsFocused;
+    
+    switch(Input->PlatformCursor)
+    {
+        default:
+        case PlatformCursorShape_None:
+        {
+            GlobalCursor = IDC_ARROW;
+        } break;
+        case PlatformCursorShape_Grab:
+        {
+            GlobalCursor = IDC_HAND;
+        } break;
+        case PlatformCursorShape_ResizeHorizontal:
+        {
+            GlobalCursor = IDC_SIZEWE;
+        } break;
+        case PlatformCursorShape_ResizeVertical:
+        {
+            GlobalCursor = IDC_SIZENS;
+        } break;
+    }
     
     if(Win32Context)
     {    

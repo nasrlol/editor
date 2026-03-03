@@ -72,9 +72,7 @@ Why would you not identify your spacers?
 
 One alternative approach might be to systematically generate spacer IDs, but this has the familiar issues of uniquely identifying one particular call in a frame across multiple frames
 
-
-
-# Misc
+## Misc
 The Design of Everyday Things by Don Norman
 
 What this means is that any given layout is nested within another (or, alternatively, it’s the root layout).
@@ -92,3 +90,16 @@ For example, if I want to make a button appear embossed when it is hovered by th
 
 https://dqfft.github.io/DirectWrite-quick-start/
 https://mr4th.com/blog/reference-dynamic-linking
+
+# Queues by Fabian Giesen at HSC
+https://www.youtube.com/watch?v=__Vvk027i4s&list=PL-IPpPzBYXBE10zoFwi5SKeYCMWTLgPCF
+Everything becomes serial in I/O because that ends up easier to speed up.
+Queues are used to counter interruptions.
+
+A "waiting area" can mitigate latency spikes caused by packets taking more time to being processed.
+
+Whenever customers are waiting we can choose to intepret the system as a queue and apply the insights to queues from there.
+Back pressure is when filled up queues stall other queues.
+
+E.g., You can make memory usage go down by processing faster since that will reduce the average amount of customers in the system.
+You want a mechanism for informing the queue is full. 

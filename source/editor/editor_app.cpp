@@ -316,12 +316,27 @@ PanelDebugPrint(panel *Panel)
     }
 }
 
+internal app_input *
+GetInput(app_input *Input)
+{
+    app_input *Result = 0;
+    
+    if(Input && !Input->Consumed)
+    {
+        Result = Input;
+    }
+    
+    return Input;
+}
+
 internal void
 PanelGetRegion(panel *Panel, rect FreeRegion)
 {
     panel *Parent = Panel->Parent;
     s32 Axis = Panel->Parent->Axis;
     s32 OtherAxis = 1 - Axis;
+    f32 GapSize = 1.f;
+    f32 PanelBorderSize = 2.f;
     
     v2 Pos = FreeRegion.Min;
     v2 Size = {};
@@ -350,46 +365,56 @@ PanelGetRegion(panel *Panel, rect FreeRegion)
     }
     
     v2 MouseP = V2S32(PanelInput->MouseX, PanelInput->MouseY);
+    b32 MouseIsDown = PanelInput->MouseButtons[PlatformMouseButton_Left].EndedDown;
+    b32 MouseWasPressed = WasPressed(PanelInput->MouseButtons[PlatformMouseButton_Left]);
     
-    f32 BorderSize = 2.f;
-    
-    // NOTE(luca): This happens post-order so that the borders are overlaid correctly.
-    if(!IsNilPanel(Panel->Next) && !Panel->DisableInteraction)
+    b32 DrawResizeBorder = !IsNilPanel(Panel->Next) && !Panel->DisableInteraction; 
+    if(DrawResizeBorder)
     {
-        rect Border = Panel->Region;
-        Border.Min.e[Axis] = Panel->Region.Max.e[Axis] - BorderSize;
+        v4 ResizeBorderColor = Color_Red;
+        f32 ResizeBorderSize = 8.f;
+        
+        rect ResizeBorder = Panel->Region;
+        ResizeBorder.Min.e[Axis] = Panel->Region.Max.e[Axis] - ResizeBorderSize;
+        ResizeBorder.Max.e[Axis] += GapSize; 
         
         // TODO(luca): Only one border should be dragged at a time, this should be taken care of by an input queue
         local_persist b32 IsDragging = false;
         local_persist v2 OldMouseP = {};
+        local_persist panel *DraggingPanel = 0;
         
-        // TODO(luca): Make this actually good.
-#if 1        
-        b32 MouseIsDown = PanelInput->MouseButtons[PlatformMouseButton_Left].EndedDown;
-        b32 MouseWasPressed = WasPressed(PanelInput->MouseButtons[PlatformMouseButton_Left]);
+        // TODO(luca): Make good resizing ->
+        // Other panels should be clamped to a minimum sieze
+        // More size taken from bigger panels than from smaller panels.
+        // The delta distance computed should be relative to the new position of the Panel Min.  This elimitates being able to resize to the right when being on the left of the border. (User should pass over the border to resize in that direction).
         
         if(!MouseIsDown)
         {
             IsDragging = false;
         }
         
-        v4 BorderColor = Color_Blue;
-        
-        if(IsInsideRecV2(MouseP, Border) && !IsDragging)
+        if(IsInsideRectV2(MouseP, ResizeBorder) && !IsDragging)
         {
-            BorderColor = Color_Cyan;
+            ResizeBorderColor = Color_Green;
+            PanelInput->PlatformCursor = (PlatformCursorShape_ResizeHorizontal + Axis);
             
             if(MouseWasPressed)
             {
                 IsDragging = true;
                 OldMouseP = MouseP;
-                PanelApp->SelectedPanel = Panel;
+                DraggingPanel = Panel;
             }
         }
         
-        if(IsDragging && Panel == PanelApp->SelectedPanel)
+        if(IsDragging)
         {
-            BorderColor = Color_Yellow;
+            PanelInput->PlatformCursor = (PlatformCursorShape_ResizeHorizontal + DraggingPanel->Parent->Axis);
+            PanelInput->Consumed = true;
+        }
+        
+        if(IsDragging && Panel == DraggingPanel)
+        {
+            ResizeBorderColor = Color_Yellow;
             
             f32 dP = (OldMouseP.e[Axis] - MouseP.e[Axis]);
             f32 ParentOtherSize = (Parent->Region.Max.e[OtherAxis] - Parent->Region.Min.e[OtherAxis]);
@@ -403,11 +428,37 @@ PanelGetRegion(panel *Panel, rect FreeRegion)
             OldMouseP = MouseP;
         }
         
-        Panel->Region.Max.e[Axis] -= BorderSize;
+#if 0
+        DrawRect(ResizeBorder, ResizeBorderColor, 0.f, 0.f, 0.f);
 #endif
-        
-        DrawRect(Border, BorderColor, 0.f, 0.f, 0.f);
     }
+    
+    
+    v4 PanelBorderColor = Color_Blue;
+    
+    // NOTE(luca): This happens post-order so that the borders are overlaid correctly.
+    
+    b32 HasContents = IsNilPanel(Panel->First);
+    
+    // draw panel rectangle
+    if(HasContents)
+    {
+        if(!PanelInput->Consumed && IsInsideRectV2(MouseP, Panel->Region) && MouseWasPressed)
+        {
+            PanelApp->SelectedPanel = Panel;
+        }
+        
+        if(Panel == PanelApp->SelectedPanel)
+        {
+            PanelBorderColor = Color_Cyan;
+        }
+        
+        Panel->Region = RectShrink(Panel->Region, GapSize);
+        DrawRect(Panel->Region, PanelBorderColor, 0.f, PanelBorderSize, 0.f);
+        Panel->Region = RectShrink(Panel->Region, PanelBorderSize);
+    }
+    
+    
 }
 
 //- 
@@ -424,6 +475,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     GlobalPerfCountFrequency = Memory->PerfCountFrequency;
 #endif
     GlobalIsProfiling = Memory->IsProfiling;
+    
+    Input->Consumed = false;
+    Input->PlatformCursor = 0;
     
     OS_ProfileInit(" G");
     
@@ -480,7 +534,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         // Panels
         {        
-            f32 TopSplitPct = (App->HeightPx + 2.f*2.f)/(BufferDim.Y - 2.f*WindowBorderSize);
+            f32 TextPadding = 2.f + 1.f + 2.f;
+            
+            f32 TopSplitPct = (App->HeightPx + TextPadding*2.f)/(BufferDim.Y - 2.f*WindowBorderSize);
             
             PanelArena = App->PanelArena = ArenaAlloc();
             PanelAxis(Axis2_Y) PanelGroup()
@@ -666,7 +722,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     rect FreeRegion = RectFromSize(Pos, Size);
     
-    
     // UI Panels
     {
         //1. For each panel 
@@ -678,7 +733,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         PanelGetRegion(App->FirstPanel, FreeRegion);
         
-        //PanelDebugPrint(App->FirstPanel);
         // UI for this panel
         {
             App->TitlebarPanel->Root = PushStructZero(FrameArena, ui_box);
