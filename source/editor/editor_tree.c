@@ -1,183 +1,77 @@
-                       internal v4
-ColorForTokenType(token_type Type)
+internal v_node *
+CreateVNode(arena *Arena, syntax_node *Node)
 {
-    switch(Type)
-    {
-        case TokenIdentifier:              return Color_Green;
-        case TokenIdentifierAssignmentValue:
-        case TokenValue:                   return Color_Yellow;
-        case TokenNumber:                  return Color_Orange;
-        case TokenFunc:                    return Color_Blue;
-        default:                           return Color_Red;
-    }
+  v_node *VNode = PushStructZero(Arena, v_node);
+  VNode->Color  = {0};
+  VNode->Size   = {10.f};
+  VNode->Pos    = {0};
+  // VNode->Label     = Node->Token->Lexeme;
+  VNode->Label     = {NULL, 0};
+  VNode->Parent    = &nil_v_node;
+  VNode->NextVNode = &nil_v_node;
+  VNode->First     = &nil_v_node;
+  VNode->Last      = &nil_v_node;
+  return VNode;
 }
 
-internal str8
-LabelForTokenType(token_type Type)
+internal debug_tree *
+BuildDebugTree(concrete_syntax_tree *Tree, arena *Arena)
 {
-    switch(Type)
-    {
-        case TokenIdentifier:               return S8("ident");
-        case TokenIdentifierAssignmentValue:return S8("asgn");
-        case TokenValue:                    return S8("val");
-        case TokenNumber:                   return S8("num");
-        case TokenString:                   return S8("str");
-        case TokenFunc:                     return S8("func");
-        case TokenReturn:                   return S8("ret");
-        case TokenIf:                       return S8("if");
-        case TokenElse:                     return S8("else");
-        case TokenFor:                      return S8("for");
-        case TokenWhile:                    return S8("while");
-        case TokenBreak:                    return S8("break");
-        case TokenContinue:                 return S8("cont");
-        case TokenDoubleEqual:              return S8("==");
-        case TokenGreaterEqual:             return S8(">=");
-        case TokenLesserEqual:              return S8("<=");
-        case TokenLeftShift:                return S8("<<");
-        case TokenRightShift:               return S8(">>");
-        case TokenParam:                    return S8("param");
-        case TokenExpression:               return S8("expr");
-        default:                            return S8("?");
-    }
-}
+  debug_tree *DebugTree = PushStructZero(Arena, debug_tree);
 
-// Pass 1: recursively mirror the syntax tree into visual_node structs,
-// assigning each node a column/row slot. Returns the subtree width in columns.
-internal s32
-BuildVisualTree(syntax_node  *SyntaxNode,
-                visual_node  *VisualParent,
-                visual_tree  *VTree,
-                arena        *Arena,
-                s32           Col,
-                s32           Row,
-                f32           NodeW,
-                f32           NodeH,
-                f32           PadX,
-                f32           PadY)
-{
-    if(!SyntaxNode || SyntaxNode == &nil_syntax_node)
-    {
-        return Col;
-    }
+  for(syntax_node *Node = Tree->Root;
+  Node && Node != &nil_syntax_node;
+  Node = Node->First)
+  {
+    v_node *VNode = CreateVNode(Arena, Node);
+    VNode->Parent = DebugTree->Current;
 
-    visual_node *VNode = PushStruct(Arena, visual_node);
-    VNode->Size        = V2(NodeW, NodeH);
-    VNode->Color       = ColorForTokenType(SyntaxNode->Token->Type);
-    VNode->Label       = LabelForTokenType(SyntaxNode->Token->Type);
-    VNode->Parent      = VisualParent;
-    VTree->Count++;
-
-    if(VisualParent)
+    if(!DebugTree->Root)
     {
-        if(!VisualParent->First)
-        {
-            VisualParent->First = VNode;
-            VisualParent->Last  = VNode;
-        }
-        else
-        {
-            VisualParent->Last->Next = VNode;
-            VisualParent->Last       = VNode;
-        }
+      DebugTree->Root    = VNode;
+      DebugTree->Current = VNode;
     }
     else
     {
-        VTree->Root = VNode;
+      if(DebugTree->Current->First == &nil_v_node)
+      {
+        DebugTree->Current->First = VNode;
+        DebugTree->Current->Last  = VNode;
+      }
+      else
+      {
+        DebugTree->Current->Last->NextVNode = VNode;
+        DebugTree->Current->Last            = VNode;
+      }
+      DebugTree->Current = VNode;
     }
 
-    s32 SubtreeCol = Col;
-
-    if(SyntaxNode->First)
+    for(syntax_node *Sibling = Node->NextNode;
+    Sibling && Sibling != &nil_syntax_node;
+    Sibling = Sibling->NextNode)
     {
-        s32 ChildCol = Col;
-        for(syntax_node *Child = SyntaxNode->First;
-            Child && Child != &nil_syntax_node;
-            Child = Child->NextNode)
-        {
-            ChildCol = BuildVisualTree(Child, VNode, VTree, Arena,
-                                       ChildCol, Row + 1,
-                                       NodeW, NodeH, PadX, PadY);
-        }
-        SubtreeCol = ChildCol;
+      v_node *SVNode                      = CreateVNode(Arena, Sibling);
+      SVNode->Parent                      = DebugTree->Current->Parent;
+      DebugTree->Current->Last->NextVNode = SVNode;
+      DebugTree->Current->Last            = SVNode;
     }
-    else
-    {
-        SubtreeCol = Col + 1;
-    }
+  }
 
-    f32 LeftX  = (f32)Col             * (NodeW + PadX);
-    f32 RightX = (f32)(SubtreeCol - 1) * (NodeW + PadX);
-    VNode->Pos = V2((LeftX + RightX) * 0.5f, (f32)Row * (NodeH + PadY));
-
-    return SubtreeCol;
-}
-
-// Pass 2: draw edges then nodes from an already-built visual_tree.
-// Uses an explicit stack to avoid recursion limits on deep trees.
-internal void
-DrawVisualTree(visual_tree          *VTree,
-               app_offscreen_buffer *Buffer,
-               f32                   OffsetX,
-               f32                   OffsetY,
-               f32                   NodeW,
-               f32                   NodeH)
-{
-    if(!VTree->Root) return;
-
-    // Iterative depth-first traversal using First/Next links
-    visual_node *Stack[1024];
-    s32          Top   = 0;
-    Stack[Top++]       = VTree->Root;
-
-    while(Top > 0)
-    {
-        visual_node *VNode = Stack[--Top];
-
-        v2 NodeCenter = V2(OffsetX + VNode->Pos.X + NodeW * 0.5f,
-                           OffsetY + VNode->Pos.Y + NodeH * 0.5f);
-
-        rect           Dest = RectFromSize(V2(OffsetX + VNode->Pos.X,
-                                              OffsetY + VNode->Pos.Y),
-                                           VNode->Size);
-        rect_instance *Inst = DrawRect(Dest, VNode->Color, 0.f, 1.f, 1.f);
-        Inst->Color0.W      = 1.f;
-        Inst->Color1.W      = 1.f;
-        Inst->Color2.W      = 1.f;
-        Inst->Color3.W      = 1.f;
-
-        // Push children right-to-left so leftmost is processed first
-        for(visual_node *Child = VNode->Last; Child; )
-        {
-            Stack[Top++] = Child;
-            // Walk backward -- find previous sibling by re-scanning from First
-            if(Child == VNode->First) break;
-            visual_node *Prev = VNode->First;
-            while(Prev->Next != Child) Prev = Prev->Next;
-            Child = Prev;
-        }
-    }
+  return DebugTree;
 }
 
 internal void
-visualize_tree(concrete_syntax_tree *Tree,
-              arena                *Arena,
-              app_offscreen_buffer *Buffer,
-              app_input            *Input)
+DebugTree(app_offscreen_buffer *Buffer, debug_tree *DT)
 {
-    if(!Tree || !Tree->Root) return;
+  f32 X        = 50.f;
+  f32 Y        = 50.f;
+  f32 NodeSize = 40.f;
+  f32 Padding  = 10.f;
 
-    f32 NodeW = 50.f;
-    f32 NodeH = 50.f;
-    f32 PadX  = 60.f;
-    f32 PadY  = 60.f;
-
-    f32 OffsetX = 100.f;
-    f32 OffsetY = 100.f;
-
-    visual_tree VTree = {0};
-
-    BuildVisualTree(Tree->Root, NULL, &VTree, Arena,
-                    0, 0, NodeW, NodeH, PadX, PadY);
-
-    DrawVisualTree(&VTree, Buffer, OffsetX, OffsetY, NodeW, NodeH);
+  for(v_node *VNode = DT->Root; VNode && VNode != &nil_v_node; VNode = VNode->NextVNode)
+  {
+    rect Dest = RectFromSize(V2(X, Y), V2(NodeSize, NodeSize));
+    DrawRect(Dest, Color_Yellow, 8.f, 0.f, 1.f);
+    X += NodeSize + Padding;
+  }
 }

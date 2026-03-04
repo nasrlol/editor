@@ -329,8 +329,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
           }
           else if(Key.Codepoint == PlatformKey_F2)
           {
-            token_list           *List = Lex(App, PermanentArena);
-            App->tree = Parse(PermanentArena, List);
+            arena      *TreeArena = PushArena(PermanentArena, MB(1));
+            token_list *List      = Lex(App, TreeArena);
+            App->tree             = Parse(TreeArena, List);
           }
         }
       }
@@ -390,11 +391,19 @@ UPDATE_AND_RENDER(UpdateAndRender)
     GlobalRectsCount   = 0;
     GlobalRectQuadData = (rect_instance *)(RectsBufferData + ArrayCount(QuadPosData));
 
-
     // in the draw rectangles block, after the window border:
     if(App->tree)
     {
-      visualize_tree(App->tree, PermanentArena, Buffer, Input);
+      s32 Count = 0;
+
+      debug_tree *DT = BuildDebugTree(App->tree, FrameArena);
+      for(v_node *V = DT->Root; V && V != &nil_v_node; V = V->NextVNode)
+      {
+        Count++;
+      }
+      Log("VNode count: %d\n", Count);
+
+      DebugTree(Buffer, DT);
     }
 
     //- Render text (rasterized on CPU)
