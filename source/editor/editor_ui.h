@@ -69,7 +69,7 @@ struct ui_box
     
     // Key and generation info
     ui_key Key;
-    u64 LastFrameTouchedIndex;
+    u64 LastTouchedFrameIndex;
     
     u32 Flags;
     ui_size SemanticSize[Axis2_Count];

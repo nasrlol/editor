@@ -147,6 +147,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 }
                 NewInput->dtForFrame = TargetSecondsPerFrame;
                 NewInput->PlatformCursor = OldInput->PlatformCursor;
+                NewInput->MouseX = OldInput->MouseX;
+                NewInput->MouseY = OldInput->MouseY;
                 
                 P_ProcessMessages(PlatformContext, NewInput, &Buffer, Running);
             }
@@ -234,6 +236,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                         
                         if(RecordingBufferPos >= RecordingBufferSize)
                         {
+                            Log("Replay end\n\n");
+                            
                             // StartPlaying()
                             {
                                 RecordingBufferPos = 0;
@@ -250,7 +254,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 
                 AppMemory.IsProfiling = GlobalIsProfiling;
                 
-                b32 ShouldQuit = Code.UpdateAndRender(ThreadContext, &AppMemory, &Buffer, NewInput, OldInput);
+                b32 ShouldQuit = Code.UpdateAndRender(ThreadContext, &AppMemory, &Buffer, NewInput);
                 // NOTE(luca): Since UpdateAndRender can take some time, there could have been a signal sent to INT the app.
                 ReadWriteBarrier;
                 *Running = *Running && !ShouldQuit;

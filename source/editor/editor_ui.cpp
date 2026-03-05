@@ -17,6 +17,14 @@ UI_Size(ui_size_kind Kind, f32 Value, f32 Strictness)
 #define UI_SizeParent(Value, Strictness) UI_Size(UI_SizeKind_PercentOfParent, Value, Strictness)
 #define UI_SizeChildren(Strictness) UI_Size(UI_SizeKind_ChildrenSum, 0.f, Strictness)
 
+internal ui_box *
+UI_BoxAlloc(arena *Arena)
+{
+    ui_box *Result = PushStructZero(Arena, ui_box);
+    Result->First = Result->Last = Result->Next = Result->Prev = Result->Parent = UI_NilBox;
+    return Result;
+}
+
 internal b32
 UI_IsNilBox(ui_box *Box)
 {
@@ -60,7 +68,14 @@ UI_AddBox(str8 String, u32 Flags)
         u64 HashCutOff = 0;
         for EachIndex(Idx, String.Size - 1)
         {
-            if(S8Match(S8From(String, Idx), S8("##"), true))
+            if(S8Match(S8("###"), S8From(String, Idx), true))
+            {
+                DisplayString = S8To(String, Idx);
+                
+                String = S8From(String, Idx + 3);
+                break;
+            }
+            if(S8Match(S8("##"), S8From(String, Idx), true))
             {
                 DisplayString = S8To(String, Idx);
                 break;
@@ -92,7 +107,7 @@ UI_AddBox(str8 String, u32 Flags)
             else
             {
                 //2.
-                // TODO(luca): If the Box has not been touched in the last frame we can evict it ?
+                
                 while(!UI_IsNilBox(HashBox))
                 {        
                     if(UI_KeyMatch(HashBox->Key, Key))
@@ -130,7 +145,6 @@ UI_AddBox(str8 String, u32 Flags)
     Box->Key = Key;
     Box->DisplayString = DisplayString;
     Box->Flags = Flags;
-    Box->LastFrameTouchedIndex = UI_State->FrameIndex;
     
     Box->BackgroundColor = UI_State->BackgroundColorTop->Value;
     Box->BorderColor = UI_State->BorderColorTop->Value;
@@ -357,6 +371,9 @@ UI_CalculateViolations(ui_box *Box, axis2 Axis)
 internal void
 UI_CalculatePositionsAndDrawBoxes(ui_box *Box)
 {
+    // TODO(luca): This won't work since the root box will never be passed only the first child of that box, so its index will never be set.
+    Box->LastTouchedFrameIndex = UI_State->FrameIndex;
+    
     if(Box->Parent->First == Box)
     {
         Box->FixedPosition.X = Box->Parent->FixedPosition.X;
@@ -440,17 +457,17 @@ UI_CalculatePositionsAndDrawBoxes(ui_box *Box)
         {
             rune Char = Box->DisplayString.Data[Idx];
             
-            f32 CharWidth = (UI_State->Atlas->PackedChars[Char].xadvance);
-            
+            // TODO(luca): Leftsidebearing is missing.
             DrawRectChar(UI_State->Atlas, TextPos, Char, Color_ButtonText);
             
+            f32 CharWidth = (UI_State->Atlas->PackedChars[Char].xadvance);
             TextPos.X += CharWidth;
         }
     }
     
     if(Box->Flags & UI_BoxFlag_DrawBorders)
     {    
-        if(Box->Hovered)
+        if(Box->Flags & UI_BoxFlag_MouseClickability && Box->Hovered)
         {
             Box->BorderColor = Color_Snow2;
         }
@@ -503,7 +520,7 @@ UI_DebugPrintBoxes(ui_box *Box)
 //- Calculations End
 
 internal void
-UI_InitState(ui_box *Root, app_input *Input, app_state *App, b32 DebugMode)
+UI_InitState(ui_box *Root, app_input *Input, app_state *App)
 {
     UI_State->Root = Root;
     UI_State->Current = Root;
@@ -511,7 +528,10 @@ UI_InitState(ui_box *Root, app_input *Input, app_state *App, b32 DebugMode)
     UI_State->Input = Input;
     UI_State->Atlas = &App->FontAtlas;
     UI_State->FrameIndex = App->FrameIndex;
-    UI_State->RectDebugMode = DebugMode;
+    
+    UI_BoxTableSize = App->UIBoxTableSize;
+    UI_BoxTable = App->UIBoxTable;
+    UI_BoxArena = App->UIBoxArena;
     
     // Defaults
     UI_PushBackgroundColor(Color_ButtonBackground);
@@ -545,6 +565,4 @@ UI_ResolveLayout(ui_box *FirstFromRoot)
         UI_CalculatePositionsAndDrawBoxes(FirstFromRoot);
         //UI_DebugPrintBoxes(FirstFromRoot->First);
     }
-    
 }
-

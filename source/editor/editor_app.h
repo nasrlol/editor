@@ -73,9 +73,16 @@ struct panel
     ui_box *Root;
     
     rect Region;
+    
+    b32 CannotClose;
 };
-raddbg_type_view(panel, ParentPct);
+raddbg_type_view(panel, 
+                 no_addr(rows($,
+                              (&First == NilPanel || &First == 0),
+                              ParentPct, 
+                              (Axis == Axis2_X ? "X" : "Y"))));
 
+#define EachPanel(Child, Parent) (panel *Child = Parent->First; !IsNilPanel(Child); Child = Child->Next)
 
 typedef struct app_state app_state;
 struct app_state
@@ -97,6 +104,8 @@ struct app_state
     ui_box *UIBoxTable;
     
     panel *TitlebarPanel;
+    panel *DebugPanel;
+    
     panel *SelectedPanel;
     panel *FirstPanel;
     panel *LastPanel;

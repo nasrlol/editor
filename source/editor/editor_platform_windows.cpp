@@ -270,6 +270,16 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                             *GlobalRunning = false;
                         }
                         
+                        if((VKCode == VK_F2) && Alt)
+                        {
+                            DebugBreak();
+                        }
+                        
+                        if((VKCode == VK_F3) && Alt)
+                        {
+                            Trap();
+                        }
+                        
                         app_text_button *Button = &Input->Text.Buffer[Input->Text.Count];
                         *Button = {};
                         Input->Text.Count += 1;

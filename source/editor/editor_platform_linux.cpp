@@ -758,6 +758,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                     if(Event->x >= 0 && Event->x < Buffer->Width &&
                        Event->y >= 0 && Event->y < Buffer->Height)
                     {                    
+                        Log("MotionNotify: %d,%d\n", Input->MouseX, Input->MouseY);
                         Input->MouseX = Event->x;
                         Input->MouseY = Event->y;
                     }

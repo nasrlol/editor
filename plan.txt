@@ -1,10 +1,16 @@
 2. ui events as a queue so you can eat them
 
+- clipping
+
+- after splitting multiply all old panes on same axis by (1 - 1/n) and give the new pane size
+1/n
+
 - Clip all elements to window border
 - https://www.dgtlgrove.com/p/ui-part-3-the-widget-building-language
   - all properties from here
 - inset elements
 - panels
+  - rotate columns
   - selected panel so that input events only go to one panel
 - prune stale elements from cache on the end of UI_ResolveLayout()
 

@@ -15,7 +15,7 @@ debug=1
 release=0
 personal=0
 slow=0
-asan=0
+no_asan=1
 clean=0
 
 editor=0
@@ -50,7 +50,7 @@ Compile()
  ClangFlags="-fno-omit-frame-pointer -fdiagnostics-absolute-paths -fsanitize-undefined-trap-on-error -ftime-trace
 -Wno-null-dereference -Wno-missing-braces -Wno-vla-extension -Wno-writable-strings   -Wno-address-of-temporary -Wno-int-to-void-pointer-cast -Wno-reorder-init-list -Wno-c99-designator"
 
- [ "$asan" = 1 ] && ClangFlags="$ClangFlags -fsanitize-trap -fsanitize=address"
+ [ "$no_asan" = 0 ] && ClangFlags="$ClangFlags -fsanitize-trap -fsanitize=address"
 
  GCCFlags="-Wno-cast-function-type -Wno-missing-field-initializers -Wno-int-to-pointer-cast"
 
@@ -101,8 +101,8 @@ then
   # If libsfile does not exist or
   # If compiling with asan but libsfile does not contain asan
   # If compiling without asan but libsfile contains asan
-  if { { [ "$asan" = 0 ] && nm "$LibsFile" 2>/dev/null | grep 'asan' > /dev/null; } ||
-     { [ "$asan" = 1 ] && ! nm "$LibsFile" 2>/dev/null | grep 'asan' > /dev/null; } ||
+  if { { [ "$no_asan" = 1 ] && nm "$LibsFile" 2>/dev/null | grep 'asan' > /dev/null; } ||
+     { [ "$no_asan" = 0 ] && ! nm "$LibsFile" 2>/dev/null | grep 'asan' > /dev/null; } ||
      [ ! -f "$LibsFile" ]; }
   then
    Compile ./editor/editor_libs.h "$LibsFile" "-fPIC -x c++ -c -DEDITOR_SLOW_COMPILE=1 -Wno-unused-command-line-argument"
@@ -125,7 +125,7 @@ fi
 if [ "$DidWork" = 0 ]
 then
  printf 'ERROR: No valid build target provided.\n'
- printf 'Usage: %s <editor [clean/asan/debug/release/gcc/clang/slow]>\n' "$0"
+ printf 'Usage: %s <editor [clean/no_asan/debug/release/gcc/clang/slow]>\n' "$0"
 else
  printf 'Done.\n' # 4coder bug
 fi
