@@ -19,9 +19,7 @@ BuildDebugTree(concrete_syntax_tree *Tree, arena *Arena)
 {
   debug_tree *DebugTree = PushStructZero(Arena, debug_tree);
 
-  for(syntax_node *Node = Tree->Root;
-  Node && Node != &nil_syntax_node;
-  Node = Node->First)
+  for(syntax_node *Node = Tree->Root; Node && Node != &nil_syntax_node; Node = Node->First)
   {
     v_node *VNode = CreateVNode(Arena, Node);
     VNode->Parent = DebugTree->Current;
@@ -46,12 +44,12 @@ BuildDebugTree(concrete_syntax_tree *Tree, arena *Arena)
       DebugTree->Current = VNode;
     }
 
-    for(syntax_node *Sibling = Node->NextNode;
-    Sibling && Sibling != &nil_syntax_node;
-    Sibling = Sibling->NextNode)
+    for(syntax_node *Sibling = Node;
+        Sibling && Sibling != &nil_syntax_node;
+        Sibling = Sibling->NextNode)
     {
       v_node *SVNode                      = CreateVNode(Arena, Sibling);
-      SVNode->Parent                      = DebugTree->Current->Parent;
+      SVNode->Parent                      = DebugTree->Current;
       DebugTree->Current->Last->NextVNode = SVNode;
       DebugTree->Current->Last            = SVNode;
     }
@@ -66,12 +64,17 @@ DebugTree(app_offscreen_buffer *Buffer, debug_tree *DT)
   f32 X        = 50.f;
   f32 Y        = 50.f;
   f32 NodeSize = 40.f;
-  f32 Padding  = 10.f;
 
   for(v_node *VNode = DT->Root; VNode && VNode != &nil_v_node; VNode = VNode->NextVNode)
   {
-    rect Dest = RectFromSize(V2(X, Y), V2(NodeSize, NodeSize));
-    DrawRect(Dest, Color_Yellow, 8.f, 0.f, 1.f);
-    X += NodeSize + Padding;
+    for (v_node *Child = VNode->First; Child && Child != &nil_v_node; Child = Child->NextVNode )
+    {
+      rect Dest = RectFromSize(V2(X, Y), V2(NodeSize, NodeSize));
+      DrawRect(Dest, Color_Yellow, 8.f, 0.f, 1.f);
+      X += NodeSize + 10.f;
+    }
+
+    Y += NodeSize + 10.f;
+
   }
 }

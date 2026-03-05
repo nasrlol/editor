@@ -1,8 +1,12 @@
 internal syntax_node *
 CreateNode(concrete_syntax_tree *Tree, arena *Arena, token *Token)
 {
-    syntax_node *SyntaxNode = PushStruct(Arena, syntax_node);
-    SyntaxNode->Token       = Token;
+    syntax_node *SyntaxNode  = PushStruct(Arena, syntax_node);
+    SyntaxNode->Token        = Token;
+    SyntaxNode->First        = &nil_syntax_node;
+    SyntaxNode->Last         = &nil_syntax_node;
+    SyntaxNode->NextNode     = &nil_syntax_node;
+    SyntaxNode->Parent       = &nil_syntax_node;
     return SyntaxNode;
 }
 
@@ -40,7 +44,7 @@ NodePush(concrete_syntax_tree *Tree, syntax_node *Node)
     assert(Tree);
     assert(Node);
 
-    if(Tree->Root == NULL)
+    if(Tree->Root == &nil_syntax_node || Tree->Root == NULL)
     {
         Tree->Root    = Node;
         Tree->Current = Node;
@@ -50,7 +54,7 @@ NodePush(concrete_syntax_tree *Tree, syntax_node *Node)
     syntax_node *Current = Tree->Current;
     Node->Parent         = Current;
 
-    if(!Current->First)
+    if(Current->First == &nil_syntax_node)
     {
         Current->First = Node;
         Current->Last  = Node;
@@ -71,15 +75,14 @@ MarkDirty(token *Token)
 internal concrete_syntax_tree *
 Parse(arena *Arena, token_list *List)
 {
-    concrete_syntax_tree *Tree = PushStruct(Arena, concrete_syntax_tree);
+    concrete_syntax_tree *Tree = PushStructZero(Arena, concrete_syntax_tree);
 
     for(token_node *TokenNode = List->Root;
-        TokenNode != NULL;
+        TokenNode != &nil_token_node || TokenNode != NULL;
         TokenNode = TokenNode->Next)
     {
         token       *Token      = TokenNode->Token;
         syntax_node *SyntaxNode = CreateNode(Tree, Arena, Token);
-        assert(SyntaxNode);
 
         switch((token_type)Token->Type)
         {

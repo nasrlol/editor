@@ -329,7 +329,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
           }
           else if(Key.Codepoint == PlatformKey_F2)
           {
-            arena      *TreeArena = PushArena(PermanentArena, MB(1));
+            arena      *TreeArena = PushArena(PermanentArena, MB(4));
             token_list *List      = Lex(App, TreeArena);
             App->tree             = Parse(TreeArena, List);
           }
@@ -394,15 +394,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // in the draw rectangles block, after the window border:
     if(App->tree)
     {
-      s32 Count = 0;
-
-      debug_tree *DT = BuildDebugTree(App->tree, FrameArena);
-      for(v_node *V = DT->Root; V && V != &nil_v_node; V = V->NextVNode)
-      {
-        Count++;
-      }
-      Log("VNode count: %d\n", Count);
-
+      debug_tree *DT = BuildDebugTree(App->tree, PermanentArena);
       DebugTree(Buffer, DT);
     }
 
