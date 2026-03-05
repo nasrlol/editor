@@ -70,12 +70,11 @@ Is_TokenBreak(rune Character)
 }
 
 internal token_list *
-Lex(app_state *App, arena *Arena)
+Lex(app_state *App, arena *Arena, token_list *List)
 {
-    token_list *List        = PushStruct(Arena, token_list);
-    b32         Initialized = 0;
-    s32         Line        = 1;
-    s32         Column      = 1;
+    b32 Initialized = 0;
+    s32 Line        = 1;
+    s32 Column      = 1;
 
     for(s32 TextIndex = 0; TextIndex < App->TextCount; TextIndex++)
     {

@@ -60,7 +60,7 @@ AdoptNode(concrete_syntax_tree *Tree, syntax_node *ParentNode, syntax_node *Chil
 }
 
 internal inline void
-MarkDirty(token *Token)
+Ground(token *Token)
 {
     Token->Flags = (token_flags)(Token->Flags | FlagDirty);
 }
@@ -118,7 +118,7 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
 
                     if(Tree->Current->Parent && Tree->Current->Parent->Token->Type != TokenIdentifier)
                     {
-                        MarkDirty(Token);
+                        Ground(Token);
                     }
                 }
 
@@ -186,6 +186,8 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
                 {
                     Tree->Current = Tree->Current->Parent;
                 }
+            }
+            break;
 
                 NodePushChild(Tree, SyntaxNode);
                 Tree->Current = SyntaxNode;
@@ -260,7 +262,14 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
             }
             break;
 
+                NodePushChild(Tree, SyntaxNode);
+            }
             case TokenElse:
+            {
+                // TODO(nasr): handle no body
+            }
+            break;
+
             case TokenWhile:
             case TokenFor:
             {
@@ -269,9 +278,12 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
             }
             break;
 
+            case TokenContinue:
             case TokenBreak:
             {
-                if(!Tree->Current || !Tree->Current->Parent)
+                token_type Type = Tree->Current->Parent->Token->Type;
+
+                if(Type != TokenFor && Type != TokenWhile)
                 {
                     MarkDirty(Token);
                     Log("Break statement not allowed here");
@@ -287,13 +299,14 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
             break;
 
             case TokenExpression:
+            case TokenParam:
             {
                 NodePushChild(Tree, SyntaxNode);
                 Tree->Current = SyntaxNode;
             }
             break;
 
-            case TokenParam:
+            case TokenStar:
             {
                 NodePushChild(Tree, SyntaxNode);
             }
