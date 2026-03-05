@@ -15,6 +15,8 @@ struct v_node
   v_node *NextVNode;
   v_node *First;
   v_node *Last;
+
+  token  *Token;
 };
 
 typedef struct debug_tree debug_tree;

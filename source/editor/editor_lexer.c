@@ -81,6 +81,7 @@ Lex(app_state *App, arena *Arena)
         Token->Line           = Line;
         Token->Column         = Column;
         Token->ByteOffset     = (u64)TextIndex;
+        Token->Flags          = FlagNone;
 
         s32 TokenStart = TextIndex;
         s32 TokenEnd   = TextIndex;

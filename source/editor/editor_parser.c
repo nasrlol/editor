@@ -77,9 +77,7 @@ Parse(arena *Arena, token_list *List)
 {
     concrete_syntax_tree *Tree = PushStructZero(Arena, concrete_syntax_tree);
 
-    for(token_node *TokenNode = List->Root;
-        TokenNode != &nil_token_node || TokenNode != NULL;
-        TokenNode = TokenNode->Next)
+    for(token_node *TokenNode = List->Root; TokenNode != &nil_token_node && TokenNode != NULL; TokenNode = TokenNode->Next)
     {
         token       *Token      = TokenNode->Token;
         syntax_node *SyntaxNode = CreateNode(Tree, Arena, Token);
@@ -118,8 +116,7 @@ Parse(arena *Arena, token_list *List)
                 {
                     Token->Type = TokenIdentifierAssignmentValue;
 
-                    if(Tree->Current->Parent &&
-                       Tree->Current->Parent->Token->Type != TokenIdentifier)
+                    if(Tree->Current->Parent && Tree->Current->Parent->Token->Type != TokenIdentifier)
                     {
                         MarkDirty(Token);
                     }
