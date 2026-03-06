@@ -1,18 +1,22 @@
 internal v4
 CreateVNodeColor(syntax_node *Node)
 {
-  token_type Type;
-  if (Node->Token)
+  token_type Type = TokenUndefined;
+  if(Node->Token)
   {
-     Type = Node->Token->Type; 
+    Type = Node->Token->Type;
   }
 
-  switch (Type)
+  switch(Type)
   {
-    case (TokenIdentifier): return Color_Yellow;
-    case (TokenReturn):     return Color_Green;
-    case (TokenParam):      return Color_Blue;
-    default:                return Color_Red;
+    case(TokenIdentifier):
+      return Color_Yellow;
+    case(TokenReturn):
+      return Color_Green;
+    case(TokenParam):
+      return Color_Blue;
+    default:
+      return Color_Red;
   }
 }
 
@@ -37,18 +41,18 @@ BuildDebugTreeRecursive(debug_tree *DebugTree, v_node *ParentVNode, syntax_node 
 {
   for(syntax_node *Sibling = Node; Sibling && Sibling != &nil_syntax_node; Sibling = Sibling->NextNode)
   {
-    v_node *VNode        = CreateVNode(Arena, Sibling);
-    VNode->Parent        = ParentVNode;
+    v_node *VNode = CreateVNode(Arena, Sibling);
+    VNode->Parent = ParentVNode;
 
     if(ParentVNode->First == &nil_v_node)
     {
-      ParentVNode->First        = VNode;
-      ParentVNode->Last        = VNode;
+      ParentVNode->First = VNode;
+      ParentVNode->Last  = VNode;
     }
     else
     {
-      ParentVNode->Last->NextVNode        = VNode;
-      ParentVNode->Last                   = VNode;
+      ParentVNode->Last->NextVNode = VNode;
+      ParentVNode->Last            = VNode;
     }
 
     if(Sibling->First && Sibling->First != &nil_syntax_node)
@@ -74,17 +78,16 @@ BuildDebugTree(concrete_syntax_tree *Tree, arena *Arena)
 }
 
 internal void
-DrawVNode(app_offscreen_buffer *Buffer, v_node *VNode, f32 X, f32 *Y, f32 NodeSize)
+DrawVNode(app_offscreen_buffer *Buffer, v_node *VNode, f32 *X, f32 *Y, f32 NodeSize)
 {
   if(!VNode || VNode == &nil_v_node)
     return;
 
-  f32 RowX = X;
   for(v_node *Child = VNode->First; Child && Child != &nil_v_node; Child = Child->NextVNode)
   {
-    rect Dest = RectFromSize(V2(RowX, *Y), V2(NodeSize, NodeSize));
-    DrawRect(Dest, Color_Yellow, 8.f, 0.f, 1.f);
-    RowX += NodeSize + 10.f;
+    rect Dest = RectFromSize(V2(*X, *Y), V2(NodeSize, NodeSize));
+    DrawRect(Dest, VNode->Color, 8.f, 0.f, 1.f);
+    *X += NodeSize + 10.f;
   }
   *Y += NodeSize + 10.f;
 
@@ -98,6 +101,7 @@ internal void
 DebugTree(app_offscreen_buffer *Buffer, debug_tree *DT)
 {
   f32 Y        = 50.f;
+  f32 X        = 50.f;
   f32 NodeSize = 40.f;
-  DrawVNode(Buffer, DT->Root, 50.f, &Y, NodeSize);
+  DrawVNode(Buffer, DT->Root, &X, &Y, NodeSize);
 }

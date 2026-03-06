@@ -329,9 +329,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
           }
           else if(Key.Codepoint == PlatformKey_F2)
           {
-            arena      *TreeArena = PushArena(PermanentArena, MB(4));
-            token_list *List      = Lex(App, TreeArena);
-            App->tree             = Parse(TreeArena, List);
+            token_list *List = Lex(App, PermanentArena);
+            App->tree        = Parse(PermanentArena, List);
           }
         }
       }
@@ -394,7 +393,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // in the draw rectangles block, after the window border:
     if(App->tree)
     {
-      debug_tree *DT = BuildDebugTree(App->tree, PermanentArena);
+      debug_tree *DT = BuildDebugTree(App->tree, FrameArena);
       DebugTree(Buffer, DT);
     }
 
