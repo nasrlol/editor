@@ -58,14 +58,12 @@ Lex(app_state *App, arena *Arena)
 
     if(Character == '\r' || Character == '\n')
     {
-      if(Character == '\r' &&
-         (TextIndex + 1 < App->TextCount) &&
-         App->Text[TextIndex + 1] == '\n')
+      if(Character == '\r' && (TextIndex + 1 < App->TextCount) && App->Text[TextIndex + 1] == '\n')
       {
         TextIndex++;
       }
 
-      TextIndex++;
+      // TextIndex++;
 
       Line++;
       Column = 1;

@@ -63,6 +63,7 @@ NodePush(concrete_syntax_tree *Tree, syntax_node *Node)
   {
     Current->Last->NextNode = Node;
     Current->Last           = Node;
+
   }
 }
 
@@ -76,6 +77,14 @@ internal void
 AdoptNode(concrete_syntax_tree *Tree, syntax_node *ParentNode, syntax_node *ChildNode)
 {
   // TODO(nasr)
+}
+
+
+internal b32 
+Defined(concrete_syntax_tree *Tree, syntax_node *Node)
+{
+
+  return 0;
 }
 
 internal inline void
@@ -96,7 +105,7 @@ Parse(arena *Arena, token_list *List)
 
     switch((token_type)Token->Type)
     {
-      case TokenIdentifier:
+      case (TokenIdentifier):
       {
         if(!Is_Alpha(Token->Lexeme.Data[0]))
         {
@@ -104,6 +113,7 @@ Parse(arena *Arena, token_list *List)
         }
 
         if(TokenNode->Next &&
+           TokenNode->Next != &nil_token_node &&
            TokenNode->Next->Token->Type == (token_type)'=')
         {
           token_node *ValueNode = TokenNode->Next->Next;
@@ -200,22 +210,15 @@ Parse(arena *Arena, token_list *List)
 
       case(token_type)'}':
       {
-        if(Tree->Current && Tree->Current->Parent)
-        {
-          Tree->Current = Tree->Current->Parent;
-        }
-      }
-      break;
+        Tree->Current = Tree->Current->Parent;
+        Tree->Current->Last = Tree->Current;
+      } break;
 
       case(token_type)';':
       {
-        NodePush(Tree, SyntaxNode);
-        if(Tree->Current && Tree->Current->Parent)
-        {
-          Tree->Current = Tree->Current->Parent;
-        }
-      }
-      break;
+        Tree->Current = Tree->Current->Parent;
+        Tree->Current->Last = Tree->Current;
+      } break;
 
       case TokenFunc:
       {
@@ -243,8 +246,7 @@ Parse(arena *Arena, token_list *List)
 
         NodePush(Tree, SyntaxNode);
         Tree->Current = SyntaxNode;
-      }
-      break;
+      } break;
 
       case TokenReturn:
       {

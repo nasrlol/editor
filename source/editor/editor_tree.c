@@ -67,7 +67,9 @@ BuildDebugTree(concrete_syntax_tree *Tree, arena *Arena)
 {
   debug_tree *DebugTree = PushStructZero(Arena, debug_tree);
   if(!Tree->Root || Tree->Root == &nil_syntax_node)
+  {
     return DebugTree;
+  }
 
   v_node *RootVNode = CreateVNode(Arena, Tree->Root);
   RootVNode->Parent = &nil_v_node;
