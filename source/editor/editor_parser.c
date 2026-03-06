@@ -67,13 +67,15 @@ NodePush(concrete_syntax_tree *Tree, syntax_node *Node)
 }
 
 internal void
-DisownNode(concreete_syntax_tree *Tree, syntax_node *ParentNode, syntax_node *ChildNode)
+DisownNode(concrete_syntax_tree *Tree, syntax_node *ParentNode, syntax_node *ChildNode)
 {
+  // TODO(nasr)
 }
 
 internal void
 AdoptNode(concrete_syntax_tree *Tree, syntax_node *ParentNode, syntax_node *ChildNode)
 {
+  // TODO(nasr)
 }
 
 internal inline void

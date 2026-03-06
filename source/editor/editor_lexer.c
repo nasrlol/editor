@@ -64,6 +64,9 @@ Lex(app_state *App, arena *Arena)
             {
                 TextIndex++;
             }
+
+            TextIndex++;
+
             Line++;
             Column = 1;
             continue;
