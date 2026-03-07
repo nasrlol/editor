@@ -11,10 +11,55 @@ CreateVNodeColor(syntax_node *Node)
   {
     case(TokenIdentifier):
       return Color_Yellow;
-    case(TokenReturn):
+    case(TokenIdentifierAssignmentValue):
+      return Color_Cyan;
+    case(TokenValue):
+      return Color_White;
+    case(TokenString):
       return Color_Green;
+    case(TokenNumber):
+      return Color_Magenta;
+    case(TokenDoubleEqual):
+      return Color_Orange;
+    case(TokenGreaterEqual):
+      return Color_Orange;
+    case(TokenLesserEqual):
+      return Color_Orange;
     case(TokenParam):
       return Color_Blue;
+    case(TokenFunc):
+      return Color_Cyan;
+    case(TokenReturn):
+      return Color_Green;
+    case(TokenIf):
+      return Color_Magenta;
+    case(TokenElse):
+      return Color_Magenta;
+    case(TokenFor):
+      return Color_Magenta;
+    case(TokenWhile):
+      return Color_Magenta;
+    case(TokenBreak):
+      return Color_Orange;
+    case(TokenContinue):
+      return Color_Orange;
+    case(TokenExpression):
+      return Color_White;
+    case(TokenWhiteSpace):
+      return Color_Background;
+    case(TokenComparisonParam):
+      return Color_Orange;
+    case(TokenFuncBody):
+      return Color_BackgroundSecond;
+    case(TokenUnwantedChild):
+      return Color_Gray;
+    case(TokenNewLine):
+      return Color_Background;
+    case(TokenRightShift):
+      return Color_Orange;
+    case(TokenLeftShift):
+      return Color_Orange;
+    case(TokenUndefined):
     default:
       return Color_Red;
   }
@@ -87,9 +132,9 @@ DrawVNode(app_offscreen_buffer *Buffer, v_node *VNode, f32 *X, f32 *Y, f32 NodeS
   {
     rect Dest = RectFromSize(V2(*X, *Y), V2(NodeSize, NodeSize));
     DrawRect(Dest, VNode->Color, 8.f, 0.f, 1.f);
-    *X += NodeSize + 10.f;
+    *X += NodeSize + 5.f;
   }
-  *Y += NodeSize + 10.f;
+  *Y += NodeSize + 5.f;
 
   for(v_node *Child = VNode->First; Child && Child != &nil_v_node; Child = Child->NextVNode)
   {
