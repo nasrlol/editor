@@ -119,9 +119,9 @@ read_only global_variable token nil_token =
 
 read_only global_variable token_node nil_token_node =
 {
-.Next         = &nil_token_node,
-.Previous     = &nil_token_node,
-.Token        = NULL,
+.Next     = &nil_token_node,
+.Previous = &nil_token_node,
+.Token    = NULL,
 };
 
 #endif // EDITOR_LEXER_H
