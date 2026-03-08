@@ -23,33 +23,6 @@ struct syntax_node
     token *Token;
 
     syntax_node_type Type;
-
-    // NOTE(nasr): alias where the nodes of a certain thing reside?
-    union types
-    {
-        struct syntax_node_identifier
-        {
-            str8 *name;
-        };
-
-        struct syntax_node_binary
-        {
-            char         op;
-            syntax_node *left;
-            syntax_node *right;
-        };
-
-        struct syntax_node_assignment
-        {
-            syntax_node *Left;
-            syntax_node *Right;
-        };
-
-        struct syntax_node_return_statement
-        {
-            syntax_node *expr;
-        };
-    };
 };
 
 typedef struct concrete_syntax_tree concrete_syntax_tree;

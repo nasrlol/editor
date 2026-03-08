@@ -77,8 +77,6 @@ struct token_node
 {
     token_node *Next;
     token_node *Previous;
-    u64         ParentHandle;
-    u64         ChildHandle;
     token      *Token;
 };
 
@@ -123,8 +121,6 @@ read_only global_variable token_node nil_token_node =
 {
 .Next         = &nil_token_node,
 .Previous     = &nil_token_node,
-.ParentHandle = 0,
-.ChildHandle  = 0,
 .Token        = NULL,
 };
 

@@ -128,22 +128,13 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
 
             case TokenDoubleEqual:
             {
-                // TODO(nasr): busy
-                syntax_node *LeftOperand  = Tree->Current->Last;
-                syntax_node *RightOperand = Tree->Current->First;
-
                 NodePushChild(Tree, SyntaxNode);
-                Tree->Current = SyntaxNode;
 
-                if(!IsNilSyntaxNode(LeftOperand) && !IsNilSyntaxNode(RightOperand))
+                if(!IsNilSyntaxNode(Tree->Current->Parent))
                 {
-                    Tree->Current->First = LeftOperand;
-                    Tree->Current->Last  = RightOperand;
-
-                    LeftOperand->Parent = Tree->Current;
-                    LeftOperand->Next   = &nil_syntax_node;
-
-                    RightOperand = Tree->Current->Next;
+                    Tree->Current->First  = Tree->Current->Parent;
+                    Tree->Current->Last   = Tree->Current->Next;
+                    Tree->Current->Parent = Tree->Current;
                 }
             }
             break;
@@ -160,8 +151,16 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
 
             case(token_type)'(':
             {
-                NodePushChild(Tree, SyntaxNode);
-                Tree->Current = SyntaxNode;
+                syntax_node *Current = Tree->Current;
+                Tree->Current->First = Tree->Current->Next;
+                while(Tree->Current->Token->Type != (token_type)')' && !IsNilSyntaxNode(Tree->Current->Next))
+                {
+                    Current = Current->Next;
+                }
+                if(Current == &nil_syntax_node)
+                {
+                    Log("Forgot to close paran");
+                }
             }
             break;
 
@@ -275,6 +274,7 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
                 if(!Tree->Current || !Tree->Current->Parent)
                 {
                     MarkDirty(Token);
+                    Log("Break statement not allowed here");
                 }
                 NodePushChild(Tree, SyntaxNode);
             }
