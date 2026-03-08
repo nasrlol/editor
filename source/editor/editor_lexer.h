@@ -1,4 +1,4 @@
-   #ifndef EDITOR_LEXER_H
+#ifndef EDITOR_LEXER_H
 #define EDITOR_LEXER_H
 
 enum token_type
@@ -22,26 +22,41 @@ enum token_type
     TokenBreak,
     TokenContinue,
     TokenExpression,
-    TokenWhiteSpace,
-    TokenComparisonParam,
     TokenFuncBody,
     TokenUnwantedChild,
     TokenNewLine,
     TokenRightShift,
     TokenLeftShift,
+    TokenStar,
+};
+
+// TODO(nasr): implement a global tokenizer that holds the current position of the lexical position.
+// useful for the case we dont want to relex everything or something
+// what we currently do is save the position in the function
+// so this gets reset every single time.
+// so we relex everything
+//
+// this was the plan
+// but could be interesting the moment we dont do any incremental parsing
+// not necesarrly for the same reason Sean Barret or Casey Muratori do it because
+// that gets handler using the editor->App[index]
+typedef struct Tokenizer Tokenizer;
+struct Tokenizer
+{
+    s32 Line;
+    s32 Column;
 };
 
 enum token_flags
 {
-    FlagNone            = (0),
-    FlagConstant        = (1 << 0),
-    FlagGlobal          = (1 << 1),
-    FlagsValue          = (1 << 2),
-    FlagDefinition      = (1 << 3),
-    FlagComparison      = (1 << 4),
-    FlagTranslationUnit = (1 << 5),
-    FlagDeprecated      = (1 << 6),
-    FlagDirty           = (1 << 7),
+    FlagNone       = (0),
+    FlagConstant   = (1 << 0),
+    FlagGlobal     = (1 << 1),
+    FlagsValue     = (1 << 2),
+    FlagDefinition = (1 << 3),
+    FlagComparison = (1 << 4),
+    FlagDeprecated = (1 << 5),
+    FlagDirty      = (1 << 6),
 };
 
 typedef struct token token;
@@ -53,6 +68,8 @@ struct token
     u64         ByteOffset;
     s32         Column;
     s32         Line;
+
+    str8 MetaData;
 };
 
 typedef struct token_node token_node;
@@ -83,26 +100,32 @@ struct lexer
 
 global_variable const rune Delimiters[] =
 {
-    '{', '}', '(', ')', '[', ']', ';',
+'{',
+'}',
+'(',
+')',
+'[',
+']',
+';',
 };
 
 read_only global_variable token nil_token =
 {
-    .Lexeme     = {NULL, 0},
-    .Type       = TokenUndefined,
-    .Flags      = FlagNone,
-    .ByteOffset = 0,
-    .Column     = 0,
-    .Line       = 0,
+.Lexeme     = {NULL, 0},
+.Type       = TokenUndefined,
+.Flags      = FlagNone,
+.ByteOffset = 0,
+.Column     = 0,
+.Line       = 0,
 };
 
 read_only global_variable token_node nil_token_node =
 {
-    .Next         = &nil_token_node,
-    .Previous     = &nil_token_node,
-    .ParentHandle = 0,
-    .ChildHandle  = 0,
-    .Token        = NULL,
+.Next         = &nil_token_node,
+.Previous     = &nil_token_node,
+.ParentHandle = 0,
+.ChildHandle  = 0,
+.Token        = NULL,
 };
 
 #endif // EDITOR_LEXER_H
