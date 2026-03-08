@@ -1,325 +1,326 @@
 internal syntax_node *
 CreateNode(concrete_syntax_tree *Tree, arena *Arena, token *Token)
 {
-  syntax_node *SyntaxNode = PushStruct(Arena, syntax_node);
-  SyntaxNode->Token       = Token;
-  SyntaxNode->First       = &nil_syntax_node;
-  SyntaxNode->Last        = &nil_syntax_node;
-  SyntaxNode->NextNode    = &nil_syntax_node;
-  SyntaxNode->Parent      = &nil_syntax_node;
-  return SyntaxNode;
+    syntax_node *SyntaxNode = PushStruct(Arena, syntax_node);
+    SyntaxNode->Token       = Token;
+    SyntaxNode->First       = &nil_syntax_node;
+    SyntaxNode->Last        = &nil_syntax_node;
+    SyntaxNode->Next    = &nil_syntax_node;
+    SyntaxNode->Parent      = &nil_syntax_node;
+    return SyntaxNode;
 }
 
 internal syntax_node *
 PeekToOffset(syntax_node *Node, s32 PeekOffset)
 {
-  for(s32 PeekCount = 0; PeekCount < PeekOffset; PeekCount++)
-  {
-    if(!Node || !Node->NextNode)
+    for(s32 PeekCount = 0; PeekCount < PeekOffset; PeekCount++)
     {
-      return &nil_syntax_node;
+        if(!Node || !Node->Next)
+        {
+            return &nil_syntax_node;
+        }
+        Node = Node->Next;
     }
-    Node = Node->NextNode;
-  }
-  return Node;
-}
-
-internal syntax_node *
-PeekForward(syntax_node *Node, token_type Type)
-{
-  while(Node && Node != &nil_syntax_node)
-  {
-    if(Node->Token->Type == Type)
-    {
-      return Node;
-    }
-    Node = Node->NextNode;
-  }
-  return &nil_syntax_node;
+    return Node;
 }
 
 internal void
-NodePush(concrete_syntax_tree *Tree, syntax_node *Node)
+NodePushChild(concrete_syntax_tree *Tree, syntax_node *Node)
 {
-  assert(Tree);
-  assert(Node);
+    Node->Parent = Tree->Current;
 
-  if(Tree->Root == &nil_syntax_node || Tree->Root == NULL)
-  {
-    Tree->Root    = Node;
-    Tree->Current = Node;
-    return;
-  }
+    if(Tree->Current->First == &nil_syntax_node)
+    {
+        Tree->Current->First = Node;
+        Tree->Current->Last  = Node;
+    }
+    else
+    {
+        Tree->Current->Last->Next = Node;
+        Tree->Current->Last           = Node;
+    }
+}
 
-  syntax_node *Current = Tree->Current;
-  Node->Parent         = Current;
-
-  if(Current->First == &nil_syntax_node)
-  {
-    Current->First = Node;
-    Current->Last  = Node;
-  }
-  else
-  {
-    Current->Last->NextNode = Node;
-    Current->Last           = Node;
-  }
+internal inline b32
+IsNilSyntaxNode(syntax_node *Node)
+{
+    return Node == &nil_syntax_node || Node == NULL;
 }
 
 internal void
 DisownNode(concrete_syntax_tree *Tree, syntax_node *ParentNode, syntax_node *ChildNode)
 {
-  // TODO(nasr)
+    // TODO(nasr)
 }
 
 internal void
 AdoptNode(concrete_syntax_tree *Tree, syntax_node *ParentNode, syntax_node *ChildNode)
 {
-  // TODO(nasr)
+    // TODO(nasr)
 }
 
 internal inline void
 MarkDirty(token *Token)
 {
-  Token->Flags = (token_flags)(Token->Flags | FlagDirty);
+    Token->Flags = (token_flags)(Token->Flags | FlagDirty);
 }
 
 internal concrete_syntax_tree *
-Parse(arena *Arena, token_list *List)
+Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
 {
-  concrete_syntax_tree *Tree = PushStructZero(Arena, concrete_syntax_tree);
-
-  for(token_node *TokenNode = List->Root; TokenNode != &nil_token_node && TokenNode != NULL; TokenNode = TokenNode->Next)
-  {
-    token       *Token      = TokenNode->Token;
-    syntax_node *SyntaxNode = CreateNode(Tree, Arena, Token);
-
-    switch((token_type)Token->Type)
+    for(token_node *TokenNode = List->Root;
+        TokenNode != &nil_token_node && TokenNode != NULL;
+        TokenNode = TokenNode->Next)
     {
-      case TokenIdentifier:
-      {
-        if(!Is_Alpha(Token->Lexeme.Data[0]))
+        token       *Token      = TokenNode->Token;
+        syntax_node *SyntaxNode = CreateNode(Tree, Arena, Token);
+
+        if(IsNilSyntaxNode(Tree->Root))
         {
-          MarkDirty(Token);
+            Tree->Root    = SyntaxNode;
+            Tree->Current = SyntaxNode;
         }
 
-        if(TokenNode->Next &&
-           TokenNode->Next->Token->Type == (token_type)'=')
+        switch((token_type)Token->Type)
         {
-          token_node *ValueNode = TokenNode->Next->Next;
-          if(ValueNode)
-          {
-            ValueNode->Token->Type = TokenIdentifierAssignmentValue;
-          }
-        }
+            case TokenIdentifier:
+            {
+                if(!IsNilTokenNode(TokenNode) && TokenNode->Next->Token->Type == (token_type)'=')
+                {
 
-        NodePush(Tree, SyntaxNode);
-      }
-      break;
+					token_node *ValueNode = TokenNode->Next->Next;
 
-      case TokenIdentifierAssignmentValue:
-      {
-        NodePush(Tree, SyntaxNode);
-      }
-      break;
+                    if(ValueNode->Token->Type != TokenIdentifierAssignmentValue &&
+                       ValueNode->Token->Type != TokenValue)
+                    {
+                        ValueNode->Token->Type = TokenIdentifierAssignmentValue;
+                    }
+                }
 
-      case TokenNumber:
-      case TokenString:
-      {
-        if(Tree->Current && Tree->Current->Token->Type == (token_type)'=')
-        {
-          Token->Type = TokenIdentifierAssignmentValue;
-
-          if(Tree->Current->Parent && Tree->Current->Parent->Token->Type != TokenIdentifier)
-          {
-            MarkDirty(Token);
-          }
-        }
-
-        NodePush(Tree, SyntaxNode);
-      }
-      break;
-
-      case TokenDoubleEqual:
-      {
-        if(Tree->Current &&
-           Tree->Current->Parent &&
-           Tree->Current->Parent->Token->Type != (token_type)'(')
-        {
-        }
-
-        NodePush(Tree, SyntaxNode);
-        Tree->Current = SyntaxNode;
-      }
-      break;
-
-      case TokenGreaterEqual:
-      case TokenLesserEqual:
-      case(token_type)'<':
-      case(token_type)'>':
-      {
-        NodePush(Tree, SyntaxNode);
-        Tree->Current = SyntaxNode;
-      }
-      break;
-
-      case(token_type)'(':
-      {
-        NodePush(Tree, SyntaxNode);
-        Tree->Current = SyntaxNode;
-      }
-      break;
-
-      case(token_type)')':
-      {
-        while(Tree->Current &&
-              Tree->Current != &nil_syntax_node &&
-              Tree->Current->Token->Type != (token_type)'(')
-        {
-          Tree->Current = Tree->Current->Parent;
-        }
-
-        if(Tree->Current && Tree->Current->Parent)
-        {
-          Tree->Current = Tree->Current->Parent;
-        }
-      }
-      break;
-
-      case(token_type)'{':
-      {
-        if(Tree->Current && Tree->Current != Tree->Root)
-        {
-          Tree->Current = Tree->Current->Parent;
-        }
-
-        NodePush(Tree, SyntaxNode);
-        Tree->Current = SyntaxNode;
-      }
-      break;
-
-      case(token_type)'}':
-      {
-        if(Tree->Current && Tree->Current->Parent)
-        {
-          Tree->Current = Tree->Current->Parent;
-        }
-      }
-      break;
-
-      case(token_type)';':
-      {
-        NodePush(Tree, SyntaxNode);
-        if(Tree->Current && Tree->Current->Parent)
-        {
-          Tree->Current = Tree->Current->Parent;
-        }
-      }
-      break;
-
-      case TokenFunc:
-      {
-        b32 HasBody = 0;
-        for(token_node *Lookahead = TokenNode->Next;
-        Lookahead != NULL;
-        Lookahead = Lookahead->Next)
-        {
-          token_type LT = Lookahead->Token->Type;
-          if(LT == (token_type)'{')
-          {
-            HasBody = 1;
+                if(Tree->Current != SyntaxNode)
+                {
+                    NodePushChild(Tree, SyntaxNode);
+                }
+            }
             break;
-          }
-          if(LT == (token_type)';')
-          {
+
+            case TokenIdentifierAssignmentValue:
+            {
+                NodePushChild(Tree, SyntaxNode);
+            }
             break;
-          }
+
+            case TokenNumber:
+            case TokenString:
+            {
+                if(Tree->Current && Tree->Current->Token->Type == (token_type)'=')
+                {
+                    Token->Type = TokenIdentifierAssignmentValue;
+
+                    if(Tree->Current->Parent && Tree->Current->Parent->Token->Type != TokenIdentifier)
+                    {
+                        MarkDirty(Token);
+                    }
+                }
+
+                NodePushChild(Tree, SyntaxNode);
+            }
+            break;
+
+            case TokenDoubleEqual:
+            {
+                // TODO(nasr): busy
+                syntax_node *LeftOperand  = Tree->Current->Last;
+                syntax_node *RightOperand = Tree->Current->First;
+
+                NodePushChild(Tree, SyntaxNode);
+                Tree->Current = SyntaxNode;
+
+                if(!IsNilSyntaxNode(LeftOperand) && !IsNilSyntaxNode(RightOperand))
+                {
+                    Tree->Current->First = LeftOperand;
+                    Tree->Current->Last  = RightOperand;
+
+                    LeftOperand->Parent   = Tree->Current;
+                    LeftOperand->Next = &nil_syntax_node;
+
+                    RightOperand = Tree->Current->Next;
+                }
+            }
+            break;
+
+            case TokenGreaterEqual:
+            case TokenLesserEqual:
+            case(token_type)'<':
+            case(token_type)'>':
+            {
+                NodePushChild(Tree, SyntaxNode);
+                Tree->Current = SyntaxNode;
+            }
+            break;
+
+            case(token_type)'(':
+            {
+                NodePushChild(Tree, SyntaxNode);
+                Tree->Current = SyntaxNode;
+            }
+            break;
+
+            case(token_type)')':
+            {
+                while(Tree->Current &&
+                      Tree->Current != &nil_syntax_node &&
+                      Tree->Current->Token->Type != (token_type)'(')
+                {
+                    Tree->Current = Tree->Current->Parent;
+                }
+
+                if(Tree->Current && Tree->Current->Parent)
+                {
+                    Tree->Current = Tree->Current->Parent;
+                }
+            }
+            break;
+
+            case(token_type)'{':
+            {
+                if(Tree->Current && Tree->Current != Tree->Root)
+                {
+                    Tree->Current = Tree->Current->Parent;
+                }
+
+                NodePushChild(Tree, SyntaxNode);
+                Tree->Current = SyntaxNode;
+            }
+            break;
+
+            case(token_type)'}':
+            {
+                if(Tree->Current && Tree->Current->Parent)
+                {
+                    Tree->Current = Tree->Current->Parent;
+                }
+            }
+            break;
+
+            case(token_type)';':
+            {
+                // reposition the current node to the parent ndoe
+                // define the last of the childs to be the current node
+
+                Tree->Current->Last = Tree->Current;
+                Tree->Current       = Tree->Current->Parent;
+            }
+            break;
+
+            case TokenFunc:
+            {
+                b32 HasBody = 0;
+                for(token_node *Lookahead = TokenNode->Next;
+                Lookahead != NULL;
+                Lookahead = Lookahead->Next)
+                {
+                    token_type LT = Lookahead->Token->Type;
+                    if(LT == (token_type)'{')
+                    {
+                        HasBody = 1;
+                        break;
+                    }
+                    if(LT == (token_type)';')
+                    {
+                        break;
+                    }
+                }
+
+                if(!HasBody)
+                {
+                    MarkDirty(Token);
+                }
+
+                NodePushChild(Tree, SyntaxNode);
+                Tree->Current = SyntaxNode;
+            }
+            break;
+
+            case TokenReturn:
+            {
+                if(Tree->Current &&
+                   Tree->Current->Parent &&
+                   Tree->Current->Parent->Token->Type != TokenFunc)
+                {
+                }
+
+                NodePushChild(Tree, SyntaxNode);
+                Tree->Current = SyntaxNode;
+            }
+            break;
+
+            case TokenIf:
+            {
+                NodePushChild(Tree, SyntaxNode);
+                Tree->Current = SyntaxNode;
+            }
+            break;
+
+            case TokenElse:
+            case TokenWhile:
+            case TokenFor:
+            {
+                NodePushChild(Tree, SyntaxNode);
+                Tree->Current = SyntaxNode;
+            }
+            break;
+
+            case TokenBreak:
+            {
+                if(!Tree->Current || !Tree->Current->Parent)
+                {
+                    MarkDirty(Token);
+                }
+                NodePushChild(Tree, SyntaxNode);
+            }
+            break;
+
+            case TokenContinue:
+            {
+                NodePushChild(Tree, SyntaxNode);
+            }
+            break;
+
+            case TokenExpression:
+            {
+                NodePushChild(Tree, SyntaxNode);
+                Tree->Current = SyntaxNode;
+            }
+            break;
+
+            case TokenParam:
+            {
+                NodePushChild(Tree, SyntaxNode);
+            }
+            break;
+
+            case TokenStar:
+            {
+                // TODO(nasr): once we get to better visualizations i think
+            }
+            break;
+
+            case TokenUndefined:
+            {
+                MarkDirty(Token);
+                NodePushChild(Tree, SyntaxNode);
+            }
+            break;
+
+            default:
+            {
+                MarkDirty(Token);
+                NodePushChild(Tree, SyntaxNode);
+            }
+            break;
         }
-
-        if(!HasBody)
-        {
-          MarkDirty(Token);
-        }
-
-        NodePush(Tree, SyntaxNode);
-        Tree->Current = SyntaxNode;
-      }
-      break;
-
-      case TokenReturn:
-      {
-        if(Tree->Current &&
-           Tree->Current->Parent &&
-           Tree->Current->Parent->Token->Type != TokenFunc)
-        {
-        }
-
-        NodePush(Tree, SyntaxNode);
-        Tree->Current = SyntaxNode;
-      }
-      break;
-
-      case TokenIf:
-      {
-        NodePush(Tree, SyntaxNode);
-        Tree->Current = SyntaxNode;
-      }
-      break;
-
-      case TokenElse:
-      case TokenWhile:
-      case TokenFor:
-      {
-        NodePush(Tree, SyntaxNode);
-        Tree->Current = SyntaxNode;
-      }
-      break;
-
-      case TokenBreak:
-      {
-        if(!Tree->Current || !Tree->Current->Parent)
-        {
-          MarkDirty(Token);
-        }
-
-        NodePush(Tree, SyntaxNode);
-      }
-      break;
-
-      case TokenContinue:
-      {
-        NodePush(Tree, SyntaxNode);
-      }
-      break;
-
-      case TokenExpression:
-      {
-        NodePush(Tree, SyntaxNode);
-        Tree->Current = SyntaxNode;
-      }
-      break;
-
-      case TokenParam:
-      {
-        NodePush(Tree, SyntaxNode);
-      }
-      break;
-
-      case TokenUndefined:
-      {
-        MarkDirty(Token);
-        NodePush(Tree, SyntaxNode);
-      }
-      break;
-
-      default:
-      {
-        MarkDirty(Token);
-        NodePush(Tree, SyntaxNode);
-      }
-      break;
     }
-  }
 
-  return Tree;
+    return Tree;
 }
