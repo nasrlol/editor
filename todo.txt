@@ -17,12 +17,20 @@ Archived:
  x loop editing
 
 
-parser:
-tree visualization takes 
-add/remove nodes to tree
-finding nodes and replacing or removing
-typechecking nodes
-reading nil values
+# backend todo
 
-int x = 0;
-      ____
+## lexer
+- [ ] ...
+
+## parser
+- [ ] bloodline definitions (scopes)
+- [ ] function scopes
+- [ ] enforce declarations inside scope only (illegal at global level)
+
+## tree visualization
+- [ ] add labels to nodes
+
+## type checking
+- [ ] reject mismatched assignments — e.g. `int x = 0; x = "char"`
+- [ ] look up table?
+- [ ] derive types from primitive types or use memory adress offsets?

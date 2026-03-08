@@ -5,7 +5,7 @@ CreateNode(concrete_syntax_tree *Tree, arena *Arena, token *Token)
     SyntaxNode->Token       = Token;
     SyntaxNode->First       = &nil_syntax_node;
     SyntaxNode->Last        = &nil_syntax_node;
-    SyntaxNode->Next    = &nil_syntax_node;
+    SyntaxNode->Next        = &nil_syntax_node;
     SyntaxNode->Parent      = &nil_syntax_node;
     return SyntaxNode;
 }
@@ -37,7 +37,7 @@ NodePushChild(concrete_syntax_tree *Tree, syntax_node *Node)
     else
     {
         Tree->Current->Last->Next = Node;
-        Tree->Current->Last           = Node;
+        Tree->Current->Last       = Node;
     }
 }
 
@@ -69,8 +69,8 @@ internal concrete_syntax_tree *
 Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
 {
     for(token_node *TokenNode = List->Root;
-        TokenNode != &nil_token_node && TokenNode != NULL;
-        TokenNode = TokenNode->Next)
+    TokenNode != &nil_token_node && TokenNode != NULL;
+    TokenNode = TokenNode->Next)
     {
         token       *Token      = TokenNode->Token;
         syntax_node *SyntaxNode = CreateNode(Tree, Arena, Token);
@@ -87,8 +87,7 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
             {
                 if(!IsNilTokenNode(TokenNode) && TokenNode->Next->Token->Type == (token_type)'=')
                 {
-
-					token_node *ValueNode = TokenNode->Next->Next;
+                    token_node *ValueNode = TokenNode->Next->Next;
 
                     if(ValueNode->Token->Type != TokenIdentifierAssignmentValue &&
                        ValueNode->Token->Type != TokenValue)
@@ -141,8 +140,8 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
                     Tree->Current->First = LeftOperand;
                     Tree->Current->Last  = RightOperand;
 
-                    LeftOperand->Parent   = Tree->Current;
-                    LeftOperand->Next = &nil_syntax_node;
+                    LeftOperand->Parent = Tree->Current;
+                    LeftOperand->Next   = &nil_syntax_node;
 
                     RightOperand = Tree->Current->Next;
                 }
