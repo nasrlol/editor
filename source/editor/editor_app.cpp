@@ -85,7 +85,7 @@ GetPixel(app_offscreen_buffer *Buffer, s32 X, s32 Y)
 void
 AppendChar(app_state *App, rune Codepoint)
 {
-  if(Is_Delimiter(Codepoint))
+  if(IsDelimiter(Codepoint))
   {
     // TODO(nasr): do something if its a delimiter when inputting
   }
@@ -329,8 +329,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
           }
           else if(Key.Codepoint == PlatformKey_F2)
           {
-            token_list *List = Lex(App, PermanentArena);
-            App->tree        = Parse(PermanentArena, List);
+           concrete_syntax_tree *Tree = PushStructZero(PermanentArena, concrete_syntax_tree);
+           token_list *List = Lex(App, PermanentArena);
+
+           App->tree        = Parse(PermanentArena, List, Tree);
           }
         }
       }
