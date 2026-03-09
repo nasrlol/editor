@@ -210,28 +210,7 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
 
             case TokenFunc:
             {
-                b32 HasBody = 0;
-                for(token_node *Lookahead = TokenNode->Next;
-                Lookahead != NULL;
-                Lookahead = Lookahead->Next)
-                {
-                    token_type LT = Lookahead->Token->Type;
-                    if(LT == (token_type)'{')
-                    {
-                        HasBody = 1;
-                        break;
-                    }
-                    if(LT == (token_type)';')
-                    {
-                        break;
-                    }
-                }
-
-                if(!HasBody)
-                {
-                    Ground(Token);
-                }
-
+                // TODO(nasr): define the function body
                 NodePushChild(Tree, SyntaxNode);
                 Tree->Current = SyntaxNode;
             }
