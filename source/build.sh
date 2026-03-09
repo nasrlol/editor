@@ -14,9 +14,9 @@ gcc=0
 debug=1
 release=0
 personal=0
-slow=1
-asan=0
-clean=1
+slow=0
+no_asan=1
+clean=0
 
 editor=0
 windows=0
@@ -32,7 +32,7 @@ mkdir -p "$Build"
 
 [ -f "./base/base_build.h" ] && personal=1
 
-C_Compile()
+Compile()
 {
  SourceFiles="$1"
  Out="$2"
@@ -50,12 +50,12 @@ C_Compile()
  ClangFlags="-fno-omit-frame-pointer -fdiagnostics-absolute-paths -fsanitize-undefined-trap-on-error -ftime-trace
 -Wno-null-dereference -Wno-missing-braces -Wno-vla-extension -Wno-writable-strings   -Wno-address-of-temporary -Wno-int-to-void-pointer-cast -Wno-reorder-init-list -Wno-c99-designator"
 
- [ "$asan" = 1 ] && ClangFlags="$ClangFlags -fsanitize-trap -fsanitize=address"
+ [ "$no_asan" = 0 ] && ClangFlags="$ClangFlags -fsanitize-trap -fsanitize=address"
 
  GCCFlags="-Wno-cast-function-type -Wno-missing-field-initializers -Wno-int-to-pointer-cast"
 
  Flags="$CommonCompilerFlags $Flags"
- [ "$debug"   = 1 ] && Flags="$Flags $DebugFlags"
+ [ "$debug"   = 1 ] && Flags="$Flags $DebugFlags -DEDITOR_INTERNAL=1"
  [ "$release" = 1 ] && Flags="$Flags $ReleaseFlags"
  [ "$personal" = 1 ] && Flags="$Flags -DEDITOR_PERSONAL=1"
  [ "$slow"     = 1 ] && Flags="$Flags -DEDITOR_SLOW_COMPILE=1"
@@ -92,32 +92,32 @@ printf '[%s compile]\n' "$Compiler"
 if [ "$editor" = 1 ]
 then
  AppFlags="-fPIC --shared" 
- 
+
  LibsFile="../build/editor_libs.o"
 
  # Faster compilation times by compiling all libraries in a separate translation unit.
  if [ "$slow" = 0 ]
  then
-		# If libsfile does not exist or
-		# If compiling with asan but libsfile does not contain asan
-		# If compiling without asan but libsfile contains asan
-		if  { { [ "$asan" = 0 ] && nm "$LibsFile" 2>/dev/null | grep 'asan' > /dev/null; } ||
-						  { [ "$asan" = 1 ] && ! nm "$LibsFile" 2>/dev/null | grep 'asan' > /dev/null; } ||
-						  [ ! -f "$LibsFile" ]; }
-		then
-   C_Compile ./editor/editor_libs.h "$LibsFile" "-fPIC -x c++ -c -DEDITOR_SLOW_COMPILE=1 -Wno-unused-command-line-argument"
-		fi
+  # If libsfile does not exist or
+  # If compiling with asan but libsfile does not contain asan
+  # If compiling without asan but libsfile contains asan
+  if { { [ "$no_asan" = 1 ] && nm "$LibsFile" 2>/dev/null | grep 'asan' > /dev/null; } ||
+     { [ "$no_asan" = 0 ] && ! nm "$LibsFile" 2>/dev/null | grep 'asan' > /dev/null; } ||
+     [ ! -f "$LibsFile" ]; }
+  then
+   Compile ./editor/editor_libs.h "$LibsFile" "-fPIC -x c++ -c -DEDITOR_SLOW_COMPILE=1 -Wno-unused-command-line-argument"
+  fi
   AppFlags="$AppFlags $LibsFile"
  fi
 
- C_Compile "./editor/editor_app.cpp" editor_app.so "$AppFlags"
- C_Compile "./editor/editor_platform.cpp" editor "-lX11 -lGL -lGLX"
+ Compile "./editor/editor_app.cpp" editor_app.so "$AppFlags"
+ Compile "./editor/editor_platform.cpp" editor "-lX11 -lGL -lGLX"
 fi
 
 if [ "$windows" = 1 ]
 then
-	printf 'call C:\BuildTools\devcmd.bat\ncall build.bat\n' | wine cmd.exe 2>/dev/null
-	DidWork=1
+ printf 'call C:\BuildTools\devcmd.bat\ncall build.bat\n' | wine cmd.exe 2>/dev/null
+ DidWork=1
 fi
 
 #- End
@@ -125,7 +125,7 @@ fi
 if [ "$DidWork" = 0 ]
 then
  printf 'ERROR: No valid build target provided.\n'
- printf 'Usage: %s <editor [clean/asan/debug/release/gcc/clang/slow]>\n' "$0"
+ printf 'Usage: %s <editor [clean/no_asan/debug/release/gcc/clang/slow]>\n' "$0"
 else
  printf 'Done.\n' # 4coder bug
 fi

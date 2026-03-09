@@ -7,30 +7,33 @@
 
 typedef u64 barrier;
 
-typedef umm thread_handle;
+typedef u64 thread_handle;
 
 typedef struct thread_context thread_context;
 struct thread_context
 {
     s64 LaneCount;
-    s64 LaneIdx;
-    
+    s64 LaneIndex;
+
     thread_handle Handle;
-    
-    u64 *SharedStorage;
+
+    u64    *SharedStorage;
     barrier Barrier;
-    
+
     arena *Arena;
 };
 
 #define AtomicAddEvalU64(Pointer, Value) \
-(__sync_fetch_and_add((Pointer), (Value), __ATOMIC_SEQ_CST) + (Value));
+    (__sync_fetch_and_add((Pointer), (Value), __ATOMIC_SEQ_CST) + (Value));
 
 thread_static thread_context *ThreadContext;
 
 #define LaneCount() (ThreadContext->LaneCount)
-#define LaneIdx() (ThreadContext->LaneIdx)
+#define LaneIndex() (ThreadContext->LaneIndex)
 
-internal void ThreadInit(thread_context *ContextToSelect);
+internal void
+ThreadInit(thread_context *ContextToSelect);
+internal arena *
+GetScratch(void);
 
 #endif //LANES_H

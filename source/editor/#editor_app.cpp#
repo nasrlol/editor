@@ -802,6 +802,7 @@ GetInput(app_input *Input)
 #include "editor_lexer.c"
 #include "editor_parser.c"
 
+
 C_LINKAGE
 UPDATE_AND_RENDER(UpdateAndRender)
 {
@@ -982,7 +983,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     //- Text Input
                     else if(Key.Codepoint == 'h')
                     {
-                        // DebugBreak;
+					  // DebugBreak;
                     }
 
                     if(Key.Modifiers == PlatformKeyModifier_Control)
@@ -1180,6 +1181,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 UI_AddBox(S8("Save"), ButtonFlags);
 
                 UI_AddBox(S8(""), UI_BoxFlag_None);
+
 
                 if(UI_AddBox(S8("Close"), ButtonFlags)->Clicked)
                 {

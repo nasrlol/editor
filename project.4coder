@@ -1,5 +1,5 @@
 version(2);
-project_name = "RL Codebase";
+project_name = "editor";
 
 patterns = 
 {
@@ -23,7 +23,7 @@ blacklist_patterns =
 
 paths = 
 {
-    { .path = ".",            .recursive = false, .relative = true, },
+    { .path = ".",              .recursive = false, .relative = true, },
     { .path = "source",         .recursive = false, .relative = true, },
     { .path = "source/base",    .recursive = true,  .relative = true, },
     { .path = "source/lib",     .recursive = true,  .relative = true, },
@@ -42,13 +42,45 @@ commands =
 {
     .build_default = 
     {
-        .out = "*compilation*", .save_dirty_files = true,
+        .out = "*compilation*", 
         .linux = "sh ./source/build.sh",
         .win = ".\\source\\build.bat",
+        .save_dirty_files = true,
+        .footer_panel = false,
+        .cursor_at_end = false,
+    },
+    .run_default = 
+    {
+        .out = "*compilation*", 
+        .linux = "./build/editor",
+        .win = "raddbg --ipc run",
+        .save_dirty_files = false,
+        .footer_panel = false,
+        .cursor_at_end = false,
+    },
+    .build_lexer = 
+    {
+        .out = "*compilation*", 
+        .linux = "sh ./source/test.sh",
+        .win = ".\\source\\build.bat",
+        .save_dirty_files = true,
+        .footer_panel = false,
+        .cursor_at_end = false,
+    },
+    .raddbg_kill = 
+    {
+        .out = "*compilation*", 
+        .linux = "sh ./source/test.sh",
+        .win = "raddbg --ipc kill_all",
+        .save_dirty_files = true,
+        .footer_panel = false,
+        .cursor_at_end = false,
     },
 };
 
 fkey_command =
 {
     .F1 = "build_default",
+    .F2 = "run_default",
+    .F5 = "raddbg_kill",
 };

@@ -63,10 +63,9 @@
 #define RADDBG_MARKUP_IMPLEMENTATION
 #define ssize_t SSIZE_T
 #else
-#include <sys/types.h>
 #define RADDBG_MARKUP_STUBS
+#include <sys/types.h>
 #endif
-#include "lib/raddbg_markup.h"
 
 //~ Macros
 #define ERROR_FMT "%s(%d): ERROR: "
@@ -98,7 +97,7 @@
         typeof((A))(temp) = (typeof((A)))(A); \
         (A)               = (B); \
         (B)               = (temp); \
-    } while (0)
+    } while(0)
 #else
 template <typename t> inline void
 Swap(t &A, t &B)
@@ -135,7 +134,7 @@ Swap(t &A, t &B)
 #define Trap() __asm__ volatile("int3");
 #endif
 #elif COMPILER_MSVC
-# define Trap() (__debugbreak());
+#define Trap() (__debugbreak());
 #else
 #define Trap() *(int *)0 = 0;
 #endif
@@ -148,40 +147,49 @@ Swap(t &A, t &B)
 #define ReadWriteBarrier __asm__ __volatile__("" : : : "memory")
 #endif
 
-#define DebugBreak \
+#define DebugBreak() \
     do \
     { \
-        if (GlobalDebuggerIsAttached) \
+        if(GlobalDebuggerIsAttached) \
             Trap(); \
-    } while (0)
+    } while(0)
 
 #define Var(Name) Glue(Name, __LINE__)
 #define DoOnce \
     local_persist s32 Var(X) = 0; \
     Var(X) += 1; \
-    if (Var(X) < 2)
-#define DebugBreakOnce \
-    DoOnce \
+    if(Var(X) < 2)
+#define DebugBreakOnce() \
+    do \
     { \
-        DebugBreak; \
-    }
+        DoOnce \
+        { \
+            DebugBreak(); \
+        }; \
+    } while(0);
 
+#define DebugBreakMsg(Format, ...) \
+    do \
+    { \
+        ErrorLog(Format, ##__VA_ARGS__); \
+        DebugBreak(); \
+    } while(0)
 #define TrapMsg(Format, ...) \
     do \
     { \
         ErrorLog(Format, ##__VA_ARGS__); \
         Trap(); \
-    } while (0)
+    } while(0)
 #define AssertMsg(Expression, Format, ...) \
     do \
     { \
-        if (!(Expression)) \
+        if(!(Expression)) \
             TrapMsg(Format, ##__VA_ARGS__); \
-    } while (0)
+    } while(0)
 #define Assert(Expression) AssertMsg(Expression, "Hit assertion")
 
-#define NotImplemented TrapMsg("Not Implemented!")
-#define InvalidPath TrapMsg("Invalid Path!")
+#define NotImplemented() TrapMsg("Not Implemented!")
+#define InvalidPath() TrapMsg("Invalid Path!")
 #define StaticAssert(C, ID) global_variable u8 Glue(ID, __LINE__)[(C) ? 1 : -1]
 
 //-
@@ -189,11 +197,12 @@ Swap(t &A, t &B)
 #define EachIndex(Index, Count) EachIndexType(u64, Index, Count)
 #define EachElement(Index, Array) EachIndexType(u64, Index, ArrayCount(Array))
 #define EachInRange(Index, Range) (u64 Index = (Range).Min; Index < (Range).Max; Index += 1)
-#define EachNode(Index, t, First) (t *Index = First; Index != 0; Index = Index->next)
+#define EachNode(Index, t, First) (t *Index = First; Index != 0; Index = Index->Next)
 
 #define MemoryCopy(Dest, Source, Count) memmove(Dest, Source, Count)
-#define MemorySet(Dest, Value, Count)  memset(Dest, Value, Count)
+#define MemorySet(Dest, Value, Count) memset(Dest, Value, Count)
 #define MemoryZero(Value) MemorySet((Value), 0, sizeof((*Value)));
+#define MemoryCopyArray(Dest, Source) MemoryCopy((Dest), (Source), sizeof((Dest)))
 
 //~ Attributes
 #define internal static
@@ -218,6 +227,12 @@ Swap(t &A, t &B)
 // like writing to that section reliably produces access violations, strangely
 // enough. (It does on Clang)
 #define read_only
+#endif
+
+#if COMPILER_MSVC
+#define PrintfFunc(FormatIdx, FirstArgIdx)
+#elif COMPILER_CLANG || COMPILER_GNU
+#define PrintfFunc(FormatIdx, FirstArgIdx) __attribute__((format(printf, FormatIdx, FirstArgIdx)))
 #endif
 
 #if COMPILER_MSVC
@@ -297,6 +312,18 @@ __asan_unpoison_memory_region(void const volatile *Address, size_t Size);
 #define AsanUnpoisonMemoryRegion(Address, Size) ((void)(Address), (void)(Size))
 #endif
 
+// Alignment
+#if COMPILER_MSVC
+#define AlignOf(T) __alignof(T)
+#elif COMPILER_CLANG
+#define AlignOf(T) __alignof(T)
+#elif COMPILER_GCC
+#define AlignOf(T) __alignof__(T)
+#else
+#error AlignOf not defined for this compiler.
+#endif
+#define AlignPow2(x, b) (((x) + (b) - 1) & (~((b) - 1)))
+
 // Push/Pop warnings
 #if COMPILER_GNU
 #define NO_WARNINGS_BEGIN \
@@ -326,10 +353,10 @@ __asan_unpoison_memory_region(void const volatile *Address, size_t Size);
 
 #define Pi32 3.14159265359f
 
-#define KB(n) (((umm)(n)) << 10)
-#define MB(n) (((umm)(n)) << 20)
-#define GB(n) (((umm)(n)) << 30)
-#define TB(n) (((umm)(n)) << 40)
+#define KB(n) (((u64)(n)) << 10)
+#define MB(n) (((u64)(n)) << 20)
+#define GB(n) (((u64)(n)) << 30)
+#define TB(n) (((u64)(n)) << 40)
 #define Thousand(n) ((n) * 1000)
 #define Million(n) ((n) * 1000000)
 #define Billion(n) ((n) * 1000000000)

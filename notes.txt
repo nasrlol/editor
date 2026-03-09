@@ -1,282 +1,105 @@
-**Goal:**
-Build a concrete syntax tree (CST) from source files with support for incremental updates.
+# Ryan UI series
+##  Part 1
 
-1. **Input**
+The user must be able to map inputs to outputs, the machine must map inputs to outputs.
 
-   * Entire file buffer (per translation unit).
-   * Multiple files handled independently at first.
-   * Cross-file relationships handled at a higher layer.
+Builder code vs Core code.
+Builder code is used way more often so it must remain small and simple.
 
-2. **Lexing**
+Core provides common codepaths.
+Escape hatches provide code for fastpaths and program specific needs.
 
-   * Continuous scan over buffer.
-   * Produce ordered list of tokens.
-   * Track:
+## Part 2
 
-     * Line
-     * Column
-     * Byte offset (maybe)
+Immediate mode removes a lot of (unecessary) code paths.
 
-3. **Parsing**
+Uniformity is more present in UIs that lots of different widgets.
 
-   * Consume token stream.
-   * Produce Concrete Syntax Tree (CST).
-   * Preserve structure and all tokens (unlike AST).
+You can select a global variable that you use often to reduce the number of parameters a function takes.
 
-4. **Incremental Updates**
+Layouts have behavior similar to widgets so they can be unified.
 
-  * no
+Use the previous frame's information to do autolayout pass.
 
----
+Animation data can be kept on the core side.
 
-## Lexing Notes
+## Part 3
 
-### Responsibilities
+Some widgets have overlapping features with others, so they shouldn't be exclusive.
 
-* Skip whitespace but track location.
-* Identify:
+# Part 4
+Design for the effects you want using composition (bottom-up).
 
-  * Identifiers
-  * Keywords
-  * Number literals
-  * String literals
-  * Preprocessor directives
-  * Operators
-  * Delimiters
-* Handle multi-character tokens (`==`, `!=`, `<=`, etc.).
-* Recognize identifier start rules:
+# Part 5
+We cannot cache empty string nodes, since you could have multiple of them.
+-> Disable caching for them by mapping an empty string to a null id
 
-  * `[A-Za-z_]`
-  * Followed by `[A-Za-z0-9_]`
+The keying mechanism is only used for interactions.
 
-Whitespace:
+The parent is usually the same so we can group styles per parent by using a stack of styles.
 
-* Does not define scope.
-* Should be tracked for formatting/refactoring.
+# Part 7
+The user interaction of the UI element dictates the builder code.
+The builder code will have the mapping with the state management requirements already, so it should not go into the core.
 
----
+Important state management actions can be deferred to a command list to avoid bugs.
 
-## Tree Construction Rules
+# Part 8
+UI is cyclical, it is responsible for producing the data and transforming it.
+Disagreements on the data might arise from the order of the mutations.
 
-### Root
+We are people and objectiveness is reductive.
 
-* Root represents the translation unit.
-* It contains:
+# Questions 
+What bout DPI?
+(Part 2)
+ What are self-correcting exponential animation curves
 
-  * Declarations
-  * Function definitions
-  * Preprocessor directives
 
-### Branch Creation
+It’s also possible to have rules that change the way the hash is seeded. In the above example, it may be interesting to try seeding the hash by the previous sibling’s seed. It’s also often desirable to seed the hash with the parent key’s hash as well. There’s a tradeoff to these tricks, however, which is that it becomes more difficult to generate a key “out-of-context”, but this may be mitigated by offering an explicit “opt-out-of-hash-seed-tricks” path in the API.
 
-Branches are created when:
+How are nodes touched?
 
-* Encountering `{}` (compound statement)
-* Parsing a declaration
-* Parsing a function definition
-* Parsing control structures (`if`, `for`, etc.)
-* Encountering `;` (statement boundary)
+(Part 3)
+Bypassing text-truncation with ellipses?
 
-Semicolon defines statement termination, not always scope.
+(Part 4)
+Look at raddbg for tooltips and dropdown and how their hierarchies are prebuilt.
 
+(Part 5)
+Why would you not identify your spacers?
+-> Because that's the common case
 
-TODO:
+One alternative approach might be to systematically generate spacer IDs, but this has the familiar issues of uniquely identifying one particular call in a frame across multiple frames
 
-Does defining a function create a new branch in the syntax tree when the function is from a "differnet unit"
-we've been thinking about one file but what when you have multiple
+## Misc
+The Design of Everyday Things by Don Norman
 
----
+What this means is that any given layout is nested within another (or, alternatively, it’s the root layout).
 
-## Example
+Mathis was right that specifying pixel coordinates is cumbersome.
 
-Source:
+Check out which skills ryan feels like are rotting.
 
-```
-int main() { return 0; }
-```
+Check out all the code snippets against the raddbg codebase.
 
-Token stream:
+Please ryan use videos instead of gifs.
 
-```
-[int][main][(][)][{][return][0][;][}]
-```
+Try this out.
+For example, if I want to make a button appear embossed when it is hovered by the user, I can render a gradient that fades from semi-transparent white on the top vertices to full-transparency on the bottom vertices. To make the same button appear debossed, I can render gradients that fade from a semi-transparent black to full-transparency to emulate shadows on the edge of the button, to make it appear “pressed”:
 
-Possible CST shape:
+https://dqfft.github.io/DirectWrite-quick-start/
+https://mr4th.com/blog/reference-dynamic-linking
 
-```
-TranslationUnit
- └── FunctionDefinition
-     ├── TypeSpecifier (int)
-     ├── Declarator (main)
-     ├── ParameterList
-     └── CompoundStatement
-         └── ReturnStatement
-             └── IntegerLiteral (0)
-```
+# Queues by Fabian Giesen at HSC
+https://www.youtube.com/watch?v=__Vvk027i4s&list=PL-IPpPzBYXBE10zoFwi5SKeYCMWTLgPCF
+Everything becomes serial in I/O because that ends up easier to speed up.
+Queues are used to counter interruptions.
 
----
+A "waiting area" can mitigate latency spikes caused by packets taking more time to being processed.
 
-## SyntaxNode Structure
-
-```c
-struct SyntaxNode
-{
-    Token *token;
-
-    SyntaxNode *Parent;
-
-    SyntaxNode **Children;
-    s32          ChildCount;
-    s32          ChildCapacity;
-};
-```
-
-### Interpretation
-
-* `token`:
-
-  * Represents the syntactic anchor of the node.
-  * Example: operator token, identifier token, keyword token.
-
-* `Parent`:
-
-  * Back-reference for restructuring and deletion.
-
-* `Children`:
-
-  * Ordered array.
-  * Order defines syntactic meaning.
-
----
-
-## Binary Relationships (Left / Right Variables)
-
-For an expression like:
-
-```
-a = b;
-```
-
-Tree shape:
-
-```
-AssignmentExpression (=)
- ├── Identifier (a)
- └── Identifier (b)
-```
-
-Stored as:
-
-```c
-struct Node
-{
-   Node **Children;
-}
-node->Children[0]  // ~ left side
-node->Children[1]  // ~ right side
-```
-### Convention
-
-For binary operators:
-
-```
-Children[0] = Left operand
-Children[1] = Right operand
-```
-
-For unary operators:
-
-```
-Children[0] = Operand
-```
-
-For declarations:
-
-Example:
-
-```
-int x = 5;
-```
-
-Tree:
-
-```
-Declaration
- ├── TypeSpecifier (int)
- ├── Identifier (x)
- └── Initializer
-     └── IntegerLiteral (5)
-```
-
-Children order determines meaning.
-
----
-
-## Declaration vs Assignment
-
-You must differentiate:
-
-* `int x;` → Declaration
-* `x = 5;` → Assignment
-
-Detection rule:
-
-* If first token is a type specifier → Declaration.
-* Otherwise → Expression statement.
-
----
-
-## Preprocessor Handling
-
-Treat as separate node types:
-
-```
-PreprocessorDirective
- └── Tokens
-```
-
-Do not merge with normal parsing phase initially.
-
-You do not need a full file map; store:
-
-```
-TranslationUnit {
-    FileID
-    RootNode
-}
-```
-////////////////////////////////////////////////////////////////////////////////////////////
-
-
-traversing trees
-
- www.geeksforgeeks.org/dsa/tree-traversals-inorder-preorder-and-postorder/
-
-
- options: 
-
- - DFT
- - BFT
- - ...
-
-
-to know  which one we want we need to know how we are what kind of traverling we want
-nah
-branch per branch
-so 
-like
-
-////////////////////////////////////
-
-     int
-      |
-     main
-    /   \
- int     int
- /         \
-x           y
-
-////////////////////////////////////
-
-anyway we want to see the definitoi of x and trhen go back up and then see the defintioin of y 
-and then go back up
+Whenever customers are waiting we can choose to intepret the system as a queue and apply the insights to queues from there.
+Back pressure is when filled up queues stall other queues.
+
+E.g., You can make memory usage go down by processing faster since that will reduce the average amount of customers in the system.
+You want a mechanism for informing the queue is full. 

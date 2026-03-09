@@ -1,9 +1,9 @@
 #if OS_LINUX || OS_ANDROID
-# include "base_os_linux.c"
+#include "base_os_linux.c"
 #elif OS_WINDOWS
-# include "base_os_windows.c"
-#else 
-# error "Operating system not provided or supported."
+#include "base_os_windows.c"
+#else
+#error "Operating system not provided or supported."
 #endif
 
 internal inline f64
@@ -16,7 +16,7 @@ OS_SecondsElapsed(f64 Start, f64 End)
 internal inline f64
 OS_MSElapsed(f64 Start, f64 End)
 {
-    f64 Result = ((End - Start)*1000.f);
+    f64 Result = ((End - Start) * 1000.f);
     return Result;
 }
 
@@ -24,19 +24,17 @@ internal void
 OS_ProfileInit(char *Prefix)
 {
     GlobalProfiler.Start = OS_GetWallClock();
-    GlobalProfiler.End = GlobalProfiler.Start;
+    GlobalProfiler.End   = GlobalProfiler.Start;
     GlobalProfilerPrefix = Prefix;
 }
 
-#if EDITOR_PROFILE
 internal void
 OS_ProfileAndPrint(char *Label)
 {
-    GlobalProfiler.End = OS_GetWallClock();
-    Log(" %s_%s: %.4f\n", GlobalProfilerPrefix, Label, OS_MSElapsed(GlobalProfiler.Start, GlobalProfiler.End));
-    GlobalProfiler.Start = GlobalProfiler.End;
+    if(GlobalIsProfiling)
+    {
+        GlobalProfiler.End = OS_GetWallClock();
+        Log(" %s_%s: %.4f\n", GlobalProfilerPrefix, Label, OS_MSElapsed(GlobalProfiler.Start, GlobalProfiler.End));
+        GlobalProfiler.Start = GlobalProfiler.End;
+    }
 }
-#else
-// NOTE(luca): stub
-internal void OS_ProfileAndPrint(char *Label) {}
-#endif

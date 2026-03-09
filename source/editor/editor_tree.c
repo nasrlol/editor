@@ -1,13 +1,7 @@
 internal v4
 CreateVNodeColor(syntax_node *Node)
 {
-    token_type Type = TokenUndefined;
-    if(Node->Token)
-    {
-        Type = Node->Token->Type;
-    }
-
-    switch(Type)
+    switch(Node->Type)
     {
         case(TokenIdentifier):
             return Color_Yellow;

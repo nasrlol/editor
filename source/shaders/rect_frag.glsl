@@ -5,21 +5,26 @@
 #define v3 vec3
 #define v4 vec4 
 #define f32 float
+#define b32 int
 
 in v2  VS_Pos;
 in v4  VS_Dest;
+in v2  VS_TexCoord;
 in v2  VS_Center;
 in v2  VS_HalfSize;
 in v4  VS_Color;
+
 in f32 VS_CornerRadius;
 in f32 VS_BorderThickness;
 in f32 VS_Softness;
+flat in f32 VS_HasTexture;
 
-uniform v2 Viewport;
+uniform sampler2D Texture;
 
 out v4 FragColor;
 
-v3 HSV2RGB(v3 Color)
+v3
+HSV2RGB(v3 Color)
 {
     v4 K = v4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
     v3 p = abs(fract(Color.xxx + K.xyz) * 6.0 - K.www);
@@ -61,6 +66,12 @@ void main()
                              VS_HalfSize - v2(VS_Softness*2.0, VS_Softness*2.0),
                              VS_CornerRadius);
         tCorner = 1.0-smoothstep(0.0, 2.0*VS_Softness, sCorner);
+    }
+    
+    if(VS_HasTexture > 0)
+    {
+        f32 Alpha = texture(Texture, VS_TexCoord).r;
+        Color.a *= Alpha;;
     }
     
     Color.a *= tBorder;
