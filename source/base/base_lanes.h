@@ -32,5 +32,6 @@ thread_static thread_context *ThreadContext;
 #define LaneIndex() (ThreadContext->LaneIndex)
 
 internal void ThreadInit(thread_context *ContextToSelect);
+internal arena *GetScratch(void);
 
 #endif //LANES_H

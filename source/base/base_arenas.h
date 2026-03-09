@@ -33,6 +33,8 @@ internal void  *ArenaPush(arena *Arena, u64 Size, u64 Alignment, b32 Zero);
 internal u64 BeginScratch(arena *Arena);
 internal void EndScratch(arena *Arena, u64 BackPos);
 
+#define Scratch(Arena) for(u64 _J_ = BeginScratch((Arena)), _I_ = 0; !_I_; _I_ += 1, (EndScratch(Arena, _J_)))
+
 #define PushArray(Arena, t, Count) (t *)ArenaPush((Arena), (Count)*(sizeof(t)), AlignOf(t), false)
 #define PushStruct(Arena, t) PushArray(Arena, t, 1)
 #define PushArrayZero(Arena, t, Count) (t *)ArenaPush((Arena), (Count)*(sizeof(t)), AlignOf(t), true)

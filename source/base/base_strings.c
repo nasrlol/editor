@@ -3,6 +3,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+global_variable arena *StringsScratch = 0;
+
 internal b32 
 IsPrintable(u8 Char)
 {
@@ -100,9 +102,11 @@ StringCat(arena *Arena, str8 Prefix, str8 Suffix)
 }
 
 internal str8
-StringFormat(arena *Arena, char *Format, ...)
+Str8Fmt(char *Format, ...)
 {
     str8 Result = {0};
+    
+    arena *Arena = StringsScratch;
     
     Result.Data = PushArray(Arena, u8, 256);
     

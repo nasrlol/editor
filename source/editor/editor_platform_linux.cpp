@@ -494,6 +494,43 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
     
 	if(Linux)
 	{
+        
+        {        
+            XUndefineCursor(Linux->DisplayHandle, Linux->WindowHandle);
+            switch(Input->PlatformCursor)
+            {
+                default:
+                case PlatformCursorShape_Arrow:
+                {
+                    
+                } break;
+                case PlatformCursorShape_None:
+                {
+                    XColor black = {};
+                    char NoData[8] = {};
+                    
+                    Pixmap BitmapNoData = XCreateBitmapFromData(Linux->DisplayHandle, Linux->WindowHandle, NoData, 8, 8);
+                    Cursor InvisibleCursor = XCreatePixmapCursor(Linux->DisplayHandle, BitmapNoData, BitmapNoData, 
+                                                                 &black, &black, 0, 0);
+                    XDefineCursor(Linux->DisplayHandle, Linux->WindowHandle, InvisibleCursor);
+                    XFreeCursor(Linux->DisplayHandle, InvisibleCursor);
+                    XFreePixmap(Linux->DisplayHandle, BitmapNoData);
+                } break;
+                case PlatformCursorShape_ResizeHorizontal:
+                {
+                    Cursor vresize = XCreateFontCursor(Linux->DisplayHandle, XC_sb_h_double_arrow);
+                    XDefineCursor(Linux->DisplayHandle, Linux->WindowHandle, vresize);
+                } break;
+                case PlatformCursorShape_ResizeVertical:
+                {
+                    Cursor vresize = XCreateFontCursor(Linux->DisplayHandle, XC_sb_v_double_arrow);
+                    XDefineCursor(Linux->DisplayHandle, Linux->WindowHandle, vresize);
+                } break;
+            }
+            
+        }
+        
+        
         XEvent WindowEvent = {};
         while(XPending(Linux->DisplayHandle) > 0)
         {
@@ -758,7 +795,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                     if(Event->x >= 0 && Event->x < Buffer->Width &&
                        Event->y >= 0 && Event->y < Buffer->Height)
                     {                    
-                        Log("MotionNotify: %d,%d\n", Input->MouseX, Input->MouseY);
+                        //Log("MotionNotify: %d,%d\n", Input->MouseX, Input->MouseY);
                         Input->MouseX = Event->x;
                         Input->MouseY = Event->y;
                     }
@@ -892,7 +929,8 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
     {
         Code->LastWriteTime = CurrentWriteTime;
         
-        str8 TempDLLFileName = StringFormat(Arena, "editor_app_temp_%lu.so", (u64)OS_GetWallClock());
+        StringsScratch = Arena;
+        str8 TempDLLFileName = Str8Fmt("editor_app_temp_%lu.so", (u64)OS_GetWallClock());
         char *TempDLLPath = PathFromExe(Arena, Memory->ExeDirPath, TempDLLFileName);
         
         int File = open(Code->LibraryPath, O_RDONLY, 0600);

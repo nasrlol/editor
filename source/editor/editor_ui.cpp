@@ -8,7 +8,7 @@ UI_Size(ui_size_kind Kind, f32 Value, f32 Strictness)
     return Size;
 }
 
-#define DeferLoop(Begin, End)        for(int _i_ = ((Begin), 0); !_i_; _i_ += 1, (End))
+#define DeferLoop(Begin, End) for(int _i_ = ((Begin), 0); !_i_; _i_ += 1, (End))
 
 
 #define UI_SizePx(Value, Strictness) UI_Size(UI_SizeKind_Pixels, Value, Strictness)
@@ -409,14 +409,12 @@ UI_CalculatePositionsAndDrawBoxes(ui_box *Box)
     
     if(Box->Flags & UI_BoxFlag_Clip)
     {
-        rect ParentDest = RectFromSize(Parent->FixedPosition, Parent->FixedSize);
-        
-        Dest.Min = V2(Max(Dest.Min.X, ParentDest.Min.X), Max(Dest.Min.Y, ParentDest.Min.Y));
-        Dest.Max = V2(Min(Dest.Max.X, ParentDest.Max.X), Min(Dest.Max.Y, ParentDest.Max.Y));
+        Dest = RectIntersect(Parent->Rec, Dest);
     }
     
-    if(Dest.Min.X < Dest.Max.X && 
-       Dest.Min.Y < Dest.Max.Y)
+    Box->Rec = Dest;
+    
+    if(RectValid(Dest))
     {    
         if(Box->Flags & UI_BoxFlag_DrawShadow)
         {
@@ -424,13 +422,13 @@ UI_CalculatePositionsAndDrawBoxes(ui_box *Box)
             rect ShadowDest = RectV2(V2AddF32(Dest.Min, ShadowSize), 
                                      V2AddF32(Dest.Max, ShadowSize)); 
             rect_instance *Inst = DrawRect(ShadowDest, Color_Black, 0.f, ShadowSize, .5f*ShadowSize);
-            MemoryCopyArray(&Inst->CornerRadii, &Box->CornerRadii);
+            Inst->CornerRadii = Box->CornerRadii;
         }
         
         if(Box->Flags & UI_BoxFlag_DrawBackground)
         {    
             rect_instance *Inst = DrawRect(Dest, Box->BackgroundColor, 0.f, 0.f, Box->Softness);
-            MemoryCopyArray(&Inst->CornerRadii, &Box->CornerRadii);
+            Inst->CornerRadii = Box->CornerRadii;
             
             if(Box->Flags & UI_BoxFlag_MouseClickability)
             {
@@ -450,12 +448,13 @@ UI_CalculatePositionsAndDrawBoxes(ui_box *Box)
             }
         }
         
-        
         if(Box->Flags & UI_BoxFlag_DrawDisplayString)
         {
-            v2 Cur = Box->FixedPosition;
-            Cur.Y += Box->BorderThickness;
-            Cur.X += Box->BorderThickness;
+            v2 TextPos = Box->FixedPosition;
+            TextPos.Y += Box->BorderThickness;
+            TextPos.X += Box->BorderThickness;
+            
+            v2 Cur = TextPos;
             
             if(Box->Flags & UI_BoxFlag_CenterTextHorizontally)
             {
@@ -469,21 +468,63 @@ UI_CalculatePositionsAndDrawBoxes(ui_box *Box)
                 Cur.Y += .5f*((Box->FixedSize.Y - 2.f*Box->BorderThickness) - TextHeight);
             }
             
+            v2 MarkPos = {};
+            
+            b32 DrawCursor = (Box->Flags & UI_BoxFlag_DrawCursor) ;
+            
             for EachIndex(Idx, Box->DisplayString.Size)
             {
                 rune Char = Box->DisplayString.Data[Idx];
                 f32 CharWidth = (UI_State->Atlas->PackedChars[Char].xadvance);
+                f32 CharHeight = (UI_State->Atlas->HeightPx);
                 
-                v2 CharDim = V2(CharWidth, UI_State->Atlas->HeightPx); 
-                v2 CurMax = V2AddV2(Cur, CharDim);
+                // TODO(luca): Proper wrapping on whitespace
+                // TODO(luca): Account for padding
+                if(Box->Flags & UI_BoxFlag_TextWrap)
+                {                    
+                    if(Cur.X + CharWidth > Box->FixedPosition.X + Box->FixedSize.X)
+                    {
+                        Cur.X = TextPos.X;
+                        Cur.Y += CharHeight;
+                    }
+                }
                 
-                if(IsInsideRectV2(Cur, Dest) &&
-                   IsInsideRectV2(CurMax, Dest))
+                if(Char == '\n')
                 {
-                    // TODO(luca): Leftsidebearing is missing.
-                    DrawRectChar(UI_State->Atlas, Cur, Char, Color_ButtonText);
-                    
-                    Cur.X += CharWidth;
+                    Cur.X = TextPos.X;
+                    Cur.Y += CharHeight;
+                }
+                else
+                {                    
+                    v2 CurMax = V2AddV2(Cur, V2(CharWidth, CharHeight));
+                    if(IsInsideRectV2(Cur, Dest) &&
+                       IsInsideRectV2(CurMax, Dest))
+                    {
+                        DrawRectChar(UI_State->Atlas, Cur, Char, Box->TextColor);
+                        
+                        Cur.X += CharWidth;
+                    }
+                }
+                
+                if(DrawCursor && (Idx + 1) == GlobalTextCursor)
+                {
+                    MarkPos = Cur;
+                }
+                
+            }
+            
+            if(DrawCursor)
+            {
+                if(GlobalTextCursor == 0)
+                {
+                    MarkPos = TextPos;
+                }
+                rect MarkRec = RectFromSize(MarkPos, V2(1.f, UI_State->Atlas->HeightPx));
+                
+                MarkRec = RectIntersect(MarkRec, Parent->Rec);
+                if(RectValid(MarkRec)) 
+                {
+                    DrawRect(MarkRec, Box->TextColor, 0.f, 0.f, 0.f);
                 }
             }
         }

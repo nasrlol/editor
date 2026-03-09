@@ -271,6 +271,25 @@ RectShrink(rect Rec, f32 Size)
     return Result;
 }
 
+internal inline rect
+RectIntersect(rect A, rect B)
+{
+    rect Result = {0};
+    Result.Min.X = Max(A.Min.X, B.Min.X);
+    Result.Min.Y = Max(A.Min.Y, B.Min.Y);
+    Result.Max.X = Min(A.Max.X, B.Max.X);
+    Result.Max.Y = Min(A.Max.Y, B.Max.Y);
+    return Result;
+}
+
+internal inline b32
+RectValid(rect A)
+{
+    b32 Result = (A.Min.X < A.Max.X && 
+                  A.Min.Y < A.Max.Y);
+    return Result;
+}
+
 //- 
 
 internal inline f32

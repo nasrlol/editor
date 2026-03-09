@@ -7,7 +7,7 @@ ThreadContextSelect(thread_context *Context)
 }
 
 internal arena *
-GetScratch()
+GetScratch(void)
 {
     arena *Arena = ThreadContext->Arena; 
     return Arena;

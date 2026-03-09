@@ -298,7 +298,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                         if(CharCount > 0)
                         {
                             rune Codepoint = (rune)UnicodeBuffer[0];
-                            if(Codepoint >= ' ')
+                            if(IsPrintable(Codepoint))
                             {
                                 Button->Codepoint = Codepoint;
                             }
@@ -312,7 +312,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                             {
                                 Button->IsSymbol = true;
                                 if(0) {}
-                                else if(Codepoint == '\b') Button->Symbol = PlatformKey_BackSpace;
+                                else if(Codepoint == '\b' || Codepoint == 127) Button->Symbol = PlatformKey_BackSpace;
                                 else if(Codepoint == '\t') Button->Symbol = PlatformKey_Tab;
                                 else if(Codepoint == 27) Button->Symbol = PlatformKey_Escape;
                                 else if(Codepoint == 13) Button->Symbol = PlatformKey_Return; 
@@ -320,7 +320,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                 {
                                     Input->Text.Count -= 1;
                                     // Not implemented
-                                    DebugBreak();
+                                    Log("Unhandled codepoint: %s\n", Codepoint);
                                 };
                             }
                         }
@@ -359,6 +359,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                 Input->Text.Count -= 1;
                             }
                         }
+                        
                     }
                 } break;
                 
@@ -402,8 +403,8 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
     HMODULE Library = (HMODULE)Code->LibraryHandle;
     
     char *LockFileName = PathFromExe(Arena, Memory->ExeDirPath, S8("lock.tmp"));
-    
-    str8 TempDLLFileName = StringFormat(Arena, "editor_app_temp_%lu.dll", (u64)OS_GetWallClock());
+    StringsScratch = Arena;
+    str8 TempDLLFileName = Str8Fmt("editor_app_temp_%lu.dll", (u64)OS_GetWallClock());
     char *TempDLLPath = PathFromExe(Arena, Memory->ExeDirPath, TempDLLFileName);
     
     WIN32_FILE_ATTRIBUTE_DATA Data;

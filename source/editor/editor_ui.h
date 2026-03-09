@@ -25,6 +25,8 @@ enum ui_box_flag
     UI_BoxFlag_CenterTextVertically   = (1 << 6),
     UI_BoxFlag_MouseClickability      = (1 << 7),
     UI_BoxFlag_Clip                   = (1 << 8),
+    UI_BoxFlag_TextWrap               = (1 << 9),
+    UI_BoxFlag_DrawCursor             = (1 << 10),
 };
 typedef enum ui_box_flag ui_box_flag;
 
@@ -81,6 +83,7 @@ struct ui_box
     b32 Hovered;
     b32 Clicked;
     b32 Pressed;
+    rect Rec;
     
     f32 BorderThickness;
     f32 Softness;

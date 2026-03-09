@@ -161,7 +161,11 @@ struct app_memory
     b32 IsProfiling;
     b32 Reloaded;
     
+    thread_context *ThreadCtx;
+    
+#if OS_WINDOWS
     f64 PerfCountFrequency;
+#endif
     
     b32 Initialized;
 };

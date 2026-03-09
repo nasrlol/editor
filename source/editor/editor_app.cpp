@@ -11,6 +11,47 @@
 #include "editor_ui.h"
 #include "editor_app.h"
 
+internal inline b32
+IsWhiteSpace(rune Character)
+{
+    return (Character == '\n' || Character == '\r' ||
+            Character == ' ' || Character == '\t');
+}
+
+//- Globals
+read_only global_variable panel _NilPanel =
+{
+    &_NilPanel, 
+    &_NilPanel,
+    &_NilPanel,
+    &_NilPanel,
+    &_NilPanel,
+};
+global_variable panel *NilPanel = &_NilPanel;
+
+internal b32
+IsNilPanel(panel *Panel)
+{
+    b32 Result = (!Panel || Panel == NilPanel);
+    return Result;
+}
+
+global_variable arena *PanelArena = 0;
+global_variable b32 PanelAppendToParent = false;
+global_variable panel *PanelCurrent = 0;
+global_variable panel *PanelRoot = 0;
+global_variable app_state *PanelApp = 0;
+global_variable app_input *PanelInput = 0;
+
+global_variable u32 PanelDebugIndentation = 0;
+global_variable u32 PanelDebugLevel = 0;
+global_variable v4 PanelDebugColors[] = {Color_Red, Color_Green, Color_Orange, Color_Magenta, Color_Yellow, Color_Blue};
+
+global_variable axis2_stack_node *PanelAxisTop = 0; 
+
+global_variable u64 GlobalTextCursor = 0;
+//- 
+
 internal app_offscreen_buffer
 LoadImage(arena *Arena, str8 ExeDirPath, str8 Path)
 {
@@ -51,28 +92,47 @@ GetPixel(app_offscreen_buffer *Buffer, s32 X, s32 Y)
     return Pixel;
 }
 
-void
+//- Text editing 
+internal void
 AppendChar(app_state *App, rune Codepoint)
 {
-    if (Codepoint == ' ')
-    {
-        // NOTE(nasr): do we check the space here?
-    }
-    App->Text[App->TextCount] = Codepoint;
+    MemoryCopy(App->Text + (App->TextCursor),
+               App->Text + (App->TextCursor - 1),
+               sizeof(rune)*((App->TextCount - App->TextCursor) + 1));
+    
+    App->Text[App->TextCursor] = Codepoint;
+    
     App->TextCount += 1;
-    App->CursorPos += 1;
+    App->TextCursor += 1;
     Assert(App->TextCount < ArrayCount(App->Text));
 }
 
-void
+internal void
 DeleteChar(app_state *App)
 {
-    if(App->TextCount)
+    if(App->TextCursor)
     {
+        MemoryCopy(App->Text + (App->TextCursor - 1),
+                   App->Text + App->TextCursor,
+                   sizeof(rune)*((App->TextCount - App->TextCursor) + 1));
+        
         App->TextCount -= 1;
-        App->CursorPos -= 1;
+        App->TextCursor -= 1;
     }
 }
+
+internal void
+MoveRight(app_state *App)
+{
+    App->TextCursor += (App->TextCursor < App->TextCount);
+}
+
+internal void
+MoveLeft(app_state *App)
+{
+    App->TextCursor -= (App->TextCursor > 0);
+}
+//- 
 
 internal inline b32
 EqualsWithEpsilon(f32 A, f32 B, f32 Epsilon)
@@ -102,17 +162,17 @@ InitAtlas(arena *Arena, app_font *Font, font_atlas *Atlas, f32 HeightPx)
     Atlas->FontScale = stbtt_ScaleForPixelHeight(&Font->Info, HeightPx);
     Atlas->Font = Font;
     
-    stbtt_pack_context ctx;
+    stbtt_pack_context Ctx;
     {
-        stbtt_PackBegin(&ctx, 
+        stbtt_PackBegin(&Ctx, 
                         Atlas->Data,
                         Atlas->Width, Atlas->Height,
                         0, 1, 0);
         
-        stbtt_PackFontRange(&ctx, Font->Info.data, 0, HeightPx, 
+        stbtt_PackFontRange(&Ctx, Font->Info.data, 0, HeightPx, 
                             Atlas->FirstCodepoint, Atlas->CodepointsCount, 
                             Atlas->PackedChars);
-        stbtt_PackEnd(&ctx);
+        stbtt_PackEnd(&Ctx);
     }
     
     for EachIndex(Idx, Atlas->CodepointsCount)
@@ -130,6 +190,7 @@ internal rect_instance *
 DrawRect(rect Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
 {
     rect_instance *Result = GlobalRectsInstances + GlobalRectsCount;
+    
     GlobalRectsCount += 1;
     
     MemoryZero(Result);
@@ -149,6 +210,45 @@ DrawRect(rect Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softnes
     return Result;
 }
 
+typedef struct u64_array u64_array;
+struct u64_array
+{
+    u64 Count;
+    u64 *V;
+};
+
+internal u64_array
+GetWrapPositions(arena *Arena, str8 Text, font_atlas *Atlas, f32 MaxWidth)
+{
+    u64_array Result = {};
+    
+    // 1px per char
+    u64 MaxChars = (u64)MaxWidth;
+    
+    Result.V = PushArray(Arena, u64, MaxChars);
+    
+    f32 X = 0.f;
+    for EachIndex(Idx, Text.Size)
+    {
+        u8 Char = Text.Data[Idx];
+        f32 CharWidth = Atlas->PackedChars[Char].xadvance;
+        
+        if(Char == '\n' || (X + CharWidth > MaxWidth))
+        {
+            Result.V[Result.Count] = Idx;
+            Result.Count += 1;
+            X = 0.f;
+        }
+        else
+        {            
+            X += CharWidth;
+        }
+    }
+    
+    return Result;
+}
+
+
 internal rect_instance *
 DrawRectChar(font_atlas *Atlas, v2 Pos, rune Codepoint, v4 Color)
 {
@@ -164,6 +264,7 @@ DrawRectChar(font_atlas *Atlas, v2 Pos, rune Codepoint, v4 Color)
     f32 Height = (PackedChar->y1 - PackedChar->y0);
     {    
         v2 Min = Pos;
+        // TODO(luca): Looks off, maybe rounding is incorrect, investigate...
         Min.X += (PackedChar->xoff);
         f32 Baseline = GetBaseline(Atlas->Font, Atlas->FontScale);
         f32 Descent = (f32)Atlas->Font->Descent*Atlas->FontScale;
@@ -188,7 +289,6 @@ DrawRectChar(font_atlas *Atlas, v2 Pos, rune Codepoint, v4 Color)
 
 #include "editor_ui.cpp"
 
-
 internal void
 gl_InitState(gl_render_state *Render)
 {
@@ -210,36 +310,6 @@ gl_CleanupState(gl_render_state *Render)
 }
 
 //- Panels 
-read_only global_variable panel _NilPanel =
-{
-    &_NilPanel, 
-    &_NilPanel,
-    &_NilPanel,
-    &_NilPanel,
-    &_NilPanel,
-};
-global_variable panel *NilPanel = &_NilPanel;
-
-internal b32
-IsNilPanel(panel *Panel)
-{
-    b32 Result = (!Panel || Panel == NilPanel);
-    return Result;
-}
-
-global_variable arena *PanelArena = 0;
-global_variable b32 PanelAppendToParent = false;
-global_variable panel *PanelCurrent = 0;
-global_variable panel *PanelRoot = 0;
-global_variable app_state *PanelApp = 0;
-global_variable app_input *PanelInput = 0;
-
-global_variable u32 PanelDebugIndentation = 0;
-global_variable u32 PanelDebugLevel = 0;
-global_variable v4 PanelDebugColors[] = {Color_Red, Color_Green, Color_Orange, Color_Magenta, Color_Yellow, Color_Blue};
-
-global_variable axis2_stack_node *PanelAxisTop = 0; 
-
 #define PanelAdd(ParentPct) PanelAdd_(PanelArena, PanelAxisTop->Value, PanelCurrent, PanelAppendToParent, ParentPct)
 
 internal panel *
@@ -761,6 +831,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     GlobalPerfCountFrequency = Memory->PerfCountFrequency;
 #endif
     GlobalIsProfiling = Memory->IsProfiling;
+    ThreadContext = Memory->ThreadCtx;
     
     Input->Consumed = false;
     Input->PlatformCursor = PlatformCursorShape_Arrow;
@@ -806,7 +877,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         App->HeightPx = DefaultHeightPx;
         
         App->TextCount = 0;
-        App->CursorPos = 0;
+        App->TextCursor = 0;
         
         App->UIBoxTableSize = 4096;
         App->UIBoxTable = PushArray(PermanentArena, ui_box, App->UIBoxTableSize);
@@ -836,6 +907,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     App->TitlebarPanel = TitlebarPanel;
                     
                     panel *AppPanel = PanelAdd(1.f - TopSplitPct);
+                    
                     PanelAxis(Axis2_Y) PanelGroup()
                     {
                         panel *LeftPanel = PanelAdd(.4f);
@@ -853,7 +925,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                             App->DebugPanel = DebugPanel;
                             App->DebugPanel->CannotClose = true;
                             App->DebugPanel->Root = UI_BoxAlloc(PermanentArena);
-                            
+                            App->SelectedPanel = App->DebugPanel;
                             panel *BottomRightPanel = PanelAdd(.4f);
                         }
                     }
@@ -869,6 +941,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     UI_NilBox = App->TrackerForUI_NilBox;
     NilPanel = App->TrackerForNilPanel;
+    
+    GlobalTextCursor = App->TextCursor;
     
     PanelArena = App->PanelArena;
     PanelInput = Input;
@@ -940,6 +1014,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     
                     Log("Saved.\n");
                 }
+                else if(Key.Codepoint == 'u')
+                {
+                    while(App->TextCursor > 0) DeleteChar(App);
+                }
                 //- Font 
                 else if(Key.Codepoint == '+')
                 {
@@ -962,21 +1040,102 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
         else
         {
-            if(0) {}
-            //- Text Input 
-            else if(Key.Codepoint == PlatformKey_BackSpace)
-            {
-                DeleteChar(App);
+            
+            if(!(Key.Modifiers & PlatformKeyModifier_Control))
+            {                
+                if(0) {}
+                else if(Key.Codepoint == PlatformKey_Escape)
+                {
+                    ShouldQuit = true;
+                }
+                //- Text Input 
+                else if(Key.Codepoint == PlatformKey_BackSpace)
+                {
+                    DeleteChar(App);
+                }
+                else if(Key.Codepoint == PlatformKey_Return)
+                {
+                    AppendChar(App, L'\n');
+                }
+                else if(Key.Codepoint == PlatformKey_Right)
+                {
+                    MoveRight(App);
+                }
+                else if(Key.Codepoint == PlatformKey_Left)
+                {
+                    MoveLeft(App);
+                }
+                else if(Key.Codepoint == PlatformKey_Delete)
+                {
+                    MoveRight(App);
+                    DeleteChar(App);
+                }
             }
-            else if(Key.Codepoint == PlatformKey_Return)
+            else
             {
-                AppendChar(App, L'\n');
-            }
-            else if(Key.Codepoint == PlatformKey_Escape)
-            {
-                ShouldQuit = true;
+                if(0) {}
+                else if(Key.Codepoint == PlatformKey_Left)
+                {
+                    while(App->TextCursor > 0 && 
+                          IsWhiteSpace(App->Text[App->TextCursor - 1]))
+                    {
+                        MoveLeft(App);
+                    }
+                    
+                    while(App->TextCursor > 0 && 
+                          !IsWhiteSpace(App->Text[App->TextCursor - 1]))
+                    {
+                        MoveLeft(App);
+                    }
+                }
+                else if(Key.Codepoint == PlatformKey_Right)
+                {
+                    while(App->TextCursor < App->TextCount &&
+                          IsWhiteSpace(App->Text[App->TextCursor]))
+                    {
+                        MoveRight(App);
+                    }
+                    
+                    while(App->TextCursor < App->TextCount && 
+                          !IsWhiteSpace(App->Text[(App->TextCursor)]))
+                    {
+                        MoveRight(App);
+                    }
+                }
+                else if(Key.Codepoint == PlatformKey_BackSpace)
+                {
+                    while(App->TextCursor > 0 && 
+                          IsWhiteSpace(App->Text[App->TextCursor - 1]))
+                    {
+                        DeleteChar(App);
+                    }
+                    
+                    while(App->TextCursor > 0 && 
+                          !IsWhiteSpace(App->Text[App->TextCursor - 1]))
+                    {
+                        DeleteChar(App);
+                    }
+                }
+                else if(Key.Codepoint == PlatformKey_Delete)
+                {
+                    while(App->TextCursor < App->TextCount &&
+                          IsWhiteSpace(App->Text[App->TextCursor]))
+                    {
+                        MoveRight(App);
+                        DeleteChar(App);
+                    }
+                    
+                    while(App->TextCursor < App->TextCount && 
+                          !IsWhiteSpace(App->Text[(App->TextCursor)]))
+                    {
+                        MoveRight(App);
+                        DeleteChar(App);
+                    }
+                }
+                
             }
         }
+        
     }
     
     OS_ProfileAndPrint("Input");
@@ -988,7 +1147,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     if(0) {}
     else if(Input->PlatformIsRecording) WindowBorderColor = Color_Red;
     else if(Input->PlatformIsPlaying) WindowBorderColor = Color_Green;
-    else if(Input->PlatformWindowIsFocused) WindowBorderColor = Color_Snow0;
+    else if(Input->PlatformWindowIsFocused) WindowBorderColor = Color_Snow2;
     else WindowBorderColor = Color_Black;
     
     //- Prepare rects rendering 
@@ -1059,6 +1218,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             
             Root->FixedPosition = App->TitlebarPanel->Region.Min;
             Root->FixedSize = SizeFromRect(App->TitlebarPanel->Region);
+            Root->Rec = RectFromSize(Root->FixedPosition, Root->FixedSize);
             
             UI_State = PushStructZero(FrameArena, ui_state);
             UI_InitState(Root, Input, App);
@@ -1081,13 +1241,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
             UI_ResolveLayout(Root->First);
         }
         
-        // help
+        // Test UI, nothing concrete yet.
         {
             panel *Panel = App->DebugPanel;
             ui_box *Root = Panel->Root;
             
             Root->FixedPosition = Panel->Region.Min;
             Root->FixedSize = SizeFromRect(Panel->Region);
+            Root->Rec = RectFromSize(Root->FixedPosition, Root->FixedSize);
             
             UI_State = PushStructZero(FrameArena, ui_state);
             UI_InitState(App->DebugPanel->Root, Input, App);
@@ -1105,9 +1266,30 @@ UPDATE_AND_RENDER(UpdateAndRender)
             {
                 local_persist f64 StartTime = OS_GetWallClock();
                 
-                UI_AddBox(StringFormat(FrameArena, "Time: %.7f###time", OS_GetWallClock() - StartTime), Flags );
+                StringsScratch = FrameArena;
                 
-                UI_AddBox(StringFormat(FrameArena, "Text count: %lu", App->TextCount), Flags | UI_BoxFlag_Clip);
+                UI_AddBox(Str8Fmt("Time: %.7f###time", OS_GetWallClock() - StartTime), Flags);
+                
+                // TODO(luca): This does not work.
+                //UI_LayoutAxis(Axis2_X) UI_AddBox(S8(""), 0);
+                UI_AddBox(Str8Fmt("Count: %lu###Text Count", App->TextCount), Flags);
+                UI_AddBox(Str8Fmt("Cursor: %lu###Cursor Pos", App->TextCursor), Flags);
+                
+                // Text
+                {                
+                    str8 AppText = PushS8(FrameArena, App->TextCount);
+                    for EachIndex(Idx, App->TextCount)
+                    {
+                        AppText.Data[Idx] = (u8)App->Text[Idx];
+                    }
+                    
+                    UI_SemanticHeight(UI_SizeParent(1.f, 0.f))
+                        UI_TextColor(Color_Snow0)
+                        UI_AddBox(Str8Fmt(S8Fmt "###app text", S8Arg(AppText)), 
+                                  (Flags | UI_BoxFlag_TextWrap | UI_BoxFlag_DrawCursor) & 
+                                  ~(UI_BoxFlag_CenterTextVertically |
+                                    UI_BoxFlag_CenterTextHorizontally));
+                }
             }
             
             UI_ResolveLayout(Root->First);
@@ -1130,6 +1312,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             }
         }
     }
+    
     
     OS_ProfileAndPrint("UI");
     

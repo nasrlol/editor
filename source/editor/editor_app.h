@@ -94,7 +94,7 @@ struct app_state
     f32 PreviousHeightPx;
     f32 HeightPx;
     
-    s32 CursorPos;
+    u64 TextCursor;
     u64 TextCount;
     rune Text[KB(1)];
     

@@ -72,7 +72,7 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         app_memory AppMemory = {};
         AppMemory.MemorySize = AppMemorySize;
         AppMemory.Memory = PushArray(PermanentArena, u8, AppMemory.MemorySize);
-        
+        AppMemory.ThreadCtx = ThreadContext;
         AppMemory.ExeDirPath = ExeDirPath;
 #if EDITOR_INTERNAL
         AppMemory.IsDebuggerAttached = GlobalDebuggerIsAttached;
@@ -123,217 +123,216 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         OS_ProfileInit("P");
         while(*Running)
         {
-            u64 CPUBackPos = BeginScratch(FrameArena);
-            
-            OS_ProfileAndPrint("InitSetup");
-            
-            P_LoadAppCode(FrameArena, &Code, &AppMemory);
-            OS_ProfileAndPrint("Code");
-            
-            NewInput->PlatformWindowIsFocused = OldInput->PlatformWindowIsFocused;
-            
-            // Input
-            { 
-                NewInput->Text.Count = 0;
-                for EachElement(Idx, NewInput->MouseButtons)
-                {
-                    NewInput->MouseButtons[Idx].EndedDown = OldInput->MouseButtons[Idx].EndedDown;
-                    NewInput->MouseButtons[Idx].HalfTransitionCount = 0;
-                }
-                for EachElement(Idx, NewInput->GameButtons)
-                {
-                    NewInput->GameButtons[Idx].EndedDown = OldInput->GameButtons[Idx].EndedDown;
-                    NewInput->GameButtons[Idx].HalfTransitionCount = 0;
-                }
-                NewInput->dtForFrame = TargetSecondsPerFrame;
-                NewInput->PlatformCursor = OldInput->PlatformCursor;
-                NewInput->MouseX = OldInput->MouseX;
-                NewInput->MouseY = OldInput->MouseY;
+            Scratch(FrameArena)
+            {
+                OS_ProfileAndPrint("InitSetup");
                 
-                P_ProcessMessages(PlatformContext, NewInput, &Buffer, Running);
-            }
-            
-            OS_ProfileAndPrint("Messages");
-            
-            if(CharPressed(NewInput, 'p', PlatformKeyModifier_Alt)) 
-            {
-                Paused = !Paused;
-                Log("%s\n", (Paused) ? "Paused" : "Unpaused");
-            }
-            
-            if(CharPressed(NewInput, 'p', PlatformKeyModifier_Alt | PlatformKeyModifier_Shift)) 
-            {
-                GlobalIsProfiling = !GlobalIsProfiling;
-            }
-            
-            if(CharPressed(NewInput, 'g', PlatformKeyModifier_Alt)) 
-            {
-                Logging = !Logging;
-            }
-            
-            // Playback
-            {
-                if(!Paused)
-                {
-                    if(CharPressed(NewInput, 'l', PlatformKeyModifier_Alt))
+                P_LoadAppCode(FrameArena, &Code, &AppMemory);
+                OS_ProfileAndPrint("Code");
+                
+                NewInput->PlatformWindowIsFocused = OldInput->PlatformWindowIsFocused;
+                
+                // Input
+                { 
+                    NewInput->Text.Count = 0;
+                    for EachElement(Idx, NewInput->MouseButtons)
                     {
-                        if(0) {}
-                        else if(!IsRecording && !IsPlaying)
+                        NewInput->MouseButtons[Idx].EndedDown = OldInput->MouseButtons[Idx].EndedDown;
+                        NewInput->MouseButtons[Idx].HalfTransitionCount = 0;
+                    }
+                    for EachElement(Idx, NewInput->GameButtons)
+                    {
+                        NewInput->GameButtons[Idx].EndedDown = OldInput->GameButtons[Idx].EndedDown;
+                        NewInput->GameButtons[Idx].HalfTransitionCount = 0;
+                    }
+                    NewInput->dtForFrame = TargetSecondsPerFrame;
+                    NewInput->PlatformCursor = OldInput->PlatformCursor;
+                    NewInput->MouseX = OldInput->MouseX;
+                    NewInput->MouseY = OldInput->MouseY;
+                    
+                    P_ProcessMessages(PlatformContext, NewInput, &Buffer, Running);
+                }
+                
+                OS_ProfileAndPrint("Messages");
+                
+                if(CharPressed(NewInput, 'p', PlatformKeyModifier_Alt)) 
+                {
+                    Paused = !Paused;
+                    Log("%s\n", (Paused) ? "Paused" : "Unpaused");
+                }
+                
+                if(CharPressed(NewInput, 'p', PlatformKeyModifier_Alt | PlatformKeyModifier_Shift)) 
+                {
+                    GlobalIsProfiling = !GlobalIsProfiling;
+                }
+                
+                if(CharPressed(NewInput, 'g', PlatformKeyModifier_Alt)) 
+                {
+                    Logging = !Logging;
+                }
+                
+                // Playback
+                {
+                    if(!Paused)
+                    {
+                        if(CharPressed(NewInput, 'l', PlatformKeyModifier_Alt))
                         {
-                            // StartRecording()
+                            if(0) {}
+                            else if(!IsRecording && !IsPlaying)
                             {
-                                RecordingBufferSize = 0;
-                                MemoryCopy(RecordingBuffer, AppMemory.Memory, AppMemory.MemorySize);
-                                RecordingBufferSize += AppMemory.MemorySize;
+                                // StartRecording()
+                                {
+                                    RecordingBufferSize = 0;
+                                    MemoryCopy(RecordingBuffer, AppMemory.Memory, AppMemory.MemorySize);
+                                    RecordingBufferSize += AppMemory.MemorySize;
+                                    
+                                    IsRecording = true;
+                                }
+                            }
+                            else if(IsRecording)
+                            {
+                                // EndRecording()
+                                {
+                                    IsRecording = false;
+                                }
                                 
-                                IsRecording = true;
+                                // StartPlaying()
+                                {
+                                    RecordingBufferPos = 0;
+                                    MemoryCopy(AppMemory.Memory, RecordingBuffer, AppMemory.MemorySize);
+                                    RecordingBufferPos += AppMemory.MemorySize;
+                                    
+                                    IsPlaying = true;
+                                }
                             }
-                        }
-                        else if(IsRecording)
-                        {
-                            // EndRecording()
+                            else if(IsPlaying)
                             {
-                                IsRecording = false;
+                                // StopPlaying()
+                                {
+                                    IsPlaying = false;
+                                }
                             }
+                            else
+                            {
+                                InvalidPath();
+                            }
+                            Log("Playing/Recording %d/%d\n", IsPlaying, IsRecording);
+                        }
+                        
+                        Assert((IsRecording != IsPlaying) ||
+                               (!IsPlaying  && !IsPlaying));
+                        
+                        if(IsRecording)
+                        {
+                            MemoryCopy((u8 *)RecordingBuffer + RecordingBufferSize, NewInput, sizeof(*NewInput));
+                            RecordingBufferSize += sizeof(*NewInput);
+                            Assert(RecordingBufferSize < RecordingBufferMaxSize);
+                        }
+                        
+                        if(IsPlaying)
+                        {
+                            MemoryCopy(NewInput, (u8 *)RecordingBuffer + RecordingBufferPos, sizeof(*NewInput));
+                            RecordingBufferPos += sizeof(*NewInput);
                             
-                            // StartPlaying()
+                            if(RecordingBufferPos >= RecordingBufferSize)
                             {
-                                RecordingBufferPos = 0;
-                                MemoryCopy(AppMemory.Memory, RecordingBuffer, AppMemory.MemorySize);
-                                RecordingBufferPos += AppMemory.MemorySize;
+                                Log("Replay end\n\n");
                                 
-                                IsPlaying = true;
+                                // StartPlaying()
+                                {
+                                    RecordingBufferPos = 0;
+                                    MemoryCopy(AppMemory.Memory, RecordingBuffer, AppMemory.MemorySize);
+                                    RecordingBufferPos += AppMemory.MemorySize;
+                                }
                             }
                         }
-                        else if(IsPlaying)
+                        
+                        // NOTE(luca): Need to be overwritten.
+                        NewInput->PlatformIsRecording = IsRecording;
+                        NewInput->PlatformIsPlaying = IsPlaying;
+                    }
+                    
+                    AppMemory.IsProfiling = GlobalIsProfiling;
+                    
+                    b32 ShouldQuit = Code.UpdateAndRender(ThreadContext, &AppMemory, &Buffer, NewInput);
+                    // NOTE(luca): Since UpdateAndRender can take some time, there could have been a signal sent to INT the app.
+                    ReadWriteBarrier;
+                    *Running = *Running && !ShouldQuit;
+                }
+                
+                OS_ProfileAndPrint("UpdateAndRender");
+                
+                P_UpdateImage(PlatformContext, &Buffer);
+                
+                OS_ProfileAndPrint("UpdateImage");
+                
+                f64 WorkCounter = OS_GetWallClock();
+                f64 WorkMSPerFrame = OS_MSElapsed(LastCounter, WorkCounter);
+                // Sleep
+                {            
+                    f64 SecondsElapsedForFrame = OS_SecondsElapsed(LastCounter, WorkCounter);
+                    if(SecondsElapsedForFrame < TargetSecondsPerFrame)
+                    {
+                        f64 SleepUS = ((TargetSecondsPerFrame - 0.001f - SecondsElapsedForFrame)*1e6);
+                        if(SleepUS > 0)
                         {
-                            // StopPlaying()
-                            {
-                                IsPlaying = false;
-                            }
+                            // TODO(luca): Intrinsic
+                            OS_Sleep((u32)SleepUS);
                         }
                         else
                         {
-                            InvalidPath();
+                            // TODO(luca): Logging
                         }
-                        Log("Playing/Recording %d/%d\n", IsPlaying, IsRecording);
-                    }
-                    
-                    Assert((IsRecording != IsPlaying) ||
-                           (!IsPlaying  && !IsPlaying));
-                    
-                    if(IsRecording)
-                    {
-                        MemoryCopy((u8 *)RecordingBuffer + RecordingBufferSize, NewInput, sizeof(*NewInput));
-                        RecordingBufferSize += sizeof(*NewInput);
-                        Assert(RecordingBufferSize < RecordingBufferMaxSize);
-                    }
-                    
-                    if(IsPlaying)
-                    {
-                        MemoryCopy(NewInput, (u8 *)RecordingBuffer + RecordingBufferPos, sizeof(*NewInput));
-                        RecordingBufferPos += sizeof(*NewInput);
                         
-                        if(RecordingBufferPos >= RecordingBufferSize)
+                        f64 TestSecondsElapsedForFrame = OS_SecondsElapsed(LastCounter, OS_GetWallClock());
+                        if(TestSecondsElapsedForFrame < TargetSecondsPerFrame)
                         {
-                            Log("Replay end\n\n");
-                            
-                            // StartPlaying()
-                            {
-                                RecordingBufferPos = 0;
-                                MemoryCopy(AppMemory.Memory, RecordingBuffer, AppMemory.MemorySize);
-                                RecordingBufferPos += AppMemory.MemorySize;
-                            }
+                            // TODO(luca): Log missed sleep
                         }
-                    }
-                    
-                    // NOTE(luca): Need to be overwritten.
-                    NewInput->PlatformIsRecording = IsRecording;
-                    NewInput->PlatformIsPlaying = IsPlaying;
-                }
-                
-                AppMemory.IsProfiling = GlobalIsProfiling;
-                
-                b32 ShouldQuit = Code.UpdateAndRender(ThreadContext, &AppMemory, &Buffer, NewInput);
-                // NOTE(luca): Since UpdateAndRender can take some time, there could have been a signal sent to INT the app.
-                ReadWriteBarrier;
-                *Running = *Running && !ShouldQuit;
-            }
-            
-            OS_ProfileAndPrint("UpdateAndRender");
-            
-            P_UpdateImage(PlatformContext, &Buffer);
-            
-            OS_ProfileAndPrint("UpdateImage");
-            
-            f64 WorkCounter = OS_GetWallClock();
-            f64 WorkMSPerFrame = OS_MSElapsed(LastCounter, WorkCounter);
-            // Sleep
-            {            
-                f64 SecondsElapsedForFrame = OS_SecondsElapsed(LastCounter, WorkCounter);
-                if(SecondsElapsedForFrame < TargetSecondsPerFrame)
-                {
-                    f64 SleepUS = ((TargetSecondsPerFrame - 0.001f - SecondsElapsedForFrame)*1e6);
-                    if(SleepUS > 0)
-                    {
-                        // TODO(luca): Intrinsic
-                        OS_Sleep((u32)SleepUS);
+                        
+                        // NOTE(luca): This is to help against sleep granularity.
+                        while(SecondsElapsedForFrame < TargetSecondsPerFrame)
+                        {
+                            SecondsElapsedForFrame = OS_SecondsElapsed(LastCounter, OS_GetWallClock());
+                        }
                     }
                     else
                     {
-                        // TODO(luca): Logging
+                        // TODO(luca): Log missed frame rate!
                     }
                     
-                    f64 TestSecondsElapsedForFrame = OS_SecondsElapsed(LastCounter, OS_GetWallClock());
-                    if(TestSecondsElapsedForFrame < TargetSecondsPerFrame)
-                    {
-                        // TODO(luca): Log missed sleep
-                    }
-                    
-                    // NOTE(luca): This is to help against sleep granularity.
-                    while(SecondsElapsedForFrame < TargetSecondsPerFrame)
-                    {
-                        SecondsElapsedForFrame = OS_SecondsElapsed(LastCounter, OS_GetWallClock());
-                    }
-                }
-                else
-                {
-                    // TODO(luca): Log missed frame rate!
+                    LastCounter = OS_GetWallClock();
                 }
                 
-                LastCounter = OS_GetWallClock();
-            }
-            
-            NewInput->Text.Buffer[NewInput->Text.Count].Codepoint = 0;
-            
+                NewInput->Text.Buffer[NewInput->Text.Count].Codepoint = 0;
+                
 #if EDITOR_PROFILE
-            // TODO(luca): Sometimes we hit more than 4ms/f
-            if(WorkMSPerFrame >= 4000.0f) DebugBreakOnce();
+                // TODO(luca): Sometimes we hit more than 4ms/f
+                if(WorkMSPerFrame >= 4000.0f) DebugBreakOnce();
 #endif
-            
-            Swap(OldInput, NewInput);
-            
-            OS_ProfileAndPrint("Sleep");
-            
-            u8 Codepoint = (u8)NewInput->Text.Buffer[0].Codepoint;
-            
-            if(Logging)
-            {
-                Log("'%c' (%d, %d) 1:%c 2:%c 3:%c", 
-                    ((Codepoint == 0) ?
-                     '\a' : Codepoint),
-                    NewInput->MouseX, NewInput->MouseY,
-                    (NewInput->MouseButtons[PlatformMouseButton_Left  ].EndedDown ? 'x' : 'o'),
-                    (NewInput->MouseButtons[PlatformMouseButton_Middle].EndedDown ? 'x' : 'o'),
-                    (NewInput->MouseButtons[PlatformMouseButton_Right ].EndedDown ? 'x' : 'o')); 
                 
-                Log(" %.2fms/f", (f64)WorkMSPerFrame);
-                Log("\n");
+                Swap(OldInput, NewInput);
+                
+                OS_ProfileAndPrint("Sleep");
+                
+                u8 Codepoint = (u8)NewInput->Text.Buffer[0].Codepoint;
+                
+                if(Logging)
+                {
+                    Log("'%c' (%d, %d) 1:%c 2:%c 3:%c", 
+                        ((Codepoint == 0) ?
+                         '\a' : Codepoint),
+                        NewInput->MouseX, NewInput->MouseY,
+                        (NewInput->MouseButtons[PlatformMouseButton_Left  ].EndedDown ? 'x' : 'o'),
+                        (NewInput->MouseButtons[PlatformMouseButton_Middle].EndedDown ? 'x' : 'o'),
+                        (NewInput->MouseButtons[PlatformMouseButton_Right ].EndedDown ? 'x' : 'o')); 
+                    
+                    Log(" %.2fms/f", (f64)WorkMSPerFrame);
+                    Log("\n");
+                }
+                
+                FlipWallClock = OS_GetWallClock();
             }
-            
-            FlipWallClock = OS_GetWallClock();
-            
-            EndScratch(FrameArena, CPUBackPos);
         }
     }
     

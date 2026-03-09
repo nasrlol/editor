@@ -1,4 +1,5 @@
 app:
+- bug when adding the same box twice.
 
 misc:
 - metaprogramming
