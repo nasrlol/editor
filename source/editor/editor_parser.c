@@ -186,8 +186,6 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
                 {
                     Tree->Current = Tree->Current->Parent;
                 }
-            }
-            break;
 
                 NodePushChild(Tree, SyntaxNode);
                 Tree->Current = SyntaxNode;
@@ -205,9 +203,6 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
 
             case(token_type)';':
             {
-                // reposition the current node to the parent ndoe
-                // define the last of the childs to be the current node
-
                 Tree->Current->Last = Tree->Current;
                 Tree->Current       = Tree->Current->Parent;
             }
@@ -234,7 +229,7 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
 
                 if(!HasBody)
                 {
-                    MarkDirty(Token);
+                    Ground(Token);
                 }
 
                 NodePushChild(Tree, SyntaxNode);
@@ -248,6 +243,7 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
                    Tree->Current->Parent &&
                    Tree->Current->Parent->Token->Type != TokenFunc)
                 {
+                    Ground(Token);
                 }
 
                 NodePushChild(Tree, SyntaxNode);
@@ -262,11 +258,10 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
             }
             break;
 
-                NodePushChild(Tree, SyntaxNode);
-            }
             case TokenElse:
             {
                 // TODO(nasr): handle no body
+                NodePushChild(Tree, SyntaxNode);
             }
             break;
 
@@ -278,14 +273,13 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
             }
             break;
 
-            case TokenContinue:
             case TokenBreak:
             {
                 token_type Type = Tree->Current->Parent->Token->Type;
 
                 if(Type != TokenFor && Type != TokenWhile)
                 {
-                    MarkDirty(Token);
+                    Ground(Token);
                     Log("Break statement not allowed here");
                 }
                 NodePushChild(Tree, SyntaxNode);
@@ -308,26 +302,21 @@ Parse(arena *Arena, token_list *List, concrete_syntax_tree *Tree)
 
             case TokenStar:
             {
-                NodePushChild(Tree, SyntaxNode);
-            }
-            break;
-
-            case TokenStar:
-            {
                 // TODO(nasr): once we get to better visualizations i think
+                NodePushChild(Tree, SyntaxNode);
             }
             break;
 
             case TokenUndefined:
             {
-                MarkDirty(Token);
+                Ground(Token);
                 NodePushChild(Tree, SyntaxNode);
             }
             break;
 
             default:
             {
-                MarkDirty(Token);
+                Ground(Token);
                 NodePushChild(Tree, SyntaxNode);
             }
             break;

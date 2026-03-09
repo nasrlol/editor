@@ -330,8 +330,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 else if(Key.Codepoint == PlatformKey_F2)
                 {
                     concrete_syntax_tree *Tree = PushStructZero(PermanentArena, concrete_syntax_tree);
-                    token_list           *List = Lex(App, PermanentArena);
+                    token_list           *List = PushStructZero(PermanentArena, token_list);
 
+                    List      = Lex(App, PermanentArena, List);
                     App->tree = Parse(PermanentArena, List, Tree);
                 }
             }
