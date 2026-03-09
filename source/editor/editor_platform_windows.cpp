@@ -402,8 +402,8 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
     HMODULE Library = (HMODULE)Code->LibraryHandle;
     
     char *LockFileName = PathFromExe(Arena, Memory->ExeDirPath, S8("lock.tmp"));
-    
-    str8 TempDLLFileName = StringFormat(Arena, "editor_app_temp_%lu.dll", (u64)OS_GetWallClock());
+    StringsScratch = Arena;
+    str8 TempDLLFileName = Str8Fmt("editor_app_temp_%lu.dll", (u64)OS_GetWallClock());
     char *TempDLLPath = PathFromExe(Arena, Memory->ExeDirPath, TempDLLFileName);
     
     WIN32_FILE_ATTRIBUTE_DATA Data;

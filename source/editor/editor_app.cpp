@@ -149,6 +149,45 @@ DrawRect(rect Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softnes
     return Result;
 }
 
+typedef struct u64_array u64_array;
+struct u64_array
+{
+    u64 Count;
+    u64 *V;
+};
+
+internal u64_array
+GetWrapPositions(arena *Arena, str8 Text, font_atlas *Atlas, f32 MaxWidth)
+{
+    u64_array Result = {};
+    
+    // 1px per char
+    u64 MaxChars = (u64)MaxWidth;
+    
+    Result.V = PushArray(Arena, u64, MaxChars);
+    
+    f32 X = 0.f;
+    for EachIndex(Idx, Text.Size)
+    {
+        u8 Char = Text.Data[Idx];
+        f32 CharWidth = Atlas->PackedChars[Char].xadvance;
+        
+        if(Char == '\n' || (X + CharWidth > MaxWidth))
+        {
+            Result.V[Result.Count] = Idx;
+            Result.Count += 1;
+            X = 0.f;
+        }
+        else
+        {            
+            X += CharWidth;
+        }
+    }
+    
+    return Result;
+}
+
+
 internal rect_instance *
 DrawRectChar(font_atlas *Atlas, v2 Pos, rune Codepoint, v4 Color)
 {
@@ -164,6 +203,7 @@ DrawRectChar(font_atlas *Atlas, v2 Pos, rune Codepoint, v4 Color)
     f32 Height = (PackedChar->y1 - PackedChar->y0);
     {    
         v2 Min = Pos;
+        // TODO(luca): Looks off, maybe rounding is incorrect, investigate...
         Min.X += (PackedChar->xoff);
         f32 Baseline = GetBaseline(Atlas->Font, Atlas->FontScale);
         f32 Descent = (f32)Atlas->Font->Descent*Atlas->FontScale;
@@ -761,6 +801,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     GlobalPerfCountFrequency = Memory->PerfCountFrequency;
 #endif
     GlobalIsProfiling = Memory->IsProfiling;
+    ThreadContext = Memory->ThreadCtx;
     
     Input->Consumed = false;
     Input->PlatformCursor = PlatformCursorShape_Arrow;
@@ -836,6 +877,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     App->TitlebarPanel = TitlebarPanel;
                     
                     panel *AppPanel = PanelAdd(1.f - TopSplitPct);
+                    
                     PanelAxis(Axis2_Y) PanelGroup()
                     {
                         panel *LeftPanel = PanelAdd(.4f);
@@ -853,7 +895,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                             App->DebugPanel = DebugPanel;
                             App->DebugPanel->CannotClose = true;
                             App->DebugPanel->Root = UI_BoxAlloc(PermanentArena);
-                            
+                            App->SelectedPanel = App->DebugPanel;
                             panel *BottomRightPanel = PanelAdd(.4f);
                         }
                     }
@@ -988,7 +1030,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     if(0) {}
     else if(Input->PlatformIsRecording) WindowBorderColor = Color_Red;
     else if(Input->PlatformIsPlaying) WindowBorderColor = Color_Green;
-    else if(Input->PlatformWindowIsFocused) WindowBorderColor = Color_Snow0;
+    else if(Input->PlatformWindowIsFocused) WindowBorderColor = Color_Snow2;
     else WindowBorderColor = Color_Black;
     
     //- Prepare rects rendering 
@@ -1081,7 +1123,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             UI_ResolveLayout(Root->First);
         }
         
-        // help
+        // Test UI, nothing concrete yet.
         {
             panel *Panel = App->DebugPanel;
             ui_box *Root = Panel->Root;
@@ -1105,9 +1147,23 @@ UPDATE_AND_RENDER(UpdateAndRender)
             {
                 local_persist f64 StartTime = OS_GetWallClock();
                 
-                UI_AddBox(StringFormat(FrameArena, "Time: %.7f###time", OS_GetWallClock() - StartTime), Flags );
+                StringsScratch = FrameArena;
+                UI_AddBox(Str8Fmt("Time: %.7f###time", OS_GetWallClock() - StartTime), Flags);
                 
-                UI_AddBox(StringFormat(FrameArena, "Text count: %lu", App->TextCount), Flags | UI_BoxFlag_Clip);
+                UI_AddBox(Str8Fmt("Text count: %lu", App->TextCount), Flags);
+                
+                str8 AppText = PushS8(FrameArena, App->TextCount);
+                for EachIndex(Idx, App->TextCount)
+                {
+                    AppText.Data[Idx] = (u8)App->Text[Idx];
+                }
+                
+                UI_SemanticHeight(UI_SizeParent(1.f, 0.f))
+                    UI_TextColor(Color_Snow0)
+                    UI_AddBox(Str8Fmt(S8Fmt "###app text", S8Arg(AppText)), 
+                              (Flags | UI_BoxFlag_TextWrap | UI_BoxFlag_DrawCursor) & 
+                              ~(UI_BoxFlag_CenterTextVertically |
+                                UI_BoxFlag_CenterTextHorizontally));
             }
             
             UI_ResolveLayout(Root->First);
@@ -1130,6 +1186,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             }
         }
     }
+    
     
     OS_ProfileAndPrint("UI");
     

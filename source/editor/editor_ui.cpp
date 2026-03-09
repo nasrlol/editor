@@ -8,7 +8,7 @@ UI_Size(ui_size_kind Kind, f32 Value, f32 Strictness)
     return Size;
 }
 
-#define DeferLoop(Begin, End)        for(int _i_ = ((Begin), 0); !_i_; _i_ += 1, (End))
+#define DeferLoop(Begin, End) for(int _i_ = ((Begin), 0); !_i_; _i_ += 1, (End))
 
 
 #define UI_SizePx(Value, Strictness) UI_Size(UI_SizeKind_Pixels, Value, Strictness)
@@ -424,13 +424,13 @@ UI_CalculatePositionsAndDrawBoxes(ui_box *Box)
             rect ShadowDest = RectV2(V2AddF32(Dest.Min, ShadowSize), 
                                      V2AddF32(Dest.Max, ShadowSize)); 
             rect_instance *Inst = DrawRect(ShadowDest, Color_Black, 0.f, ShadowSize, .5f*ShadowSize);
-            MemoryCopyArray(&Inst->CornerRadii, &Box->CornerRadii);
+            Inst->CornerRadii = Box->CornerRadii;
         }
         
         if(Box->Flags & UI_BoxFlag_DrawBackground)
         {    
             rect_instance *Inst = DrawRect(Dest, Box->BackgroundColor, 0.f, 0.f, Box->Softness);
-            MemoryCopyArray(&Inst->CornerRadii, &Box->CornerRadii);
+            Inst->CornerRadii = Box->CornerRadii;
             
             if(Box->Flags & UI_BoxFlag_MouseClickability)
             {
@@ -473,17 +473,53 @@ UI_CalculatePositionsAndDrawBoxes(ui_box *Box)
             {
                 rune Char = Box->DisplayString.Data[Idx];
                 f32 CharWidth = (UI_State->Atlas->PackedChars[Char].xadvance);
+                f32 CharHeight = (UI_State->Atlas->HeightPx);
                 
-                v2 CharDim = V2(CharWidth, UI_State->Atlas->HeightPx); 
-                v2 CurMax = V2AddV2(Cur, CharDim);
+                // TODO(luca): Proper wrapping on whitespace
+                // TODO(luca): Account for padding
+                if(Box->Flags & UI_BoxFlag_TextWrap)
+                {                    
+                    if(Char == '\n')
+                    {
+                        Cur.X = Box->FixedPosition.X + Box->BorderThickness;
+                        Cur.Y += CharHeight;
+                        continue;
+                    }
+                    
+                    if(Cur.X + CharWidth > Box->FixedPosition.X + Box->FixedSize.X)
+                    {
+                        Cur.X = Box->FixedPosition.X + Box->BorderThickness;
+                        Cur.Y += CharHeight;
+                    }
+                }
                 
+                v2 CurMax = V2AddV2(Cur, V2(CharWidth, CharHeight));
                 if(IsInsideRectV2(Cur, Dest) &&
                    IsInsideRectV2(CurMax, Dest))
                 {
-                    // TODO(luca): Leftsidebearing is missing.
-                    DrawRectChar(UI_State->Atlas, Cur, Char, Color_ButtonText);
+                    DrawRectChar(UI_State->Atlas, Cur, Char, Box->TextColor);
                     
                     Cur.X += CharWidth;
+                }
+            }
+            
+            if(Box->Flags & UI_BoxFlag_DrawCursor)
+            {            
+                u8 Char = '_';
+                f32 CharWidth = (UI_State->Atlas->PackedChars[Char].xadvance);
+                f32 CharHeight = (UI_State->Atlas->HeightPx);
+                
+                if(Cur.X + CharWidth > Box->FixedPosition.X + Box->FixedSize.X)
+                {
+                    Cur.X = Box->FixedPosition.X;
+                    Cur.Y += CharHeight;
+                }
+                
+                v2 CurMax = V2AddV2(Cur, V2(CharWidth, CharHeight));
+                if(IsInsideRectV2(Cur, Dest) &&
+                   IsInsideRectV2(CurMax, Dest))
+                {
+                    DrawRectChar(UI_State->Atlas, Cur, Char, Box->TextColor);
                 }
             }
         }
