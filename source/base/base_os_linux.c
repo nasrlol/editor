@@ -270,7 +270,7 @@ LinuxSetDebuggerAttached()
 }
 
 internal void 
-LinuxMainEntryPoint(int ArgsCount, char **Args)
+LinuxMainEntryPoint(int ArgsCount, char **Args, char **Env)
 {
     LinuxSetDebuggerAttached();
     
@@ -320,6 +320,7 @@ LinuxMainEntryPoint(int ArgsCount, char **Args)
         Params->Context.Barrier   = Barrier;
         Params->Context.SharedStorage = &SharedStorage;
         Params->Args = Args;
+        Params->Env = Env;
         Params->ArgsCount = ArgsCount;
         
         pthread_t Handle;
@@ -349,12 +350,12 @@ AndroidMainEntryPoint(int ArgsCount, char **Args)
 }
 
 #if !BASE_NO_ENTRYPOINT
-int main(int ArgsCount, char **Args)
+int main(int ArgsCount, char **Args, char **Env)
 {
 #if OS_ANDROID
     AndroidMainEntryPoint(ArgsCount, Args);
 #else
-    LinuxMainEntryPoint(ArgsCount, Args);
+    LinuxMainEntryPoint(ArgsCount, Args, Env);
 #endif
     return 0;
 }

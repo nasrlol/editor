@@ -422,7 +422,7 @@ UI_DrawBoxes(ui_box *Box)
 {
     ui_box *Parent = Box->Parent;
     
-    rect Dest = Box->Rec;
+    v4 Dest = Box->Rec;
     
     if(Box->Flags & UI_BoxFlag_Clip)
     {
@@ -435,8 +435,8 @@ UI_DrawBoxes(ui_box *Box)
         if(Box->Flags & UI_BoxFlag_DrawShadow)
         {
             f32 ShadowSize = 4.f;
-            rect ShadowDest = RectV2(V2AddF32(Dest.Min, ShadowSize), 
-                                     V2AddF32(Dest.Max, ShadowSize)); 
+            v4 ShadowDest = RectV2(V2AddF32(Dest.Min, ShadowSize), 
+                                   V2AddF32(Dest.Max, ShadowSize)); 
             rect_instance *Inst = DrawRect(ShadowDest, Color_Black, 0.f, ShadowSize, .5f*ShadowSize);
             Inst->CornerRadii = Box->CornerRadii;
         }
@@ -535,7 +535,7 @@ UI_DrawBoxes(ui_box *Box)
                 {
                     MarkPos = TextPos;
                 }
-                rect MarkRec = RectFromSize(MarkPos, V2(1.f, UI_State->Atlas->HeightPx));
+                v4 MarkRec = RectFromSize(MarkPos, V2(1.f, UI_State->Atlas->HeightPx));
                 
                 MarkRec = RectIntersect(MarkRec, Parent->Rec);
                 if(RectValid(MarkRec)) 

@@ -10,6 +10,7 @@ struct entry_point_params
     thread_context Context;
     int ArgsCount;
     char **Args;
+    char **Env;
 };
 
 typedef struct os_profiler os_profiler;

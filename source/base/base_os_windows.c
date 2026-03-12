@@ -273,8 +273,7 @@ WinMain(HINSTANCE Instance,
         
         if(!Params->Context.Handle)
         {
-            printf("Failed to create thread. Error: %lu\n", GetLastError());
-            return 1;
+            Win32LogIfError();
         }
     }
     

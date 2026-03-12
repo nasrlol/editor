@@ -11,6 +11,8 @@
 #include "editor_ui.h"
 #include "editor_app.h"
 
+#include "generated/everything.c"
+
 internal inline b32
 IsWhiteSpace(rune Character)
 {
@@ -187,7 +189,7 @@ InitAtlas(arena *Arena, app_font *Font, font_atlas *Atlas, f32 HeightPx)
 }
 
 internal rect_instance *
-DrawRect(rect Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
+DrawRect(v4 Dest, v4 Color, f32 CornerRadius, f32 BorderThickness, f32 Softness)
 {
     rect_instance *Result = GlobalRectsInstances + GlobalRectsCount;
     
@@ -253,7 +255,7 @@ internal rect_instance *
 DrawRectChar(font_atlas *Atlas, v2 Pos, rune Codepoint, v4 Color)
 {
     rect_instance *Result = 0;
-    rect Dest = {};
+    v4 Dest = {};
     
     // NOTE(luca): Evereything happens in pixel coordinates in here.
     
@@ -635,7 +637,7 @@ ClosePanel(panel *Panel)
 }
 
 internal void
-PanelGetRegion(panel *Panel, rect FreeRegion)
+PanelGetRegion(panel *Panel, v4 FreeRegion)
 {
     panel *Parent = Panel->Parent;
     s32 Axis = Panel->Parent->Axis;
@@ -679,7 +681,7 @@ PanelGetRegion(panel *Panel, rect FreeRegion)
         v4 ResizeBorderColor = Color_Red;
         f32 ResizeBorderSize = 8.f;
         
-        rect ResizeBorder = Panel->Region;
+        v4 ResizeBorder = Panel->Region;
         ResizeBorder.Min.e[Axis] = Panel->Region.Max.e[Axis] - ResizeBorderSize;
         ResizeBorder.Max.e[Axis] += GapSize; 
         
@@ -1175,7 +1177,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     {
         // Window borders
         {
-            rect Dest = RectFromSize(V2(0.f, 0.f), BufferDim);
+            v4 Dest = RectFromSize(V2(0.f, 0.f), BufferDim);
             rect_instance *Inst = DrawRect(Dest, WindowBorderColor, 0.f, WindowBorderSize, 0.f);
             Inst->Color0 = WindowBorderColor;
             Inst->Color1.W = 0.2f;
@@ -1199,7 +1201,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     Pos = V2AddF32(Pos, WindowBorderSize);
     Size = V2SubF32(Size, 2.f*WindowBorderSize);
     
-    rect FreeRegion = RectFromSize(Pos, Size);
+    v4 FreeRegion = RectFromSize(Pos, Size);
     
     // UI Panels
     {
@@ -1325,7 +1327,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
     }
     
-    
     OS_ProfileAndPrint("UI");
     
     //- Rendering 
@@ -1335,7 +1336,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
     glEnable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
     
-    glClearColor(V3Arg(Color_Background), 1.0f);
+    DebugBreakOnce();
+    glClearColor(V4Arg(Color_Background));
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     OS_ProfileAndPrint("R Clear");
@@ -1372,14 +1374,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         u64 Offset = 0;
         
-        // TODO(luca): Metaprogram
-        s32 Counts[] = {4,4, 4,4,4,4, 4, 1,1, 1};
-        
         s32 TotalSize = 0;
-        for EachElement(Idx, Counts)
+        for EachElement(Idx, AttributesOffsets)
         {            
-            GL_SetQuadAttribute((s32)Idx + 1, Counts[Idx], &Offset);
-            TotalSize += Counts[Idx];
+            GL_SetQuadAttribute((s32)Idx + 1, AttributesOffsets[Idx], &Offset);
+            TotalSize += AttributesOffsets[Idx];
         }
         Assert(TotalSize == (sizeof(rect_instance)/sizeof(f32)));
         

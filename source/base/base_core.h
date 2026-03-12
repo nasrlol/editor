@@ -367,14 +367,6 @@ union v3
 };
 #define V3Arg(Value) Value.X, Value.Y, Value.Z
 
-typedef union v4 v4;
-union v4
-{
-    f32 e[4];
-    struct { f32 X, Y, Z, W; };
-};
-#define V4Arg(Value) Value.X, Value.Y, Value.Z, Value.W
-
 //~ Globals
 global_variable b32 GlobalDebuggerIsAttached;
 

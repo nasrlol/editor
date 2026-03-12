@@ -18,8 +18,9 @@ slow=0
 no_asan=1
 clean=0
 
+cling=0
 editor=0
-windows=0
+wine=0
 
 # Default
 [ "$#" = 0 ] && editor=1
@@ -55,8 +56,8 @@ Compile()
  GCCFlags="-Wno-cast-function-type -Wno-missing-field-initializers -Wno-int-to-pointer-cast"
 
  Flags="$CommonCompilerFlags $Flags"
- [ "$debug"   = 1 ] && Flags="$Flags $DebugFlags -DEDITOR_INTERNAL=1"
- [ "$release" = 1 ] && Flags="$Flags $ReleaseFlags"
+ [ "$debug"    = 1 ] && Flags="$Flags $DebugFlags -DEDITOR_INTERNAL=1"
+ [ "$release"  = 1 ] && Flags="$Flags $ReleaseFlags"
  [ "$personal" = 1 ] && Flags="$Flags -DEDITOR_PERSONAL=1"
  [ "$slow"     = 1 ] && Flags="$Flags -DEDITOR_SLOW_COMPILE=1"
  Flags="$Flags $CommonWarningFlags"
@@ -85,9 +86,15 @@ fi
 
 [ "$debug"   = 1 ] && printf '[debug mode]\n'
 [ "$release" = 1 ] && printf '[release mode]\n'
-[ "$gcc"   = 1 ] && Compiler="g++"
-[ "$clang" = 1 ] && Compiler="clang"
+[ "$gcc"     = 1 ] && Compiler="g++"
+[ "$clang"   = 1 ] && Compiler="clang"
 printf '[%s compile]\n' "$Compiler"
+
+if [ "$cling" = 1 ]
+then 
+ Compile ./cling/cling.c ../build/cling
+ DidWork=1
+fi
 
 if [ "$editor" = 1 ]
 then
@@ -114,9 +121,12 @@ then
  Compile "./editor/editor_platform.cpp" editor "-lX11 -lGL -lGLX"
 fi
 
-if [ "$windows" = 1 ]
+if [ "$wine" = 1 ]
 then
- printf 'call C:\BuildTools\devcmd.bat\ncall build.bat\n' | wine cmd.exe 2>/dev/null
+	cat <<EOF | wine cmd.exe 2>/dev/null
+call C:\\BuildTools\\devcmd.bat
+call build.bat 
+EOF
  DidWork=1
 fi
 
@@ -125,7 +135,7 @@ fi
 if [ "$DidWork" = 0 ]
 then
  printf 'ERROR: No valid build target provided.\n'
- printf 'Usage: %s <editor [clean/no_asan/debug/release/gcc/clang/slow]>\n' "$0"
+ printf 'Usage: %s <editor/cling [clean/no_asan/debug/release/gcc/clang/slow]>\n' "$0"
 else
  printf 'Done.\n' # 4coder bug
 fi

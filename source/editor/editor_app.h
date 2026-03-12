@@ -9,9 +9,11 @@ NO_STRUCT_PADDING_BEGIN
 typedef struct rect_instance rect_instance;
 struct rect_instance
 {
-    rect Dest;
-    rect TexSrc;
+    // TODO(luca): Make one type for everything and let it be rect (renamed to v4)
+    v4 Dest;
+    v4 TexSrc;
     
+    // TODO(luca): Metaprogram
     v4 Color0;
     v4 Color1;
     v4 Color2;
@@ -72,7 +74,7 @@ struct panel
     
     ui_box *Root;
     
-    rect Region;
+    v4 Region;
     
     b32 CannotClose;
 };

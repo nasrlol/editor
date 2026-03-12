@@ -3,6 +3,25 @@
 #ifndef EDITOR_MATH_H
 #define EDITOR_MATH_H
 
+//~ Types
+typedef union v4 v4;
+union v4
+{
+    f32 e[4];
+    v2 eV2[2];
+    struct
+    {            
+        v2 Min;
+        v2 Max;
+    };
+    struct
+    {
+        f32 X, Y, Z, W;
+    };
+};
+#define V4Arg(Value) Value.X, Value.Y, Value.Z, Value.W
+
+//~ Functions 
 internal inline v2 
 V2AddV2(v2 A, v2 B)
 {
@@ -111,7 +130,7 @@ InBounds(v2 A, v2 Min, v2 Max)
     return Result;
 }
 
-// TODO(luca): Metadesk
+// TODO(luca): Metaprogram
 
 #define ProvokingFuncs \
 SET(V4, v4) \
@@ -157,62 +176,45 @@ MakeQuadV3(v3 *Quad, v2 Min, v2 Max, f32 Z)
 // V3Math { C.E = A.E * B.E; } 
 
 //- 
-typedef union rect rect;
-union rect
-{
-    f32 e[4];
-    v2 eV2[2];
-    struct
-    {            
-        v2 Min;
-        v2 Max;
-    };
-    struct
-    {
-        f32 X, Y, W, Z;
-    };
-};
 
-#define RectArg(Value) (Value).Min.X, (Value).Min.Y, (Value).Max.X, (Value).Max.Y
-
-internal inline rect
+internal inline v4
 Rect(f32 MinX, f32 MinY, f32 MaxX, f32 MaxY)
 {
-    rect Result = {0};
+    v4 Result = {0};
     Result.Min = V2(MinX, MinY);
     Result.Max = V2(MaxX, MaxY);
     return Result;
 }
 
-internal inline rect
+internal inline v4
 RectV2(v2 Min, v2 Max)
 {
-    rect Result = {0};
+    v4 Result = {0};
     Result.Min = Min;
     Result.Max = Max;
     return Result;
 }
 
-internal inline rect
+internal inline v4
 RectFromCenterDim(v2 Center, v2 Dim)
 {
-    rect Result = {0};
+    v4 Result = {0};
     Result.Min = V2(Center.X - Dim.X, Center.Y - Dim.Y);
     Result.Max = V2(Center.X + Dim.X, Center.Y + Dim.Y);
     return Result;
 }
 
-internal inline rect
+internal inline v4
 RectFromSize(v2 TopLeft, v2 Size)
 {
-    rect Result = {0};
+    v4 Result = {0};
     Result.Min = TopLeft;
     Result.Max = V2AddV2(TopLeft, Size);
     return Result;
 }
 
 internal inline v2
-SizeFromRect(rect Rec)
+SizeFromRect(v4 Rec)
 {
     v2 Result = V2(Rec.Max.X - Rec.Min.X,
                    Rec.Max.Y - Rec.Min.Y);
@@ -220,7 +222,7 @@ SizeFromRect(rect Rec)
 }
 
 internal inline v4
-V4FromRec(rect Rec)
+V4FromRec(v4 Rec)
 {
     v4 Result = V4(Rec.Min.X, Rec.Min.Y, Rec.Max.X, Rec.Max.Y);
     return Result;
@@ -249,32 +251,32 @@ IsInsideV4(f32 X, f32 Y, v4 Rec)
 }
 
 internal inline b32
-IsInsideRect(f32 X, f32 Y, rect Rec)
+IsInsideRect(f32 X, f32 Y, v4 Rec)
 {
     b32 Result = IsInside(X, Y, Rec.Min, Rec.Max);
     return Result;
 }
 
 internal inline b32
-IsInsideRectV2(v2 Pos, rect Rec)
+IsInsideRectV2(v2 Pos, v4 Rec)
 {
     b32 Result = IsInsideRect(Pos.X, Pos.Y, Rec);
     return Result;
 }
 
-internal inline rect
-RectShrink(rect Rec, f32 Size)
+internal inline v4
+RectShrink(v4 Rec, f32 Size)
 {
-    rect Result = Rec;
+    v4 Result = Rec;
     V2Math Result.Min.E += Size;
     V2Math Result.Max.E -= Size;
     return Result;
 }
 
-internal inline rect
-RectIntersect(rect A, rect B)
+internal inline v4
+RectIntersect(v4 A, v4 B)
 {
-    rect Result = {0};
+    v4 Result = {0};
     Result.Min.X = Max(A.Min.X, B.Min.X);
     Result.Min.Y = Max(A.Min.Y, B.Min.Y);
     Result.Max.X = Min(A.Max.X, B.Max.X);
@@ -283,7 +285,7 @@ RectIntersect(rect A, rect B)
 }
 
 internal inline b32
-RectValid(rect A)
+RectValid(v4 A)
 {
     b32 Result = (A.Min.X < A.Max.X && 
                   A.Min.Y < A.Max.Y);

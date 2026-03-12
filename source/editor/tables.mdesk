@@ -1,0 +1,29 @@
+RectShaderAttributes:
+{
+    { I_Dest,            4 }
+    { I_TexSrc,          4 }
+    { I_Color0,          4 }
+    { I_Color1,          4 }
+    { I_Color2,          4 }
+    { I_Color3,          4 }
+    { I_CornerRadii,     4 }
+    { I_BorderThickness, 1 }
+    { I_Softness,        1 }
+    { I_HasTexture,      1 }
+}
+
+UI_BoxFlags:
+{
+    None,
+    DrawBackground,
+    DrawBorders,
+    DrawDebugBorder,
+    DrawShadow,
+    DrawDisplayString,
+    CenterTextHorizontally,
+    CenterTextVertically,
+    MouseClickability,
+    Clip,
+    TextWrap,
+    DrawCursor,
+}

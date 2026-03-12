@@ -2,8 +2,8 @@
 
 #ifndef EDITOR_UI_H
 #define EDITOR_UI_H
-//~ Types
 
+//~ Types
 enum axis2
 {
     Axis2_X,
@@ -11,24 +11,6 @@ enum axis2
     Axis2_Count
 };
 typedef enum axis2 axis2;
-
-// TODO(luca): Metaprogram
-enum ui_box_flag
-{
-    UI_BoxFlag_None                   = 0,
-    UI_BoxFlag_DrawBackground         = (1 << 0),
-    UI_BoxFlag_DrawBorders            = (1 << 1),
-    UI_BoxFlag_DrawDebugBorder        = (1 << 2),
-    UI_BoxFlag_DrawShadow             = (1 << 3),
-    UI_BoxFlag_DrawDisplayString      = (1 << 4),
-    UI_BoxFlag_CenterTextHorizontally = (1 << 5),
-    UI_BoxFlag_CenterTextVertically   = (1 << 6),
-    UI_BoxFlag_MouseClickability      = (1 << 7),
-    UI_BoxFlag_Clip                   = (1 << 8),
-    UI_BoxFlag_TextWrap               = (1 << 9),
-    UI_BoxFlag_DrawCursor             = (1 << 10),
-};
-typedef enum ui_box_flag ui_box_flag;
 
 enum ui_size_kind
 {
@@ -83,7 +65,7 @@ struct ui_box
     b32 Hovered;
     b32 Clicked;
     b32 Pressed;
-    rect Rec;
+    v4 Rec;
     
     f32 BorderThickness;
     f32 Softness;
