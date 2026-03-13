@@ -123,9 +123,12 @@ fi
 
 if [ "$wine" = 1 ]
 then
+	Command=
+	[ "$editor" = 1 ] && Command="editor"
+	[ "$editor" = 1 ] && Command="cling"
 	cat <<EOF | wine cmd.exe 2>/dev/null
 call C:\\BuildTools\\devcmd.bat
-call build.bat 
+call build.bat $Command
 EOF
  DidWork=1
 fi

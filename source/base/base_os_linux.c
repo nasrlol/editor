@@ -293,8 +293,8 @@ LinuxMainEntryPoint(int ArgsCount, char **Args, char **Env)
     
     char ThreadName[16] = "Main";
     
-#if FORCE_THREADS_COUNT
-    s64 ThreadsCount = FORCE_THREADS_COUNT;
+#if BASE_FORCE_THREADS_COUNT
+    s64 ThreadsCount = BASE_FORCE_THREADS_COUNT;
 #else
     s64 ThreadsCount = get_nprocs();
 #endif

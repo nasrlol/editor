@@ -1,21 +1,27 @@
-#include "lib/md5.h"
+//~ Libraries 
+#if EDITOR_INTERNAL
+# define BASE_CONSOLE_APPLICATION 1
+#endif
 #include "base/base.h"
-#include "editor/editor_platform.h"
-
 #include "base/base.c"
 
+#include "editor/editor_platform.h"
 #if OS_LINUX
 # include "editor_platform_linux.cpp"
 #elif OS_WINDOWS
 # include "editor_platform_windows.cpp"
 #endif
 
+//- Third party 
 #if OS_WINDOWS
 # define RADDBG_MARKUP_IMPLEMENTATION
 #else
 # define RADDBG_MARKUP_STUBS
 #endif
 #include "lib/raddbg_markup.h"
+
+#include "lib/md5.h"
+//-
 
 C_LINKAGE ENTRY_POINT(EntryPoint)
 {

@@ -1,5 +1,5 @@
-#if !defined(BASE_MACROS_H)
-#define BASE_MACROS_H
+#if !defined(BASE_CORE_H)
+#define BASE_CORE_H
 
 // detect OS
 #if ANDROID
@@ -50,6 +50,12 @@
 #endif
 #if !defined(LANG_CPP)
 # define LANG_CPP 0
+#endif
+#if !defined(BASE_CONSOLE_APPLICATION)
+# define BASE_CONSOLE_APPLICATION 0
+#endif
+#if !defined(BASE_FORCE_THREADS_COUNT)
+# define BASE_FORCE_THREADS_COUNT 0
 #endif
 
 //~ OS
@@ -370,4 +376,4 @@ union v3
 //~ Globals
 global_variable b32 GlobalDebuggerIsAttached;
 
-#endif // BASE_MACROS_H
+#endif // BASE_CORE_H

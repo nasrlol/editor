@@ -2,6 +2,8 @@
 #define BUILD ".." SLASH "build" SLASH
 
 //~ Libaries
+#define BASE_FORCE_THREADS_COUNT 1
+#define BASE_CONSOLE_APPLICATION 1
 #include "base/base.h"
 #include "base/base.c"
 
@@ -22,35 +24,37 @@ internal void
 RunCommand(void)
 {
     str8 BuildCommand = Str8ArrayJoin(' ');
-    OS_RunCommand(BuildCommand, false);
+    Cng_RunCommand(BuildCommand);
 }
 
 internal void
 WriteStreamToFile(MD_String8List Stream, char *FileName)
 {
     MD_String8 Str = MD_S8ListJoin(GlobalMDArena, Stream, 0);
-    FILE *UIFile = fopen(FileName, "wb");
-    fwrite(Str.str, 1, Str.size, UIFile);
-    fclose(UIFile);
+    OS_WriteEntireFile(FileName, S8Cast{.Data = Str.str, .Size = Str.size});
 }
 
 internal void 
-Build(str8 Source, str8 ExtraFlags)
+WindowsBuild(str8 Source, str8 ExtraCompilerFlags, str8 ExtraLinkerFlags)
 {
-#if OS_LINUX
-    // NOTE(luca): On windows, msvc will output this for us
-    Log(S8Fmt "\n", S8Arg(OS_GetFileName(Source)));
-#endif
-    
     arena *Arena = GlobalClingArena;
     str8 Output = PushS8(Arena, KB(2)); 
     
     SetSelectedArray(PushStr8Array(256));
     
-    CommonBuildCommand(false, true ,true);
+    Str8ArrayAppend(S8("cmd /c \"C:\\msvc\\setup_x64.bat"));
+    Str8ArrayAppend(S8("&&"));
+    
+    Str8ArrayAppend(S8("cl"));
+    Str8ArrayAppend(S8("-MTd -Gm- -nologo -GR- -EHa- -Oi -FC -Z7"));
+    Str8ArrayAppend(S8("-std:c++20 -Zc:strictStrings-"));
+    Str8ArrayAppend(S8("-WX -W4 -wd4459 -wd4456 -wd4201 -wd4100 -wd4101 -wd4189 -wd4505 -wd4996 -wd4389 -wd4244 -wd5287"));
+    Str8ArrayAppend(S8("-I" CLING_CODE_PATH));
+    Str8ArrayAppend(ExtraCompilerFlags);
     
     Str8ArrayAppend(Source);
-    Str8ArrayAppend(ExtraFlags);
+    
+    Str8ArrayAppend(ExtraLinkerFlags);
     
     RunCommand();
 }
@@ -61,7 +65,7 @@ LinuxMakeBuildCommand(str8 Source,
                       b32 GCC, b32 Clang, b32 Asan, 
                       str8 ExtraFlags)
 {
-    Log(S8Fmt "\n", S8Arg(OS_GetFileName(Source)));
+    Log(S8Fmt "\n", S8Arg(Cng_GetBaseFileName(Source)));
     
     SetSelectedArray(PushStr8Array(256));
     
@@ -108,18 +112,13 @@ LinuxMakeBuildCommand(str8 Source,
     
 }
 
-//- Entrypoint 
 ENTRY_POINT(EntryPoint)
 {
     if(LaneIndex() == 0)
-    {        
-        GlobalEnv = Params->Env;
-        StringsScratch = ArenaAlloc();
-        SetClingArena(ArenaAlloc());
+    {
+        Cng_InitAndRebuildSelf(Params->ArgsCount, Params->Args, Params->Env);
         
-        OS_RebuildSelf(Params->ArgsCount, Params->Args);
-        
-        str8 CodePath = OS_PathFromExe(Params->Args[0], S8(CLING_CODE_PATH));
+        str8 CodePath = Cng_PathFromExe(Params->Args[0], S8(CLING_CODE_PATH));
         OS_ChangeDirectory((char *)CodePath.Data);
         
         b32 BuildEditor = true;
@@ -128,7 +127,7 @@ ENTRY_POINT(EntryPoint)
         b32 Linux = false;
         
 #if OS_WINDOWS
-        Windows = false;
+        Windows = true;
 #elif OS_LINUX
         Linux = true;
 #endif
@@ -151,101 +150,100 @@ ENTRY_POINT(EntryPoint)
             Log("[editor build]\n");
             
             Log("Generating code...\n");
-            
-            GlobalMDArena = MD_ArenaAlloc();
-            MD_String8 FileName = MD_S8Lit("./editor/tables.mdesk");
-            MD_ParseResult Parse = MD_ParseWholeFile(GlobalMDArena, FileName);
-            
-            // Print metadesk errors
-            for(MD_Message *Message = Parse.errors.first;
-                Message != 0;
-                Message = Message->next)
-            {
-                MD_CodeLoc code_loc = MD_CodeLocFromNode(Message->node);
-                MD_PrintMessage(stdout, code_loc, Message->kind, Message->string);
-            }
-            if(Parse.errors.max_message_kind < MD_MessageKind_Error)
-            {
-                MD_Node *Root = Parse.node->first_child;
+            {            
+                GlobalMDArena = MD_ArenaAlloc();
+                MD_String8 FileName = MD_S8Lit("./editor/tables.mdesk");
+                MD_ParseResult Parse = MD_ParseWholeFile(GlobalMDArena, FileName);
                 
-                MD_String8List ShaderStream = {0};
-                MD_String8List CStream = {0};
-                
-                // Rcet shader attributes
-                {                
-                    MD_Node *Table = MD_FirstNodeWithString(Root, MD_S8Lit("RectShaderAttributes"), 0);
-                    
-                    u32 Index = 0;
-                    
-                    MD_S8ListPushFmt(GlobalMDArena, &CStream,
-                                     "s32 AttributesOffsets[] =\n{\n");
-                    
-                    for(MD_EachNode(Node, Table->first_child))
-                    {
-                        MD_Node *Name = MD_NodeAtIndex(Node->first_child, 0);
-                        MD_Node *Size = MD_NodeAtIndex(Node->first_child, 1);
-                        
-                        MD_String8 TypeName = MD_S8Lit("null");
-                        
-                        if(0) {}
-                        else if(MD_S8Match(Size->string, MD_S8Lit("1"), 0)) TypeName = MD_S8Lit("f32");
-                        else if(MD_S8Match(Size->string, MD_S8Lit("4"), 0)) TypeName = MD_S8Lit("v4");
-                        else InvalidPath();
-                        
-                        MD_S8ListPushFmt(GlobalMDArena, &ShaderStream, 
-                                         "layout (location = %2d) in %3S %S;\n", 
-                                         Index, TypeName, Name->string);
-                        MD_S8ListPushFmt(GlobalMDArena, &CStream,
-                                         "%S,\n", Size->string);
-                        
-                        Index += 1;
-                    }
-                    MD_S8ListPushFmt(GlobalMDArena, &CStream, "};\n");
-                }
-                
-                // UI Box flags
+                // Print metadesk errors
+                for(MD_Message *Message = Parse.errors.first;
+                    Message != 0;
+                    Message = Message->next)
                 {
-                    MD_Node *Table = MD_FirstNodeWithString(Root, MD_S8Lit("UI_BoxFlags"), 0);
-                    
-                    MD_S8ListPushFmt(GlobalMDArena, &CStream, "enum ui_box_flag\n{\n");
-                    
-                    u64 MaxWidth = 0;
-                    for(MD_EachNode(Node, Table->first_child))
-                    {
-                        MaxWidth = Max(Node->string.size, MaxWidth);
-                    }
-                    
-                    s32 Index = 0;
-                    s32 Value = 0;
-                    
-                    for(MD_EachNode(Node, Table->first_child))
-                    {
-                        if(Index > 0) Value = 1;
-                        MD_S8ListPushFmt(GlobalMDArena, &CStream, 
-                                         "UI_BoxFlag_%-*S = (%d << %d),\n",
-                                         MaxWidth, Node->string, Value, Index);
-                        
-                        Index += 1;
-                    }
-                    
-                    MD_S8ListPushFmt(GlobalMDArena, &CStream, 
-                                     "};\n"
-                                     "typedef enum ui_box_flag ui_box_flag;\n");
+                    MD_CodeLoc code_loc = MD_CodeLocFromNode(Message->node);
+                    MD_PrintMessage(stdout, code_loc, Message->kind, Message->string);
                 }
-                
-                
-                MD_String8 Str = {0};
-                
-                WriteStreamToFile(CStream, "./editor/generated/everything.c");
-                WriteStreamToFile(ShaderStream, "./editor/generated/rect_vert.glsl");
+                if(Parse.errors.max_message_kind < MD_MessageKind_Error)
+                {
+                    MD_Node *Root = Parse.node->first_child;
+                    
+                    MD_String8List ShaderStream = {0};
+                    MD_String8List CStream = {0};
+                    
+                    // Rcet shader attributes
+                    {                
+                        MD_Node *Table = MD_FirstNodeWithString(Root, MD_S8Lit("RectShaderAttributes"), 0);
+                        
+                        u32 Index = 0;
+                        
+                        MD_S8ListPushFmt(GlobalMDArena, &CStream,
+                                         "s32 AttributesOffsets[] =\n{\n");
+                        
+                        for(MD_EachNode(Node, Table->first_child))
+                        {
+                            MD_Node *Name = MD_NodeAtIndex(Node->first_child, 0);
+                            MD_Node *Size = MD_NodeAtIndex(Node->first_child, 1);
+                            
+                            MD_String8 TypeName = MD_S8Lit("null");
+                            
+                            if(0) {}
+                            else if(MD_S8Match(Size->string, MD_S8Lit("1"), 0)) TypeName = MD_S8Lit("f32");
+                            else if(MD_S8Match(Size->string, MD_S8Lit("4"), 0)) TypeName = MD_S8Lit("v4");
+                            else InvalidPath();
+                            
+                            MD_S8ListPushFmt(GlobalMDArena, &ShaderStream, 
+                                             "layout (location = %2d) in %3S %S;\n", 
+                                             Index, TypeName, Name->string);
+                            MD_S8ListPushFmt(GlobalMDArena, &CStream,
+                                             "%S,\n", Size->string);
+                            
+                            Index += 1;
+                        }
+                        MD_S8ListPushFmt(GlobalMDArena, &CStream, "};\n");
+                    }
+                    
+                    // UI Box flags
+                    {
+                        MD_Node *Table = MD_FirstNodeWithString(Root, MD_S8Lit("UI_BoxFlags"), 0);
+                        
+                        MD_S8ListPushFmt(GlobalMDArena, &CStream, "enum ui_box_flag\n{\n");
+                        
+                        u64 MaxWidth = 0;
+                        for(MD_EachNode(Node, Table->first_child))
+                        {
+                            MaxWidth = Max(Node->string.size, MaxWidth);
+                        }
+                        
+                        s32 Index = 0;
+                        s32 Value = 0;
+                        
+                        for(MD_EachNode(Node, Table->first_child))
+                        {
+                            if(Index > 0) Value = 1;
+                            MD_S8ListPushFmt(GlobalMDArena, &CStream, 
+                                             "UI_BoxFlag_%-*S = (%d << %d),\n",
+                                             MaxWidth, Node->string, Value, Index);
+                            
+                            Index += 1;
+                        }
+                        
+                        MD_S8ListPushFmt(GlobalMDArena, &CStream, 
+                                         "};\n"
+                                         "typedef enum ui_box_flag ui_box_flag;\n");
+                    }
+                    
+                    
+                    MD_String8 Str = {0};
+                    WriteStreamToFile(CStream, "./editor/generated/everything.c");
+                    WriteStreamToFile(ShaderStream, "./editor/generated/rect_vert.glsl");
+                }
             }
             
             OS_ChangeDirectory(BUILD);
             
             if(Linux)
             {
-                str8 EditorFlags = S8("-DEDITOR_INTERNAL=1 "
-                                      "-I" CLING_CODE_PATH);
+                str8 EditorFlags = S8("-DEDITOR_INTERNAL=1 -I" CLING_CODE_PATH);
                 
                 str8 LibsFileName = S8("editor_libs.o");
                 str8 File = OS_ReadEntireFileIntoMemory((char *)LibsFileName.Data);
@@ -254,26 +252,24 @@ ENTRY_POINT(EntryPoint)
                     LinuxMakeBuildCommand(S8("../source/editor/editor_libs.h"), 
                                           LibsFileName, 
                                           GCC, Clang, Asan, 
-                                          S8("-fPIC -x c++ -c "
-                                             "-DEDITOR_SLOW_COMPILE=1"));
-                    Str8ArrayAppend(EditorFlags);
+                                          StringCat(EditorFlags, S8(" -fPIC -x c++ -c "
+                                                                    "-DEDITOR_SLOW_COMPILE=1")));
                     RunCommand();
                 }
                 
                 LinuxMakeBuildCommand(S8("../source/editor/editor_app.cpp"), 
                                       S8("editor_app.so"),
                                       GCC, Clang, Asan,
-                                      S8("-ferror-limit=500 -fPIC --shared "
-                                         "-DEDITOR_INTERNAL=1 -DEDITOR_SLOW_COMPILE=0"));
+                                      StringCat(EditorFlags, S8(" -fPIC --shared "
+                                                                "-DEDITOR_SLOW_COMPILE=0")));
                 Str8ArrayAppend(LibsFileName);
-                Str8ArrayAppend(EditorFlags);
                 RunCommand();
                 
+                str8 ExtraFlags = StringCat(EditorFlags, S8(" -lX11 -lGL -lGLX"));
                 LinuxMakeBuildCommand(S8("../source/editor/editor_platform.cpp"),
                                       S8("editor"),
                                       GCC, Clang, Asan,
-                                      S8("-lX11 -lGL -lGLX"));
-                Str8ArrayAppend(EditorFlags);
+                                      ExtraFlags);
                 RunCommand();
             }
             
@@ -282,21 +278,26 @@ ENTRY_POINT(EntryPoint)
                 str8 File = OS_ReadEntireFileIntoMemory("editor_libs.obj");
                 if(!File.Size)
                 {
-                    Build(S8("../source/editor/editor_libs.h"), 
-                          S8("-DEDITOR_INTERNAL=1 -DEDITOR_SLOW_COMPILE=1 "
-                             "-Fmeditor_app.map -Foeditor_libs.obj "
-                             "-c /TP -LD "
-                             "/link -opt:ref -incremental:no"));
+                    WindowsBuild(S8("../source/editor/editor_libs.h"), 
+                                 S8("-DEDITOR_INTERNAL=1 -DEDITOR_SLOW_COMPILE=1"
+                                    "-Fmeditor_app.map -Foeditor_libs.obj"
+                                    "-c /TP -LD "),
+                                 S8("/link -opt:ref -incremental:no"));
                 }
                 {        
                     // Build app dll
-                    Build(S8("../source/editor/editor_app.cpp"),
-                          S8("-DEDITOR_INTERNAL=1 -Fmeditor_app.map ./editor_libs.obj -LD /link /DLL /EXPORT:UpdateAndRender"));
+                    WindowsBuild(S8("../source/editor/editor_app.cpp"),
+                                 S8("-DEDITOR_INTERNAL=1 -DEDITOR_SLOW_COMPILE=0 -Fmeditor_app.map ./editor_libs.obj"), S8("-LD /link /DLL /EXPORT:UpdateAndRender"));
                     
                     // Build platform exe
-                    Build(S8("../source/editor/editor_platform.cpp"),
-                          S8("-DEDITOR_INTERNAL=1 -Feeditor.exe "
-                             "/link -opt:ref -incremental:no user32.lib Gdi32.lib winmm.lib Opengl32.lib"));
+                    WindowsBuild(S8("../source/editor/editor_platform.cpp"),
+                                 S8("-DEDITOR_INTERNAL=1 -Feeditor.exe"),
+                                 S8("/link -opt:ref -incremental:no user32.lib Gdi32.lib winmm.lib Opengl32.lib"));
+                }
+                
+                if(0)
+                {
+                    Cng_RunCommand(S8("cmd /c pause"));
                 }
             }
         }

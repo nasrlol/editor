@@ -80,7 +80,7 @@ commands =
     .run_cling = 
     {
         .out = "*compilation*", 
-        .linux = "./build/cling",
+        .linux = "./build/cling norebuild",
         .win = ".\\build\\cling.exe",
         .save_dirty_files = false,
         .footer_panel = false,

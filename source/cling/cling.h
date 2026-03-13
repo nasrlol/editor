@@ -1,3 +1,9 @@
+/* TODO(luca): 
+- Cng_PathFromExe should return char *
+- Cng_InitAndRebuildSelf should be compressed between OS versions
+- Cgn_RunCommand should take a str8_array instead of str8 since that seems to be the more common case
+*/
+
 //~ Libraries
 // Standard library (TODO(luca): get rid of it) 
 #include <stdio.h>
@@ -21,19 +27,6 @@ struct str8_array
     u64 Capacity;
 };
 typedef struct str8_array str8_array;
-
-typedef struct os_command_result os_command_result; 
-struct os_command_result
-{
-    b32 Error;
-    
-    u64 StdoutBytesToRead;
-    b32 StdinBytesToWrite;
-    u64 StderrBytesToRead;
-    int Stdout;
-    int Stdin;
-    int Stderr;
-};
 
 //~ Globals
 global_variable arena *GlobalClingArena = 0;
@@ -73,8 +66,12 @@ IsWhiteSpace(u8 Char)
 internal void 
 Str8ArrayAppendTo(str8_array *Array, str8 String)
 {
-    Assert(Array->Count < Array->Capacity);
-    Array->Strings[Array->Count++] = String;
+    if(String.Size > 0)
+    {
+        Assert(Array->Count < Array->Capacity);
+        Array->Strings[Array->Count] = String;
+        Array->Count += 1;
+    }
 }
 
 internal void
@@ -119,8 +116,11 @@ Str8ArrayJoinFrom(str8_array *Array, u8 Char)
         BufferIndex += StringAt->Size;
         if(Char)
         {
-            Buffer.Data[BufferIndex] = Char;
-            BufferIndex += 1;
+            if(At + 1 != Array->Count)
+            {
+                Buffer.Data[BufferIndex] = Char;
+                BufferIndex += 1;
+            }
         }
     }
     
@@ -210,20 +210,19 @@ CommonBuildCommand(b32 GCC, b32 Clang, b32 Debug)
     Str8ArrayAppend(S8("cl"));
     Str8ArrayAppend(S8("-MTd -Gm- -nologo -GR- -EHa- -Oi -FC -Z7"));
     Str8ArrayAppend(S8("-std:c++20 -Zc:strictStrings-"));
-    Str8ArrayAppend(S8("-WX -W4 -wd4459 -wd4456 -wd4201 -wd4100 -wd4101 -wd4189 -wd4505 -wd4996 -wd4389 -wd4244"));
+    Str8ArrayAppend(S8("-WX -W4 -wd4459 -wd4456 -wd4201 -wd4100 -wd4101 -wd4189 -wd4505 -wd4996 -wd4389 -wd4244 -wd5287"));
     Str8ArrayAppend(S8("-I" CLING_CODE_PATH));
 #endif
 }
 
-//~ OS API
-
-internal str8 OS_PathFromExe(char *ExePath, str8 Path);
-internal str8 OS_GetFileName(str8 FileName);
-internal void OS_RebuildSelf(int ArgsCount, char *Args[]);
-internal os_command_result OS_RunCommand(str8 Command, b32 Pipe);
+//~ API
+internal str8 Cng_PathFromExe(char *ExePath, str8 Path);
+internal str8 Cng_GetBaseFileName(str8 FileName);
+internal void Cng_InitAndRebuildSelf(int ArgsCount, char *Args[], char *Env[]);
+internal void Cng_RunCommand(str8 Command);
 
 internal str8
-OS_PathFromExe(char *ExePath, str8 Path)
+Cng_PathFromExe(char *ExePath, str8 Path)
 {
 	str8 FileName = PushS8(GlobalClingArena, 512);
     
@@ -254,7 +253,7 @@ OS_PathFromExe(char *ExePath, str8 Path)
 }
 
 internal str8
-OS_GetFileName(str8 FileName)
+Cng_GetBaseFileName(str8 FileName)
 {
     str8 Result = {0};
     
@@ -281,11 +280,9 @@ OS_GetFileName(str8 FileName)
 
 //~ Implementation
 
-internal os_command_result 
-OS_RunCommand(str8 Command, b32 Pipe)
+internal void 
+Cng_RunCommand(str8 Command)
 {
-    os_command_result Result = {0};
-    
     STARTUPINFOA StartupInfo = {0};
     StartupInfo.cb = sizeof(StartupInfo);
     
@@ -300,7 +297,7 @@ OS_RunCommand(str8 Command, b32 Pipe)
                                    (char *)CommandCString, 
                                    0,
                                    0,
-                                   false, 
+                                   false, // Inherit handle 
                                    0,
                                    0, 
                                    0,
@@ -316,16 +313,16 @@ OS_RunCommand(str8 Command, b32 Pipe)
         Win32LogIfError();
         Log("Command: %s\n", CommandCString);
     }
-    
-    return Result;
 }
 
 internal void
-OS_RebuildSelf(int ArgsCount, char *Args[])
+Cng_InitAndRebuildSelf(int ArgsCount, char *Args[], char *Env[])
 {
-    char *CommandName = Args[0];
+    GlobalEnv = Env;
+    StringsScratch = ArenaAlloc();
+    SetClingArena(ArenaAlloc());
+    
     b32 Rebuild = true;
-    b32 ForceRebuild = false;
     for(int ArgsIndex = 1;
         ArgsIndex < ArgsCount;
         ArgsIndex++)
@@ -334,62 +331,64 @@ OS_RebuildSelf(int ArgsCount, char *Args[])
         {
             Rebuild = false;
         }
-        if(!strcmp(Args[ArgsIndex], "rebuild"))
-        {
-            ForceRebuild = true;
-        }
     }
     
-    if(ForceRebuild || Rebuild)
+    char *ExePath = 0;
     {
+        str8 Path = PushS8(GlobalClingArena, MAX_PATH);
+        Path.Size = GetModuleFileNameA(0, (char *)Path.Data, Path.Size);
+        Path.Data[Path.Size] = 0;
+        ExePath = (char *)Path.Data;
+    }
+    
+    str8 OutputFileName = Cng_PathFromExe(ExePath, S8(BUILD CLING_TEMP_EXE));
+    str8 BuildDirPath = Cng_PathFromExe(ExePath, S8(BUILD));
+    OS_ChangeDirectory((char *)BuildDirPath.Data);
+    
+    if(Rebuild)
+    {
+        str8 ClingSourcePath = Cng_PathFromExe(ExePath, S8(CLING_SOURCE_PATH));
+        str8 ClingCodePath = Cng_PathFromExe(ExePath, S8(CLING_CODE_PATH));
+        
         // Build self 
         {
-            str8 ClingSourcePath = OS_PathFromExe(CommandName, S8(CLING_SOURCE_PATH));
-            str8 ClingCodePath = OS_PathFromExe(CommandName, S8(CLING_CODE_PATH));
-            
             Log("[self build]\n");
             
             SetSelectedArray(PushStr8Array(256));
-            
             CommonBuildCommand(false, true, true);
             
-            Str8ArrayAppend(ClingSourcePath);
-            Str8ArrayAppend(S8("/link /out:" CLING_TEMP_EXE));
+            Str8ArrayAppendMultiple(S8("-I"), ClingCodePath);
             
-            str8 OutputBuffer = PushS8(GlobalClingArena, 512);
-            // NOTE(luca): We use `OutputBuffer` as a temporary second location, TODO: we should take a partition instead.
-            str8 BuildCommand = Str8ArrayJoin(OutputBuffer, ' ');
-            OS_RunCommand(BuildCommand, true);
+            Str8ArrayAppend(ClingSourcePath);
+            
+            Str8ArrayAppend(StringCat(S8("/link /out:"), OutputFileName));
+            
+            str8 BuildCommand = Str8ArrayJoin(' ');
+            Cng_RunCommand(BuildCommand);
         }
         
         // Run new cling.exe
         {
             SetSelectedArray(PushStr8Array(256));
             
-            // Set the executable to the new exe
-            Str8ArrayAppend(S8(".\\" CLING_TEMP_EXE));
+            Str8ArrayAppend(OutputFileName);
             
-            // NOTE(luca): Run without rebuilding
-            s32 At;
-            for(At = 1;
+            for(s32 At = 1;
                 At < ArgsCount;
                 At++)
             {
                 // Skip the rebuilding argument
                 if(strcmp(Args[At], "rebuild"))
                 {
-                    str8 Arg = {0};
-                    Arg.Data = (u8 *)Args[At];
-                    Arg.Size = StringLength(Args[At]);
-                    Str8ArrayAppend(Arg); 
+                    str8 Arg = S8FromCString(Args[At]);
+                    if(Arg.Size) Str8ArrayAppend(Arg); 
                 }
             }
             
             Str8ArrayAppend(S8("norebuild"));
             
-            str8 OutputBuffer = PushS8(GlobalClingArena, KB(1));
-            str8 Command = Str8ArrayJoin(OutputBuffer, ' ');
-            OS_RunCommand(Command, false);
+            str8 Command = Str8ArrayJoin(' ');
+            Cng_RunCommand(Command);
         }
         
         ExitProcess(0);
@@ -469,7 +468,7 @@ LinuxFindCommandInPATH(umm BufferSize, u8 *Buffer, char *Command, char *Env[])
     {
         MatchedSearch = true;
         
-        for(unsigned int At = 0;
+        for(u32 At = 0;
             (At < sizeof(Search) - 1) && (VarAt[At]);
             At++)
         {
@@ -529,40 +528,18 @@ LinuxFindCommandInPATH(umm BufferSize, u8 *Buffer, char *Command, char *Env[])
     return Result;
 }
 
-internal os_command_result 
-LinuxRunCommand(char *Args[], b32 Pipe)
+internal void 
+LinuxRunCommand(char *Args[])
 {
-    os_command_result Result = {};
-    
-    int StdoutPipe[2] = {};
-    int StdinPipe[2] = {};
-    int StderrPipe[2] = {};
-    
     int Ret = 0;
     int WaitStatus = 0;
-    
-    if(Pipe)
-    {    
-        LinuxErrorWrapperPipe(StdoutPipe);
-        LinuxErrorWrapperPipe(StdinPipe);
-        LinuxErrorWrapperPipe(StderrPipe);
-        Result.Stdout = StdoutPipe[0];
-        Result.Stdin = StdinPipe[1];
-        Result.Stderr = StderrPipe[0];
-    }
+    b32 Error = false;
     
     pid_t ChildPID = fork();
     if(ChildPID != -1)
     {
         if(ChildPID == 0)
         {
-            if(Pipe)
-            {            
-                LinuxErrorWrapperDup2(StdoutPipe[1], STDOUT_FILENO);
-                LinuxErrorWrapperDup2(StdinPipe[0], STDIN_FILENO);
-                LinuxErrorWrapperDup2(StderrPipe[1], STDERR_FILENO);
-            }
-            
             if(execve(Args[0], Args, __environ) == -1)
             {
                 perror("exec");
@@ -578,57 +555,48 @@ LinuxRunCommand(char *Args[], b32 Pipe)
         perror("fork");
     }
     
-    b32 Exited = WIFEXITED(WaitStatus);
-    if(Exited)
-    {
-        s8 ExitStatus = WEXITSTATUS(WaitStatus);
-        if(ExitStatus)
-        {
-            Result.Error = true;
-        }
-    }
-    
-    if(Pipe)
-    {    
-        Result.StdoutBytesToRead = LinuxErrorWrapperGetAvailableBytesToRead(Result.Stdout);
-        Result.StderrBytesToRead = LinuxErrorWrapperGetAvailableBytesToRead(Result.Stderr);
-    }
-    
-    return Result;
 }
 
-// OS implementation
+//- OS implementation
 
-internal os_command_result 
-OS_RunCommand(str8 Command, b32 Pipe)
+internal void 
+Cng_RunCommand(str8 Command)
 {
-    os_command_result Result = {};
-    
     char *Args[64] = {};
     
     u8 ArgsBuffer[1024] = {};
-    umm ArgsBufferIndex = 0;
+    u64 ArgsBufferIndex = 0;
     
     // 1. split on whitespace into null-terminated strings.
     //    TODO: skip quotes
     u32 ArgsCount = 0;
-    umm Start = 0;
-    for EachIndex(At, Command.Size)
+    
+    for(u64 At = 0; At < Command.Size;)
     {
-        if(IsWhiteSpace(Command.Data[At]) || At == Command.Size)
-        {
-            Args[ArgsCount++] = (char *)(ArgsBuffer + ArgsBufferIndex);
+        u64 Start = At;
+        while(!IsWhiteSpace(Command.Data[At]) && At < Command.Size) At += 1;
+        
+        u64 End = At;
+        
+        // Set pointer to ArgsBuffer into Args
+        {            
+            Args[ArgsCount] = (char *)(ArgsBuffer + ArgsBufferIndex);
+            ArgsCount += 1;
             Assert(ArgsCount < ArrayCount(Args));
-            umm Size = At - Start;
-            MemoryCopy(ArgsBuffer + ArgsBufferIndex, Command.Data + Start, Size);
-            ArgsBufferIndex += Size;
-            ArgsBuffer[ArgsBufferIndex++] = 0;
-            Assert(ArgsBufferIndex < ArrayCount(ArgsBuffer));
-            
-            while(IsWhiteSpace(Command.Data[At])) At++;
-            
-            Start = At;
         }
+        
+        // Create null terminated string and copy it into ArgsBuffer
+        {            
+            u64 Size = End - Start;
+            MemoryCopy(ArgsBuffer + ArgsBufferIndex, Command.Data + Start, Size);
+            
+            ArgsBufferIndex += Size;
+            ArgsBuffer[ArgsBufferIndex] = 0;
+            ArgsBufferIndex += 1;
+            Assert(ArgsBufferIndex < ArrayCount(ArgsBuffer));
+        }
+        
+        while(IsWhiteSpace(Command.Data[At]) && At < Command.Size) At += 1;
     }
     
     if(Args[0] && Args[0][0] != '/')
@@ -641,21 +609,22 @@ OS_RunCommand(str8 Command, b32 Pipe)
         }
     }
     
-    Result = LinuxRunCommand(Args, Pipe);
-    
-    return Result;
+    LinuxRunCommand(Args);
 }
 
 internal void
-OS_RebuildSelf(int ArgsCount, char *Args[])
+Cng_InitAndRebuildSelf(int ArgsCount, char *Args[], char *Env[])
 {
+    GlobalEnv = Env;
+    StringsScratch = ArenaAlloc();
+    SetClingArena(ArenaAlloc());
+    
     arena *Arena = GlobalClingArena;
     str8 OutputBuffer = PushS8(Arena, KB(2));
     str8 TempBuffer = PushS8(Arena, KB(2));
     
     char *CommandName = Args[0];
     b32 Rebuild = true;
-    b32 ForceRebuild = false;
     for(int ArgsIndex = 1;
         ArgsIndex < ArgsCount;
         ArgsIndex++)
@@ -664,23 +633,19 @@ OS_RebuildSelf(int ArgsCount, char *Args[])
         {
             Rebuild = false;
         }
-        if(!strcmp(Args[ArgsIndex], "rebuild"))
-        {
-            ForceRebuild = true;
-        }
     }
     
-    if(ForceRebuild || Rebuild)
+    if(Rebuild)
     {
         Log("[self build]\n");
         
         SetSelectedArray(PushStr8Array(256));
         CommonBuildCommand(false, true, true);
         
-        str8 ClingSourcePath = OS_PathFromExe(CommandName, S8(CLING_SOURCE_PATH));
-        str8 ClingCodePath = OS_PathFromExe(CommandName, S8(CLING_CODE_PATH));
+        str8 ClingSourcePath = Cng_PathFromExe(CommandName, S8(CLING_SOURCE_PATH));
+        str8 ClingCodePath = Cng_PathFromExe(CommandName, S8(CLING_CODE_PATH));
         
-        Log(S8Fmt "\n", S8Arg(OS_GetFileName(ClingSourcePath)));
+        Log(S8Fmt "\n", S8Arg(Cng_GetBaseFileName(ClingSourcePath)));
         
         Str8ArrayAppendMultiple(S8("-o"), S8FromCString(CommandName),
                                 S8("-I"), ClingCodePath,
@@ -689,16 +654,7 @@ OS_RebuildSelf(int ArgsCount, char *Args[])
         
         //Log("%*s\n", (int)BuildCommand.Size, BuildCommand.Data);
         
-        os_command_result CommandResult = OS_RunCommand(BuildCommand, true);
-        
-        {
-            umm BytesRead = LinuxErrorWrapperRead(CommandResult.Stderr, OutputBuffer.Data, CommandResult.StderrBytesToRead);
-            if(BytesRead) Log("%*s\n", (int)BytesRead, OutputBuffer.Data);
-        }
-        {
-            umm BytesRead = LinuxErrorWrapperRead(CommandResult.Stdout, OutputBuffer.Data, CommandResult.StdoutBytesToRead);
-            if(BytesRead) Log("%*s\n", (int)BytesRead, OutputBuffer.Data);
-        }
+        Cng_RunCommand(BuildCommand);
         
         // Run without rebuilding
         char *Arguments[64] = {};
@@ -712,11 +668,12 @@ OS_RebuildSelf(int ArgsCount, char *Args[])
                 Arguments[At] = Args[At];
             }
         }
+        
         Arguments[0] = CommandName;
         Arguments[At++] = "norebuild";
         Assert(At < ArrayCount(Arguments));
         
-        LinuxRunCommand(Arguments, false);
+        LinuxRunCommand(Arguments);
         
         _exit(0);
     }

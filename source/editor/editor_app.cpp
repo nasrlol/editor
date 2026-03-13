@@ -1336,7 +1336,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     glEnable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
     
-    DebugBreakOnce();
     glClearColor(V4Arg(Color_Background));
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
