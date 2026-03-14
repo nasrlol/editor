@@ -1,5 +1,5 @@
 //~ Defines
-#define BUILD ".." SLASH "build" SLASH
+#define CLING_BUILD_PATH ".." SLASH "build" SLASH
 
 //~ Libaries
 #define BASE_FORCE_THREADS_COUNT 1
@@ -239,7 +239,7 @@ ENTRY_POINT(EntryPoint)
                 }
             }
             
-            OS_ChangeDirectory(BUILD);
+            OS_ChangeDirectory(CLING_BUILD_PATH);
             
             if(Linux)
             {

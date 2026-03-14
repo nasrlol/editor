@@ -2,16 +2,15 @@
 #define BASE_NO_ENTRYPOINT 1
 #include "base/base.h"
 #include "base/base.c"
-#include "editor_math.h"
-#include "editor_platform.h"
-#include "editor_font.h"
-#include "editor_random.h"
-#include "editor_libs.h"
-#include "editor_gl.h"
-#include "editor_ui.h"
-#include "editor_app.h"
-
-#include "generated/everything.c"
+#include "editor/editor_math.h"
+#include "editor/editor_platform.h"
+#include "editor/editor_font.h"
+#include "editor/editor_random.h"
+#include "editor/editor_libs.h"
+#include "editor/editor_gl.h"
+#include "editor/editor_ui.h"
+#include "editor/editor_app.h"
+#include "editor/generated/everything.c"
 
 internal inline b32
 IsWhiteSpace(rune Character)
@@ -134,6 +133,24 @@ MoveLeft(app_state *App)
 {
     App->TextCursor -= (App->TextCursor > 0);
 }
+
+
+internal void
+DeleteWordLeft(app_state *App)
+{
+    while(App->TextCursor > 0 && 
+          IsWhiteSpace(App->Text[App->TextCursor - 1]))
+    {
+        DeleteChar(App);
+    }
+    
+    while(App->TextCursor > 0 && 
+          !IsWhiteSpace(App->Text[App->TextCursor - 1]))
+    {
+        DeleteChar(App);
+    }
+}
+
 //- 
 
 internal inline b32
@@ -1005,6 +1022,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 {
                     DeleteChar(App);
                 }
+                else if(Key.Codepoint == 'w')
+                {
+                    DeleteWordLeft(App);
+                }
                 else if(Key.Codepoint == 's')
                 {
                     str8 File = PushS8(FrameArena, App->TextCount);
@@ -1108,17 +1129,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 }
                 else if(Key.Codepoint == PlatformKey_BackSpace)
                 {
-                    while(App->TextCursor > 0 && 
-                          IsWhiteSpace(App->Text[App->TextCursor - 1]))
-                    {
-                        DeleteChar(App);
-                    }
-                    
-                    while(App->TextCursor > 0 && 
-                          !IsWhiteSpace(App->Text[App->TextCursor - 1]))
-                    {
-                        DeleteChar(App);
-                    }
+                    DeleteWordLeft(App);
                 }
                 else if(Key.Codepoint == PlatformKey_Delete)
                 {

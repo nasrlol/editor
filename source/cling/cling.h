@@ -12,8 +12,10 @@
 #if !defined(CLING_SOURCE_PATH)
 # error "You must define CLING_SOURCE_PATH"
 #endif
-
 #if !defined(CLING_CODE_PATH)
+# error "You must define CLING_CODE_PATH"
+#endif
+#if !defined(CLING_BUILD_PATH)
 # error "You must define CLING_CODE_PATH"
 #endif
 
@@ -341,8 +343,8 @@ Cng_InitAndRebuildSelf(int ArgsCount, char *Args[], char *Env[])
         ExePath = (char *)Path.Data;
     }
     
-    str8 OutputFileName = Cng_PathFromExe(ExePath, S8(BUILD CLING_TEMP_EXE));
-    str8 BuildDirPath = Cng_PathFromExe(ExePath, S8(BUILD));
+    str8 OutputFileName = Cng_PathFromExe(ExePath, S8(CLING_BUILD_PATH CLING_TEMP_EXE));
+    str8 BuildDirPath = Cng_PathFromExe(ExePath, S8(CLING_BUILD_PATH));
     OS_ChangeDirectory((char *)BuildDirPath.Data);
     
     if(Rebuild)

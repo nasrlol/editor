@@ -1,6 +1,6 @@
 //~ Libraries 
 #if EDITOR_INTERNAL
-# define BASE_CONSOLE_APPLICATION 1
+# define BASE_CONSOLE_APPLICATION 0
 #endif
 #include "base/base.h"
 #include "base/base.c"
