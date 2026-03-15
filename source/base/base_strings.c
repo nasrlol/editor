@@ -84,7 +84,7 @@ StringLength(char *String)
 }
 
 internal str8
-StringCat(str8 Prefix, str8 Suffix)
+S8Cat(str8 Prefix, str8 Suffix)
 {
     arena *Arena = StringsScratch;
     

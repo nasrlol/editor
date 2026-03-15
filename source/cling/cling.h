@@ -2,6 +2,8 @@
 - Cng_PathFromExe should return char *
 - Cng_InitAndRebuildSelf should be compressed between OS versions
 - Cgn_RunCommand should take a str8_array instead of str8 since that seems to be the more common case
+- Provide a path to execute a command asynchronously and check later if it has completed.
+- Instead of passing argument "norebuild" set an environment variable
 */
 
 //~ Libraries
@@ -58,6 +60,10 @@ PushStr8Array(u64 Capacity)
     return Result;
 }
 
+#define Str8ArrayPushCount(Array) for(u64 _Count_ = Array->Count, _i_ = 0; \
+_i_ == 0; \
+_i_ = _i_ + 1, Array->Count = _Count_)
+
 internal b32 
 IsWhiteSpace(u8 Char)
 {
@@ -82,19 +88,21 @@ Str8ArrayAppend(str8 String)
     Str8ArrayAppendTo(GlobalSelectedArray, String);
 }
 
-#define Str8ArrayAppendMultiple(...) \
+#define Str8ArrayAppendMultipleTo(Array, ...) \
 do \
 { \
 str8 Strings[] = {__VA_ARGS__}; \
-_Str8ArrayAppendMultiple(ArrayCount(Strings), Strings); \
+_Str8ArrayAppendMultiple(Array, ArrayCount(Strings), Strings); \
 } while(0);
-void _Str8ArrayAppendMultiple(u64 Count, str8 *Strings)
+void _Str8ArrayAppendMultiple(str8_array *Array, u64 Count, str8 *Strings)
 {
     for EachIndex(At, Count)
     {
-        Str8ArrayAppend(Strings[At]);
+        Str8ArrayAppendTo(Array, Strings[At]);
     }
 }
+
+#define Str8ArrayAppendMultiple(...) Str8ArrayAppendMultipleTo(GlobalSelectedArray, __VA_ARGS__) 
 
 internal str8 
 Str8ArrayJoinFrom(str8_array *Array, u8 Char)
@@ -105,6 +113,12 @@ Str8ArrayJoinFrom(str8_array *Array, u8 Char)
     for EachIndex(Idx, Array->Count)
     {
         TotalSize += Array->Strings[Idx].Size;
+    }
+    
+    
+    if(Char)
+    {
+        TotalSize += (Array->Count - 1);
     }
     
     str8 Buffer = PushS8(GlobalClingArena, TotalSize);
@@ -363,7 +377,7 @@ Cng_InitAndRebuildSelf(int ArgsCount, char *Args[], char *Env[])
             
             Str8ArrayAppend(ClingSourcePath);
             
-            Str8ArrayAppend(StringCat(S8("/link /out:"), OutputFileName));
+            Str8ArrayAppend(S8Cat(S8("/link /out:"), OutputFileName));
             
             str8 BuildCommand = Str8ArrayJoin(' ');
             Cng_RunCommand(BuildCommand);

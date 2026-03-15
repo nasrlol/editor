@@ -1359,7 +1359,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             gl_handle RectShader = App->Render.RectShader;
             
             RectShader = GL_ProgramFromShaders(FrameArena, Memory->ExeDirPath,
-                                               S8("../source/shaders/rect_vert.glsl"),
+                                               S8("../source/editor/generated/rect_vert.glsl"),
                                                S8("../source/shaders/rect_frag.glsl"));
             glUseProgram(RectShader);
             
@@ -1374,6 +1374,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             App->Render.ShadersCompiled = true;
         }
         
+#define EDITOR_HOT_RELOAD_SHADERS 1
 #if EDITOR_HOT_RELOAD_SHADERS
         App->Render.ShadersCompiled = false;
 #endif

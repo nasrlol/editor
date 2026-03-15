@@ -1,5 +1,5 @@
-- Metaprogramming
-  - enums
+x Metaprogramming
+  x enums
   - shaders
 
 - Custom draw command for rendering text edit view.

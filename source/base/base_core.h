@@ -57,6 +57,9 @@
 #if !defined(BASE_FORCE_THREADS_COUNT)
 # define BASE_FORCE_THREADS_COUNT 0
 #endif
+#if !defined(BASE_PROFILE)
+# define BASE_PROFILE 0
+#endif
 
 //~ OS
 #include <stdint.h>

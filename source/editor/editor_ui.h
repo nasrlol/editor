@@ -160,6 +160,14 @@ read_only global_variable ui_box _UI_NilBox =
 
 global_variable ui_box *UI_NilBox = &_UI_NilBox;
 
+#define DeferLoop(Begin, End) for(int _i_ = ((Begin), 0); !_i_; _i_ += 1, (End))
+
+#define UI_SizePx(Value, Strictness) UI_Size(UI_SizeKind_Pixels, Value, Strictness)
+#define UI_SizeText(Value, Strictness) UI_Size(UI_SizeKind_TextContent, Value, Strictness)
+#define UI_SizeEm(Value, Strictness) UI_Size(UI_SizeKind_Pixels, Value*HeightPx, Strictness)
+#define UI_SizeParent(Value, Strictness) UI_Size(UI_SizeKind_PercentOfParent, Value, Strictness)
+#define UI_SizeChildren(Strictness) UI_Size(UI_SizeKind_ChildrenSum, 0.f, Strictness)
+
 // TODO(luca): Freelist?
 #define StackPush(Arena, t, PushValue, Top) \
 t *Push = PushStruct((Arena), t); \

@@ -31,8 +31,20 @@ Win32LogIfError_(char *File, s32 Line)
     }
 }
 
-
 //- API 
+internal b32
+OS_FileExists(char *FileName)
+{
+    b32 Result = false;
+    
+    DWORD Attributes = GetFileAttributesA(FileName);
+    
+    Result = (Attributes != INVALID_FILE_ATTRIBUTES &&
+              !(Attributes & FILE_ATTRIBUTE_DIRECTORY));
+    
+    return Result;
+}
+
 internal str8 
 OS_ReadEntireFileIntoMemory(char *FileName)
 {
