@@ -35,21 +35,21 @@ GL_ErrorStatus(gl_handle Handle, b32 IsShader)
 internal gl_handle
 GL_CompileShaderFromSource(arena *Arena, str8 ExeDirPath, str8 FileNameAfterExe, s32 Type)
 {
-    gl_handle Handle = glCreateShader(Type);
+    gl_handle Shader = glCreateShader(Type);
     
     char *FileName = PathFromExe(Arena, ExeDirPath, FileNameAfterExe);
     str8 Source = OS_ReadEntireFileIntoMemory(FileName);
     
     if(Source.Size)
     {    
-        glShaderSource(Handle, 1, (const char **)&Source.Data, NULL);
-        glCompileShader(Handle);
-        GL_ErrorStatus(Handle, true);
+        glShaderSource(Shader, 1, (const char **)&Source.Data, NULL);
+        glCompileShader(Shader);
+        GL_ErrorStatus(Shader, true);
     }
     
     OS_FreeFileMemory(Source);
     
-    return Handle;
+    return Shader;
 }
 
 internal gl_handle
@@ -67,8 +67,8 @@ GL_ProgramFromShaders(arena *Arena, str8 ExeDirPath, str8 VertPath, str8 FragPat
     glLinkProgram(Program);
     GL_ErrorStatus(Program, false);
     
-    glDeleteShader(FragmentShader); 
     glDeleteShader(VertexShader);
+    glDeleteShader(FragmentShader); 
     
     return Program;
 }

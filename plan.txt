@@ -1,3 +1,23 @@
+other:
+  - Improve text rendering
+    - Check text rendering extensively (xoff & leftsidebearing)
+  - Unicode
+    - kb_text_shape()
+    - harfbuzz
+    - implement all movements taking unicode into account
+
+  - Movements
+  - Deletions
+  - Selections
+  - Clipboard
+  - Undo/Redo
+  - Non contiguous selection (e.g., with control)
+
+- https://www.dgtlgrove.com/p/ui-bonus-1-simple-single-line-text
+- https://rxi.github.io/textbox_behaviour.html
+
+- popup, lister and command palette
+
 app:
 - bug when adding the same box twice.
 - panels resizing
@@ -13,11 +33,6 @@ platform:
 - window resizing
 - sleep when idle
 - custom borders and titlebar
-
-other:
-  - Improve text rendering
-    - Check text rendering extensively (xoff & leftsidebearing)
-    - kb_text_shape()
 
 - Cmdline hash table
 

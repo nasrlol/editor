@@ -145,11 +145,13 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                     {
                         NewInput->MouseButtons[Idx].EndedDown = OldInput->MouseButtons[Idx].EndedDown;
                         NewInput->MouseButtons[Idx].HalfTransitionCount = 0;
+                        NewInput->MouseButtons[Idx].Modifiers = 0;
                     }
                     for EachElement(Idx, NewInput->GameButtons)
                     {
                         NewInput->GameButtons[Idx].EndedDown = OldInput->GameButtons[Idx].EndedDown;
                         NewInput->GameButtons[Idx].HalfTransitionCount = 0;
+                        NewInput->GameButtons[Idx].Modifiers = 0;
                     }
                     NewInput->dtForFrame = TargetSecondsPerFrame;
                     NewInput->PlatformCursor = OldInput->PlatformCursor;

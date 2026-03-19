@@ -154,6 +154,7 @@ UI_AddBox(str8 String, u32 Flags)
     Box->LayoutAxis = UI_State->LayoutAxisTop->Value;
     Box->SemanticSize[Axis2_X] = UI_State->SemanticWidthTop->Value;
     Box->SemanticSize[Axis2_Y] = UI_State->SemanticHeightTop->Value;
+    Box->HeightPx = UI_State->HeightPxTop->Value;
     Box->CustomDraw = 0;
     Box->CustomDrawData = 0;
     
@@ -583,6 +584,7 @@ UI_InitState(ui_box *Root, app_input *Input, app_state *App)
     UI_PushLayoutAxis(Axis2_X);
     UI_PushSemanticWidth(UI_SizeParent(1.f, 1.f));
     UI_PushSemanticHeight(UI_SizeParent(1.f, 1.f));
+    UI_PushHeightPx(App->HeightPx);
     
     // NOTE(luca): This ensures every box has a parent, namely the root box.
     UI_PushBox();
@@ -593,7 +595,7 @@ UI_ResolveLayout(ui_box *Root)
 {
     if(!UI_IsNilBox(Root))
     {        
-        for EachIndex(Idx, Axis2_Count)
+        for EachIndex(Idx, (s32)Axis2_Count)
         {        
             axis2 Axis = (axis2)Idx;
             

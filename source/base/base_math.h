@@ -37,10 +37,8 @@ union v4
         v2 Min;
         v2 Max;
     };
-    struct
-    {
-        f32 X, Y, Z, W;
-    };
+    struct { f32 X, Y, Z, W; };
+    struct { f32 R, G, B, A; };
 };
 #define V4Arg(Value) Value.X, Value.Y, Value.Z, Value.W
 

@@ -45,7 +45,7 @@ OS_FileExists(char *FileName)
 {
 	b32 Result = false;
 	int AccessMode = F_OK;
- Result = (access(FileName, AccessMode) == 0);
+    Result = (access(FileName, AccessMode) == 0);
 	return Result;
 }
 
@@ -231,7 +231,7 @@ LinuxSigHandler(int Signal, siginfo_t *Info, void *Arg)
                 str8 Module = S8SkipLastSlash(S8FromCString(Info.dli_fname));
                 str8 File = S8SkipLastSlash(S8FromCString(FileName));
                 if(File.Size > 0) File.Size -= 1;
-                Log("%lu. " S8Fmt ", " S8Fmt " " S8Fmt "\n",
+                Log("%d. " S8Fmt ", " S8Fmt " " S8Fmt "\n",
                     Idx, S8Arg(Module), S8Arg(Func), S8Arg(File));
             }
         }

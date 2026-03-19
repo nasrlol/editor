@@ -58,6 +58,7 @@ struct ui_box
     ui_key Key;
     u64 LastTouchedFrameIndex;
     
+    // TODO(luca): Metaprogram
     u32 Flags;
     ui_size SemanticSize[Axis2_Count];
     str8 DisplayString;
@@ -70,6 +71,7 @@ struct ui_box
     axis2 LayoutAxis;
     ui_custom_draw *CustomDraw; 
     void *CustomDrawData;
+    f32 HeightPx;
     
     // Produced from layout resolving
     v2 FixedPosition;
@@ -85,6 +87,7 @@ struct ui_box
 #define UI_EachBox(Node, First) (ui_box *Node = First; !UI_IsNilBox(Node); Node = Node->Next)  
 
 //- Stack nodes 
+// TODO(luca): Metaprogram
 typedef struct b32_stack_node b32_stack_node;
 struct b32_stack_node
 {
@@ -92,18 +95,18 @@ struct b32_stack_node
     b32 Value;
 };
 
-typedef struct ui_size_stack_node ui_size_stack_node;
-struct ui_size_stack_node
-{
-    ui_size_stack_node *Prev;
-    ui_size Value;
-};
-
 typedef struct f32_stack_node f32_stack_node;
 struct f32_stack_node
 {
     f32_stack_node *Prev;
     f32 Value;
+};
+
+typedef struct ui_size_stack_node ui_size_stack_node;
+struct ui_size_stack_node
+{
+    ui_size_stack_node *Prev;
+    ui_size Value;
 };
 
 typedef struct v4_stack_node v4_stack_node;
@@ -142,6 +145,7 @@ struct ui_state
     axis2_stack_node *LayoutAxisTop;
     ui_size_stack_node *SemanticHeightTop;
     ui_size_stack_node *SemanticWidthTop;
+    f32_stack_node *HeightPxTop;
     
     b32 RectDebugMode;
 };
@@ -203,6 +207,9 @@ internal void UI_PopSemanticWidth() { UI_StackPop(SemanticWidth); }
 internal void UI_PushSemanticHeight(ui_size SemanticHeight) { UI_StackPush(ui_size, SemanticHeight); }
 internal void UI_PopSemanticHeight()                        { UI_StackPop(SemanticHeight); }
 
+internal void UI_PushHeightPx(f32 HeightPx)               { UI_StackPush(f32, HeightPx); }
+internal void UI_PopHeightPx()                            { UI_StackPop(HeightPx); }
+
 #define UI_BackgroundColor(Value) DeferLoop(UI_PushBackgroundColor(Value), UI_PopBackgroundColor())
 #define UI_BackgroundColor(Value) DeferLoop(UI_PushBackgroundColor(Value), UI_PopBackgroundColor())
 #define UI_TextColor(Value) DeferLoop(UI_PushTextColor(Value), UI_PopTextColor())
@@ -212,7 +219,8 @@ internal void UI_PopSemanticHeight()                        { UI_StackPop(Semant
 #define UI_CornerRadii(Value) DeferLoop(UI_PushCornerRadii(Value), UI_PopCornerRadii())
 #define UI_LayoutAxis(Value) DeferLoop(UI_PushLayoutAxis(Value), UI_PopLayoutAxis())
 #define UI_Softness(Value) DeferLoop(UI_PushSoftness(Value), UI_PopSoftness())
-#define UI_SemanticHeight(Value) DeferLoop(UI_PushSemanticHeight(Value), UI_PopSemanticHeight())
 #define UI_SemanticWidth(Value) DeferLoop(UI_PushSemanticWidth(Value), UI_PopSemanticWidth())
+#define UI_SemanticHeight(Value) DeferLoop(UI_PushSemanticHeight(Value), UI_PopSemanticHeight())
+#define UI_HeightPx(Value) DeferLoop(UI_PushHeightPx(Value), UI_PopHeightPx())
 
 #endif //EDITOR_UI_H

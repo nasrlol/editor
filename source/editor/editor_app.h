@@ -99,7 +99,9 @@ struct app_state
     
     u64 TextCursor;
     u64 TextCount;
-    rune Text[KB(1)];
+    u64 TextTrail;
+    f32 TextCursorAnimTime;
+    rune *Text;
     
     // TODO(luca): Move this over to UI state
     arena *UIBoxArena;

@@ -28,6 +28,7 @@ struct app_offscreen_buffer
     s32 BytesPerPixel;
 };
 
+// TODO(luca): Metaprogram
 enum platform_key
 {
     PlatformKey_None = 0,
@@ -76,9 +77,10 @@ enum platform_key_modifier
     PlatformKeyModifier_Shift   = (1 << 0),
     PlatformKeyModifier_Control = (1 << 1),
     PlatformKeyModifier_Alt     = (1 << 2),
-    PlatformKeyModifier_Any     = (1 << 3),
 };
 typedef enum platform_key_modifier platform_key_modifier;
+
+#define PlatformKeyModifier_Any (PlatformKeyModifier_Control|PlatformKeyModifier_Shift|PlatformKeyModifier_Alt)
 
 typedef struct app_text_button app_text_button;
 struct app_text_button
@@ -95,6 +97,7 @@ struct app_text_button
 typedef struct app_button_state app_button_state;
 struct app_button_state
 {
+    u32 Modifiers;
     s32 HalfTransitionCount;
     b32 EndedDown;
 };

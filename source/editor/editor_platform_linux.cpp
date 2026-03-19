@@ -245,7 +245,7 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                 {
                     s32 BestFBIdx = -1, WorstFBIdx = -1, BestSamples = -1, WorstSamples = 999;
                     
-                    for EachIndexType(s32, FBIdx, FBConfigsCount)
+                    for EachIndex(FBIdx, FBConfigsCount)
                     {
                         XVisualInfo *DisplayVisualInfo = glXGetVisualFromFBConfig(DisplayHandle, FBConfigs[FBIdx]);
                         if(DisplayVisualInfo)
@@ -492,8 +492,8 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
 {
     linux_x11_context *Linux = (linux_x11_context *)Context;
     
-	if(Linux)
-	{
+    if(Linux)
+    {
         
         {        
             XUndefineCursor(Linux->DisplayHandle, Linux->WindowHandle);
@@ -612,25 +612,26 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                             if(Control) Button->Modifiers |= PlatformKeyModifier_Control;
                             if(Alt)     Button->Modifiers |= PlatformKeyModifier_Alt;
                             
-                            s32 BytesLookepdUp = Xutf8LookupString(Linux->InputContext, &WindowEvent.xkey, 
-                                                                   (char *)&LookupBuffer, ArrayCount(LookupBuffer), 
-                                                                   0, &LookupStatus);
+                            s32 BytesLookedUp = Xutf8LookupString(Linux->InputContext, &WindowEvent.xkey, 
+                                                                  (char *)&LookupBuffer, ArrayCount(LookupBuffer), 
+                                                                  0, &LookupStatus);
                             Assert(LookupStatus != XBufferOverflow);
-                            Assert(BytesLookepdUp <= 4);
+                            Assert(BytesLookedUp <= 4);
                             
                             b32 KeyHasLookup = ((LookupStatus != XLookupNone) && 
                                                 (LookupStatus != XLookupKeySym));
                             
                             if(KeyHasLookup)
                             {
-                                if(BytesLookepdUp)
+                                if(BytesLookedUp)
                                 {
                                     Assert(Input->Text.Count < ArrayCount(Input->Text.Buffer));
                                     
                                     Codepoint = ConvertUTF8StringToRune(LookupBuffer);
                                     
-                                    b32 IsControlChar = (Control && BytesLookepdUp == 1 && 
+                                    b32 IsControlChar = (Control && BytesLookedUp == 1 && 
                                                          (Codepoint < ' ' || Codepoint > '~'));
+                                    IsControlChar = (IsControlChar || Codepoint == 127); // Delete
                                     if(IsControlChar)
                                     {
                                         Button->IsSymbol = true;
@@ -649,7 +650,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                                         
 #if 0
                                         Log("%d bytes '%c' %d (%c|%c|%c)\n", 
-                                            BytesLookepdUp, 
+                                            BytesLookedUp, 
                                             (((char)Codepoint) >= ' ' ? (char)Codepoint : '\0'), Codepoint,
                                             ((Shift)   ? 'S' : ' '),
                                             ((Control) ? 'C' : ' '),
@@ -770,29 +771,27 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                 case ButtonRelease:
                 {
                     b32 IsDown = (WindowEvent.type == ButtonPress);
-                    u32 Button = WindowEvent.xbutton.button;
+                    u32 ButtonValue = WindowEvent.xbutton.button;
                     
+                    b32 Alt = (WindowEvent.xbutton.state & Mod1Mask);
+                    b32 Shift  = (WindowEvent.xbutton.state & ShiftMask);
+                    b32 Control = (WindowEvent.xbutton.state & ControlMask);
+                    
+                    platform_mouse_button_type ButtonType = {};
                     if(0) {}
-                    else if(Button == Button1)
-                    {
-                        ProcessKeyPress(&Input->MouseButtons[PlatformMouseButton_Left], IsDown);
-                    }
-                    else if(Button == Button2)
-                    {
-                        ProcessKeyPress(&Input->MouseButtons[PlatformMouseButton_Middle], IsDown);
-                    }
-                    else if(Button == Button3)
-                    {
-                        ProcessKeyPress(&Input->MouseButtons[PlatformMouseButton_Right], IsDown);
-                    }
-                    else if(Button == Button4)
-                    {
-                        ProcessKeyPress(&Input->MouseButtons[PlatformMouseButton_ScrollUp], IsDown);
-                    }
-                    else if(Button == Button5)
-                    {
-                        ProcessKeyPress(&Input->MouseButtons[PlatformMouseButton_ScrollDown], IsDown);
-                    }
+                    else if(ButtonValue == Button1) ButtonType = PlatformMouseButton_Left;
+                    else if(ButtonValue == Button2) ButtonType = PlatformMouseButton_Middle;
+                    else if(ButtonValue == Button3) ButtonType = PlatformMouseButton_Right;
+                    else if(ButtonValue == Button4) ButtonType = PlatformMouseButton_ScrollUp;
+                    else if(ButtonValue == Button5) ButtonType = PlatformMouseButton_ScrollDown;
+                    
+                    app_button_state *Button = &Input->MouseButtons[ButtonType];
+                    
+                    ProcessKeyPress(Button, IsDown);
+                    
+                    if(Shift)   Button->Modifiers |= PlatformKeyModifier_Shift;
+                    if(Control) Button->Modifiers |= PlatformKeyModifier_Control;
+                    if(Alt)     Button->Modifiers |= PlatformKeyModifier_Alt;
                 } break;
                 
                 case MotionNotify:
@@ -882,7 +881,7 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                 
             }
         }
-	}
+    }
 }
 
 internal void
