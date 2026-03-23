@@ -96,8 +96,9 @@ LoadFileToText(app_text *Text, app_memory *Memory, str8 FileName)
     str8 Source = OS_ReadEntireFileIntoMemory(Path);
     if(Source.Size)
     {
-        Text->Cursor = Text->Trail = Min(Text->Cursor, Source.Size);
+        Text->PrevCursor = Text->Cursor = Text->Trail = 0;
         Text->Count = Source.Size;
+        Text->CurRelLine = 0;
         for EachIndex(Idx, Source.Size)
         {
             Text->Data[Idx] = Source.Data[Idx];
@@ -121,6 +122,42 @@ CopySelection(app_text *Text, app_input *Input)
 }
 
 internal void
+UpdateCursorRelLine(app_text *Text)
+{
+    if(Text->PrevCursor != Text->Cursor)
+    {    
+        // TODO(luca): Merge for loops
+        if(Text->PrevCursor < Text->Cursor)
+        {        
+            for(u64 Idx = Text->PrevCursor; Idx < Text->Cursor; Idx += 1)
+            {
+                if(Text->Data[Idx] == '\n')
+                {
+                    // TODO(luca): What when text->lines = 0
+                    Text->CurRelLine += !!(Text->CurRelLine < Text->Lines - 1);
+                }
+            }
+        }
+        else
+        {
+            for(u64 Idx = Text->PrevCursor - 1; Idx >= Text->Cursor; Idx -= 1)
+            {
+                if(Text->Data[Idx] == '\n')
+                {
+                    Text->CurRelLine -= !!(Text->CurRelLine > 0);
+                }
+                if(Idx == 0)
+                {
+                    break;
+                }
+            }
+        }
+    }
+    
+    Text->PrevCursor = Text->Cursor;
+}
+
+internal void
 DeleteSelection(app_text *Text)
 {
     range_u64 Selection = GetSelection(Text);
@@ -128,12 +165,18 @@ DeleteSelection(app_text *Text)
     
     u64 CharsAfterEnd = Text->Count - Selection.Max;
     
+    Text->Cursor = Selection.Min;
+    
+    // NOTE(luca): We need to update CurRelLine before the text is altered.
+    UpdateCursorRelLine(Text);
+    
     MemoryCopy(Text->Data + Selection.Min, Text->Data + Selection.Max,
                sizeof(rune)*(CharsAfterEnd));
     
-    Text->Cursor = Selection.Min;
     Text->Count -= SelectionSize;
     Text->CursorAnimTime = 0.f;
+    
+    Text->PrevCursor = Text->Cursor;
 }
 
 internal void
@@ -168,6 +211,70 @@ MoveLeft(app_text *Text)
     Text->CursorAnimTime = 0.f;
 }
 
+internal void
+MoveTrail(app_text *Text, b32 Shift)
+{
+    if(!Shift)
+    {
+        Text->Trail = Text->Cursor;
+        Text->CursorAnimTime = 0.f;
+    }
+}
+
+internal void
+MoveDown(app_text *Text, b32 Shift)
+{
+    u64 Next = Text->Cursor + !!(Text->Cursor < Text->Count);
+    while(Next < Text->Count && Text->Data[Next] != '\n') Next += 1;
+    
+    // NOTE(luca): If the text cursor was on the next new line we search before it
+    u64 Begin = Text->Cursor - !!(Text->Cursor > 0 && Text->Cursor == Next);
+    while(Begin > 0 && Text->Data[Begin] != '\n') Begin -= 1;
+    
+    u64 End = Next + !!(Next < Text->Count);
+    while(End < Text->Count && Text->Data[End] != '\n') End += 1;
+    
+    u64 ColumnPos = (Text->Cursor - Begin);
+    u64 NewPos = Next + ColumnPos;
+    
+    if(Text->Data[Begin] != '\n') NewPos += 1;
+    
+    if(Next == Text->Count)
+    {
+        NewPos = Text->Count;
+    }
+    
+    Text->Cursor = Min(NewPos, End);
+    
+    Text->CursorAnimTime = 0.f;
+    
+    MoveTrail(Text, Shift);
+}
+
+internal void
+MoveUp(app_text *Text, b32 Shift)
+{
+    u64 End = Text->Cursor - !!(Text->Cursor > 0);
+    
+    while(End > 0 && Text->Data[End] != '\n') End -= 1;
+    
+    u64 Begin = End - !!(End > 0);
+    
+    while(Begin > 0 && Text->Data[Begin] != '\n') Begin -= 1;
+    
+    u64 ColumnPos = (Text->Cursor - End);
+    u64 NewPos = Begin + ColumnPos;
+    
+    if(Text->Data[Begin] != '\n') NewPos -= 1;
+    
+    // NOTE(luca): Special case, we go to the beginning of the line.
+    if(End == 0) NewPos = 0;
+    
+    // NOTE(luca): If the cursor would end up after the newline clamp it to the end of it. 
+    Text->Cursor = Min(NewPos, End);
+    
+    MoveTrail(Text, Shift);
+}
 
 internal void
 DeleteWordLeft(app_text *Text)
@@ -351,7 +458,7 @@ struct custom_text_draw_params
     app_text *Text;
 };
 
-UI_CUSTOM_DRAW(CustomDrawText)
+UI_CUSTOM_DRAW(TextComputeAndDraw)
 {
     custom_text_draw_params *Params = (custom_text_draw_params *)CustomDrawData;
     ui_box *Box = Params->Box;
@@ -362,52 +469,84 @@ UI_CUSTOM_DRAW(CustomDrawText)
     
     // TODO(luca): Account for padding instead
     v4 TextDim = RectShrink(Dest, Box->BorderThickness);
-    
     v2 CursorPos = {0};
-    
     f32 CharHeight = (UI_State->Atlas->HeightPx);
+    v2 Pen = TextDim.Min;
     
-    u64 CursorLinePos = 0;
+    f32 TextRectHeight = (TextDim.Max.Y - TextDim.Min.Y);
+    if(TextRectHeight > 0.f)
+    {    
+        u64 NewTextLines = (u64)floorf((TextDim.Max.Y - TextDim.Min.Y)/CharHeight);
+        if(NewTextLines < Text->Lines)
+        {
+            // NOTE(luca): If we are on the last line and shrinking, scroll up
+            if(Text->CurRelLine == Text->Lines - 1)
+            {
+                Text->CurRelLine -= !!(Text->CurRelLine > 0);
+            }
+        }
+        else if(NewTextLines > Text->Lines)
+        {
+            // TODO(luca): What we actually want is that if the last line is visible *and* there is text before that line then  scroll down
+#if 0
+            if(Text->Cursor == Text->Count)
+            {
+                Text->CurRelLine += 1;
+            }
+#endif
+        }
+        
+        Text->Lines = NewTextLines;
+    }
     
-    v2 Pen;
-    
-    Pen = TextDim.Min;
-    
-    u64 ScrollOffset = 0;
-    
-    for EachIndex(Idx, Text->Cursor)
+    u64 StartOffset = 0;
+    u64 BeginningOfLineIdx = 0;
     {
-        rune Char = Text->Data[Idx];
-        f32 CharWidth = (UI_State->Atlas->PackedChars[Char].xadvance);
-        
-        if(CursorLinePos == Text->LineScrollOffset)
+        for(u64 Idx = Text->Cursor - !!(Text->Cursor > 0); Idx > 0; Idx -= 1)
         {
-            ScrollOffset = Idx;
+            if(Text->Data[Idx] == '\n')
+            {
+                BeginningOfLineIdx = Idx;
+                break;
+            }
         }
         
-        if(Char == '\n')
+        u64 LineOffsetsCount = Text->CurRelLine + 1;
+        u64 *LineOffsets = PushArrayZero(FrameArena, u64, LineOffsetsCount);
+        
+        u64 WriteHead = 0;
+        
+        u64 LineFromCursor = 0;
+        
+        for(u64 Idx = BeginningOfLineIdx; Idx > 0; Idx -= 1)
         {
-            Pen.X = TextDim.Min.X;
-            CursorLinePos += 1;
+            if(Text->Data[Idx] == '\n')
+            {
+                LineFromCursor += 1;
+                
+                // Update offsets
+                {                
+                    LineOffsets[WriteHead] = Idx + 1;
+                    WriteHead += 1;
+                    
+                    if(LineFromCursor > Text->CurRelLine)
+                    {
+                        break;
+                    }
+                }
+            }
         }
-        else if(Pen.X + CharWidth > TextDim.Max.X)
+        
+        StartOffset = LineOffsets[Text->CurRelLine];
+        if(0)
         {
-            Pen.X = TextDim.Min.X;
-            CursorLinePos += 1;
+            Log("BOL: %lu, Line: %lu, Offset: %lu\n", BeginningOfLineIdx, LineFromCursor, StartOffset);
         }
     }
     
-    b32 IsCursorOffscreen = (Pen.Y > TextDim.Max.Y);
-    
-    if(IsCursorOffscreen)
-    {
-        Text->LineScrollOffset += 1;
-    }
-    
-    Text->LineScrollOffset = CursorLinePos;
     
     Pen = TextDim.Min;
-    for EachIndex(Idx, Text->Count)
+    for(u64 Idx = StartOffset; Idx < Text->Count; Idx += 1)
     {
         rune Char = Text->Data[Idx];
         f32 CharWidth = (UI_State->Atlas->PackedChars[Char].xadvance);
@@ -423,8 +562,8 @@ UI_CUSTOM_DRAW(CustomDrawText)
         }
         
         v2 PenMax = V2AddV2(Pen, V2(CharWidth, CharHeight));
-        if(IsInsideRectV2(Pen, Dest) &&
-           IsInsideRectV2(PenMax, Dest))
+        if(IsInsideRectV2(Pen, TextDim) &&
+           IsInsideRectV2(PenMax, TextDim))
         {
             b32 IsInSelection = false;
             
@@ -453,12 +592,23 @@ UI_CUSTOM_DRAW(CustomDrawText)
                     
                     if(LeftButton->EndedDown)
                     {
+#if 0
                         Text->Cursor = Idx + OnRightSide;
-                        if(WasPressed(*LeftButton) && !Shift)
+                        if(WasPressed(*LeftButton))
                         {
-                            Text->Trail = Text->Cursor;
-                            Text->CursorAnimTime = 0.f;
+                            MoveTrail(Text, Shift);
                         }
+#else
+                        Text->Trail = Idx + OnRightSide;
+                        if(WasPressed(*LeftButton))
+                        {
+                            if(!Shift)
+                            {
+                                Text->Cursor = Text->Trail;
+                                Text->CursorAnimTime = 0.f;
+                            }
+                        }
+#endif
                     }
                     
                     if(0)
@@ -466,6 +616,13 @@ UI_CUSTOM_DRAW(CustomDrawText)
                         DrawRect(CharRect, Color_Red, 0.f, 1.f, 0.f); 
                     }
                 }
+                
+                
+                if(0 && Idx == BeginningOfLineIdx)
+                {
+                    DrawRect(CharRect, Color_Green, 0.f, 1.f, 0.f);
+                }
+                
             }
             
             b32 VisualizeWhitespace = true;
@@ -508,7 +665,7 @@ UI_CUSTOM_DRAW(CustomDrawText)
     {        
         if(Text->Trail == Text->Cursor)
         {            
-            if(Text->Cursor == 0)
+            if(Text->Cursor == StartOffset)
             {
                 CursorPos = TextDim.Min;
             }
@@ -519,15 +676,22 @@ UI_CUSTOM_DRAW(CustomDrawText)
             
             if(cos(Text->CursorAnimTime*Pi32*Ratio) < 0.f)
             {
-                CursorColor.A = 0.f;
+                if(0)
+                {
+                    CursorColor.A = 0.f;
+                }
+            }
+            else
+            {
+                //DebugBreak();
             }
             
-            v4 MarkRec = RectFromSize(CursorPos, V2(1.f, CharHeight));
+            v4 CurRec = RectFromSize(CursorPos, V2(1.f, CharHeight));
             
-            MarkRec = RectIntersect(MarkRec, Parent->Rec);
-            if(RectValid(MarkRec)) 
+            CurRec = RectIntersect(CurRec, Parent->Rec);
+            if(RectValid(CurRec)) 
             {
-                DrawRect(MarkRec, CursorColor, 0.f, 0.f, 0.f);
+                DrawRect(CurRec, CursorColor, 0.f, 0.f, 0.f);
             }
         }
     }
@@ -1107,13 +1271,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
         App->PreviousHeightPx = DefaultHeightPx + 1.0f;
         App->HeightPx = DefaultHeightPx;
         
-        App->Text.Count = 0;
-        App->Text.Cursor = 0;
-        
-        App->UIBoxArena->Pos = 0;
-        App->FontAtlasArena->Pos = 0;
-        App->PanelArena->Pos = 0;
-        
         // Nil read only structs 
         {        
             arena *Arena = ArenaAlloc(.Size = MB(1), .Offset = TB(3));
@@ -1169,8 +1326,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                             panel *MiddleLeftPanel = PanelAdd(.33f);
                             panel *BottomLeftPanel = PanelAdd(.34f);
                         }
-                        panel *MiddlePanel = PanelAdd(.2f);
-                        panel *RightPanel = PanelAdd(.4f);
+                        panel *RightPanel = PanelAdd(.6f);
                         PanelGroup()
                         {            
                             panel *DebugPanel = PanelAdd(.6f);
@@ -1201,6 +1357,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
     PanelApp = App;
     
     app_text *Text = &App->Text;
+    
+    Text->PrevCursor = Text->Cursor;
     
     for EachIndex(Idx, Input->Text.Count)
     {
@@ -1287,10 +1445,15 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         {
                             str8 Clip = Input->PlatformClipboard;
                             DeleteSelection(&App->Text);
+                            
+                            u64 Cursor = Text->Cursor;
+                            
                             for EachIndex(Idx, Input->PlatformClipboard.Size)
                             {
                                 AppendChar(&App->Text, (rune)Clip.Data[Idx]);
                             }
+                            
+                            Text->Cursor = Text->Trail = Cursor;
                         } break;
                         
                         case 'z':
@@ -1356,10 +1519,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                             }
                         }
                         
-                        if(!Shift)
-                        {
-                            Text->Trail = Text->Cursor;
-                        }
+                        MoveTrail(Text, Shift);
                     } break;
                     
                     case PlatformKey_Left: 
@@ -1394,75 +1554,19 @@ UPDATE_AND_RENDER(UpdateAndRender)
                             }
                         }
                         
-                        if(!Shift)
-                        {
-                            Text->Trail = Text->Cursor;
-                        }
-                        
+                        MoveTrail(Text, Shift);
                     } break;
-                    
                     
                     // Move up by line
                     case PlatformKey_Up:
                     {
-                        u64 End = Text->Cursor - !!(Text->Cursor > 0);
-                        
-                        while(End > 0 && Text->Data[End] != '\n') End -= 1;
-                        
-                        u64 Begin = End - !!(End > 0);
-                        
-                        while(Begin > 0 && Text->Data[Begin] != '\n') Begin -= 1;
-                        
-                        u64 ColumnPos = (Text->Cursor - End);
-                        u64 NewPos = Begin + ColumnPos;
-                        
-                        if(Text->Data[Begin] != '\n') NewPos -= 1;
-                        
-                        // NOTE(luca): Special case, we go to the beginning of the line.
-                        if(End == 0) NewPos = 0;
-                        
-                        // NOTE(luca): If the cursor would end up after the newline clamp it to the end of it. 
-                        Text->Cursor = Min(NewPos, End);
-                        
-                        if(!Shift)
-                        {
-                            Text->Trail = Text->Cursor;
-                        }
-                        
-                        Text->CursorAnimTime = 0.f;
+                        MoveUp(Text, Shift);
                     } break;
                     
                     // Move down by line
                     case PlatformKey_Down:
                     {
-                        u64 Next = Text->Cursor;
-                        while(Next < Text->Count && Text->Data[Next] != '\n') Next += 1;
-                        
-                        // NOTE(luca): If the text cursor was on the next new line we search before it
-                        u64 Begin = Text->Cursor - !!(Text->Cursor > 0 && Text->Cursor == Next);
-                        while(Begin > 0 && Text->Data[Begin] != '\n') Begin -= 1;
-                        
-                        u64 End = Next + !!(Next < Text->Count);
-                        while(End < Text->Count && Text->Data[End] != '\n') End += 1;
-                        
-                        u64 ColumnPos = (Text->Cursor - Begin);
-                        u64 NewPos = Next + ColumnPos;
-                        
-                        if(Text->Data[Begin] != '\n') NewPos += 1;
-                        
-                        if(Next == Text->Count)
-                        {
-                            NewPos = Text->Count;
-                        }
-                        
-                        Text->Cursor = Min(NewPos, End);
-                        
-                        if(!Shift)
-                        {
-                            Text->Trail = Text->Cursor;
-                        }
-                        
-                        Text->CursorAnimTime = 0.f;
+                        MoveDown(Text, Shift);
                     } break;
                     
                     case PlatformKey_Home:
@@ -1480,11 +1584,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         
                         Text->Cursor = Cursor;
                         
-                        if(!Shift)
-                        {
-                            Text->Trail = Text->Cursor;
-                            Text->CursorAnimTime = 0.f;
-                        }
+                        MoveTrail(Text, Shift);
                     } break;
                     
                     case PlatformKey_End:
@@ -1502,10 +1602,22 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         
                         Text->Cursor = Cursor;
                         
-                        if(!Shift)
+                        MoveTrail(Text, Shift);
+                    } break;
+                    
+                    case PlatformKey_PageUp:
+                    {
+                        for EachIndex(Idx, Text->Lines) 
                         {
-                            Text->Trail = Text->Cursor;
-                            Text->CursorAnimTime = 0.f;
+                            MoveUp(Text, Shift);
+                        }
+                    } break;
+                    
+                    case PlatformKey_PageDown:
+                    {
+                        for EachIndex(Idx, Text->Lines)
+                        {
+                            MoveDown(Text, Shift);
                         }
                     } break;
                     
@@ -1535,8 +1647,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         
                         DeleteSelection(Text);
                         
-                        Text->Trail = Text->Cursor;
-                        
+                        MoveTrail(Text, false);
                     } break;
                     
                     case PlatformKey_Delete:
@@ -1568,12 +1679,27 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         
                         DeleteSelection(Text);
                         
-                        Text->Trail = Text->Cursor;
+                        MoveTrail(Text, false);
                     } break;
                     
                 }
             }
         }
+    }
+    
+    // NOTE(luca): Covers all movement, deletion is handled in place.
+    UpdateCursorRelLine(Text);
+    
+    if(Text->Lines != 0)
+    {        
+        if(Text->CurRelLine != 0)
+        {
+            Text->CurRelLine %= Text->Lines;
+        }
+    }
+    else
+    {
+        Text->CurRelLine = 0;
     }
     
     OS_ProfileAndPrint("Input");
@@ -1674,6 +1800,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     Text->Count = 0;
                     Text->Cursor = 0;
                     Text->Trail = 0;
+                    Text->CurRelLine = 0;
                 }
                 
                 if(UI_AddBox(S8("Save"), ButtonFlags)->Clicked)
@@ -1729,12 +1856,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     // TODO(luca): This does not work.
                     UI_LayoutAxis(Axis2_X) UI_SemanticHeight(UI_SizeChildren(1.f)) 
                         UI_AddBox(S8(""), UI_BoxFlag_Clip);
-                    UI_Push() UI_SemanticWidth(UI_SizeParent(1.f/4.f, 1.f)) UI_BorderThickness(1.f)
+                    UI_Push() UI_SemanticWidth(UI_SizeText(4.f, 1.f)) UI_BorderThickness(1.f)
                     {
-                        UI_AddBox(Str8Fmt("Line: %lu###Line pos", Text->LineScrollOffset), Flags);
-                        UI_AddBox(Str8Fmt("Count: %lu###Text count", Text->Count), Flags);
-                        UI_AddBox(Str8Fmt("Cursor: %lu###Text cursor pos", Text->Cursor), Flags);
-                        UI_AddBox(Str8Fmt("Trail: %lu###Text trail", Text->Trail), Flags);
+                        UI_AddBox(Str8Fmt("Rel:%lu/%lu###Line pos", Text->CurRelLine, Text->Lines - !!(Text->Lines > 0)), Flags);
+                        UI_AddBox(Str8Fmt("#%lu###Text count", Text->Count), Flags);
+                        UI_AddBox(Str8Fmt("Cur:%lu/%lu###Text cursor pos", Text->Cursor, Text->Trail), Flags);
                     }
                     
                     // Text
@@ -1746,7 +1872,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                             custom_text_draw_params *Params = PushStructZero(FrameArena, custom_text_draw_params);
                             Params->Box = TextBox;
                             Params->Text = Text;
-                            TextBox->CustomDraw = CustomDrawText;
+                            TextBox->CustomDraw = TextComputeAndDraw;
                             TextBox->CustomDrawData = Params;
                             
                             Text->CursorAnimTime += Input->dtForFrame;

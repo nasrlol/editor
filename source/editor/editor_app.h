@@ -94,9 +94,13 @@ struct app_text
     u64 Count;
     u64 Capacity;
     u64 Trail;
-    u64 LineScrollOffset;
+    u64 CurRelLine;
     f32 CursorAnimTime;
     rune *Data;
+    
+    u64 PrevCursor;
+    // Computed each frame
+    u64 Lines;
 };
 
 typedef struct app_state app_state;

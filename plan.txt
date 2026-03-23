@@ -1,6 +1,16 @@
 - make initialization with permanentarena homogenous
 		? Poisoning should take care of everything, do the rest manually,  since we are using arena's it's not that much work
 
+- When selecting to the side of the text do select as well.
+- Virtual whitespace
+
+- Have text be clipped at pixel level and not rectangle level
+
+- Eat up input events, because resizing a pane shouldn't be clicking buttons or selecting text.
+  + concept of "selected" to receive key inputs.
+
+- Marker in arena's to have 0 not be happening.
+
 other:
   - Improve text rendering
     - Check text rendering extensively (xoff & leftsidebearing)

@@ -59,7 +59,7 @@ WindowsBuild(str8 Source, str8_array *ExtraCompilerFlags, str8 ExtraLinkerFlags)
     Str8ArrayAppend(S8("cl"));
     Str8ArrayAppend(S8("-MTd -Gm- -nologo -GR- -EHa- -Oi -FC -Z7"));
     Str8ArrayAppend(S8("-Zc:strictStrings-"));
-    Str8ArrayAppend(S8("-WX -W4 -wd4459 -wd4456 -wd4201 -wd4100 -wd4101 -wd4189 -wd4505 -wd4996 -wd4389 -wd4244 -wd5287 -wd4063 -wd4066"));
+    Str8ArrayAppend(S8("-WX -W4 -wd4459 -wd4456 -wd4201 -wd4100 -wd4101 -wd4189 -wd4505 -wd4996 -wd4389 -wd4244 -wd5287 -wd4063 -wd4127"));
     
     Str8ArrayAppend(Str8ArrayJoinFrom(ExtraCompilerFlags, ' '));
     Str8ArrayAppend(Source);
