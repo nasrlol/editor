@@ -16,7 +16,7 @@ OS_SecondsElapsed(f64 Start, f64 End)
 internal inline f64
 OS_MSElapsed(f64 Start, f64 End)
 {
-    f64 Result = ((End - Start)*1000.f);
+    f64 Result = ((End - Start)*1000.0);
     return Result;
 }
 

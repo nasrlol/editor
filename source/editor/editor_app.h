@@ -86,10 +86,7 @@ raddbg_type_view(panel,
                               (&First == NilPanel || &First == 0),
                               ParentPct, 
                               (Axis == Axis2_X ? "X" : "Y"))));
-
-
-#define EachPanel(Child, Parent) \
-(panel *Child = Parent->First; !IsNilPanel(Child); Child = Child->Next)
+#define EachChildPanel(Child, Parent) (panel *Child = Parent->First; !IsNilPanel(Child); Child = Child->Next)
 
 typedef struct app_text app_text; 
 struct app_text
@@ -107,6 +104,17 @@ struct app_text
     u64 Lines;
 };
 
+typedef struct panel_node panel_node;
+struct panel_node
+{
+    panel *Value;
+    app_text *Text;
+    
+    // TODO(luca): Double Linked List
+    panel_node *Next;
+};
+#define EachPanel(Index, First) EachNode(Index, panel_node, First)
+
 typedef struct app_state app_state;
 struct app_state
 {
@@ -117,20 +125,19 @@ struct app_state
     f32 PreviousHeightPx;
     f32 HeightPx;
     
-    app_text Text;
-    
     // TODO(luca): Move this over to UI state
     arena *UIBoxArena;
     u64 UIBoxTableSize;
     ui_box *UIBoxTable;
     
     panel *TitlebarPanel;
-    panel *DebugPanel;
+    
+    panel_node *TextPanels;
+    arena *TextArena;
     
     panel *SelectedPanel;
     panel *FirstPanel;
-    panel *LastPanel;
-    panel *FreePanel;
+    panel_node *FreePanel;
     arena *PanelArena;
     
     u64 FrameIndex;

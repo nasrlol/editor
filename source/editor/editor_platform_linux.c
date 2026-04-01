@@ -48,6 +48,7 @@ struct linux_x11_context
     b32 Initialized;
     u8 ClipboardBuffer[KB(64)];
     b32 WeOwnClipboard;
+    s32 Cursor;
 };
 
 global_variable b32 *GlobalRunning;
@@ -182,6 +183,8 @@ LinuxShowCursor(linux_x11_context *Linux, b32 Entered)
 internal P_context
 P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
 {
+    OS_ProfileInit("S_L");
+    
 #if EDITOR_FORCE_X11
     b32 OpenGLMode = false;
 #else
@@ -296,9 +299,10 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
             }
         }
         
+        OS_ProfileAndPrint("Visual info");
+        
         if(Found)
         {
-            
             XSetWindowAttributes WindowAttributes = {0};
             WindowAttributes.bit_gravity = StaticGravity;
 #if EDITOR_INTERNAL            
@@ -463,6 +467,8 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
                     {
                         ErrorLog("Could not create OpenGL context.");
                     }
+                    
+                    OS_ProfileAndPrint("Create context");
                 }
                 
                 Context->DefaultGC = DefaultGC(DisplayHandle, ScreenHandle);
@@ -484,8 +490,11 @@ P_ContextInit(arena *Arena, app_offscreen_buffer *Buffer, b32 *Running)
         {
             ErrorLog("Could not find matching visual info");
         }
-        
     }
+    
+    OS_ProfileAndPrint("Other");
+    OS_ProfileAndPrint("Other");
+    OS_ProfileInit("S");
     
     return Result;
 }
@@ -504,7 +513,9 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
         Atom ClipboardAtom = XInternAtom(Linux->DisplayHandle, "CLIPBOARD", False);
         
         // Handle Cursor
+        if(Linux->Cursor != Input->PlatformCursor)
         {        
+            Linux->Cursor = Input->PlatformCursor;
             XUndefineCursor(Linux->DisplayHandle, Linux->WindowHandle);
             switch(Input->PlatformCursor)
             {
@@ -932,14 +943,9 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                 {
                     // TODO(luca): There can be multiple MotionNotify events per frame.  We should handle this if we want higher precision mouse movement.
                     XMotionEvent *Event = (XMotionEvent *)&WindowEvent;
-                    if(Event->x >= 0 && Event->x < Buffer->Width &&
-                       Event->y >= 0 && Event->y < Buffer->Height)
-                    {                    
-                        //Log("MotionNotify: %d,%d\n", Input->Mouse.X, Input->Mouse.Y);
-                        Input->Mouse.X = Event->x;
-                        Input->Mouse.Y = Event->y;
-                    }
-                    
+
+                    Input->Mouse.X = Event->x;
+                    Input->Mouse.Y = Event->y;
                 } break;
                 
                 case ConfigureNotify:
@@ -1001,9 +1007,14 @@ P_ProcessMessages(P_context Context, app_input *Input, app_offscreen_buffer *Buf
                 case LeaveNotify:
                 {
                     XCrossingEvent *Event = (XCrossingEvent *)&WindowEvent;
+                    b32 Entered = (Event->type == EnterNotify);
                     
-                    b32 Entered = (Event->type = EnterNotify);
-                    
+                    if(!Entered)
+                    {
+                    Input->Mouse.X = -1;
+                    Input->Mouse.Y = -1;
+                    }
+
 #if 0                    
                     if(Input->WindowIsFocused)
                     {

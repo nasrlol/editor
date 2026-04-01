@@ -26,12 +26,16 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
 {
     if(LaneIndex() == 0)
     {
+        OS_ProfileInit("S");
+        
         u64 PlatformMemorySize = GB(4);
         u64 AppMemorySize = GB(1);
         
         // NOTE(luca): Total memory also for game.
         arena *PermanentArena = ArenaAlloc(.Size = PlatformMemorySize, .Offset = TB(2));
         arena *FrameArena = ArenaAlloc();
+        
+        OS_ProfileAndPrint("Memory");
         
         b32 *Running = PushStruct(PermanentArena, b32);
         *Running = true;
@@ -44,6 +48,9 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         Buffer.Pixels = PushArray(PermanentArena, u8, (u64)(Buffer.Pitch*Buffer.Height));
         
         P_context PlatformContext = P_ContextInit(PermanentArena, &Buffer, Running);
+        
+        OS_ProfileAndPrint("Context");
+        
         if(!PlatformContext)
         {
             ErrorLog("Could not initialize graphical context, running in headless mode.");
@@ -113,7 +120,6 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         b32 IsPlaying = false;
         b32 Logging = false;
         
-        u64 RecordingFileHandle = 0;
         u64 MaxRecordingFramesCount = (u64)GameUpdateHz * 60 * 10;
         u64 RecordingBufferMaxSize = AppMemory.MemorySize + (MaxRecordingFramesCount*sizeof(app_input));
         void *RecordingBuffer = PushArray(PermanentArena, u8, RecordingBufferMaxSize);
@@ -124,6 +130,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
 #if 1
         RecordingPath = "loop_edit.edi";
 #endif
+        
+        OS_ProfileAndPrint("Misc");
         
         OS_ProfileInit("P");
         while(*Running)

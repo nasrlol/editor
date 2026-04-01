@@ -22,6 +22,13 @@ enum ui_size_kind
 };
 typedef enum ui_size_kind ui_size_kind;
 
+enum font_kind
+{
+    FontKind_Text,
+    FontKind_Icon
+};
+typedef enum font_kind font_kind;
+
 typedef struct ui_size ui_size;
 struct ui_size
 {
@@ -72,6 +79,7 @@ struct ui_box
     ui_custom_draw *CustomDraw; 
     void *CustomDrawData;
     f32 HeightPx;
+    font_kind FontKind;
     
     // Produced from layout resolving
     v2 FixedPosition;
@@ -83,8 +91,10 @@ struct ui_box
     b32 Pressed;
     v4 Rec;
 };
-
-#define UI_EachBox(Node, First) (ui_box *Node = First; !UI_IsNilBox(Node); Node = Node->Next)  
+#define UI_EachBox(Node, First) \
+(ui_box *Node = First; !UI_IsNilBox(Node); Node = Node->Next)  
+#define UI_EachHashBox(Node, First) \
+(ui_box *Node = First; !UI_IsNilBox(Node); Node = Node->HashNext)
 
 //- Stack nodes 
 // TODO(luca): Metaprogram
@@ -123,8 +133,14 @@ struct axis2_stack_node
     axis2 Value;
 };
 
-//-
+typedef struct font_kind_stack_node font_kind_stack_node;
+struct font_kind_stack_node
+{
+    font_kind_stack_node *Prev;
+    font_kind Value;
+};
 
+//-
 typedef struct ui_state ui_state;
 struct ui_state
 {
@@ -136,6 +152,7 @@ struct ui_state
     font_atlas *Atlas;
     u64 FrameIndex;
     
+    // TODO(luca): Metaprogram
     v4_stack_node *BackgroundColorTop;
     v4_stack_node *BorderColorTop;
     v4_stack_node *TextColorTop;
@@ -146,6 +163,7 @@ struct ui_state
     ui_size_stack_node *SemanticHeightTop;
     ui_size_stack_node *SemanticWidthTop;
     f32_stack_node *HeightPxTop;
+    font_kind_stack_node *FontKindTop;
     
     b32 RectDebugMode;
 };
@@ -208,10 +226,12 @@ internal void UI_PopSemanticWidth() { UI_StackPop(SemanticWidth); }
 internal void UI_PushSemanticHeight(ui_size SemanticHeight) { UI_StackPush(ui_size, SemanticHeight); }
 internal void UI_PopSemanticHeight()                        { UI_StackPop(SemanticHeight); }
 
-internal void UI_PushHeightPx(f32 HeightPx)               { UI_StackPush(f32, HeightPx); }
-internal void UI_PopHeightPx()                            { UI_StackPop(HeightPx); }
+internal void UI_PushHeightPx(f32 HeightPx) { UI_StackPush(f32, HeightPx); }
+internal void UI_PopHeightPx()              { UI_StackPop(HeightPx); }
 
-#define UI_BackgroundColor(Value) DeferLoop(UI_PushBackgroundColor(Value), UI_PopBackgroundColor())
+internal void UI_PushFontKind(font_kind FontKind) { UI_StackPush(font_kind, FontKind); }
+internal void UI_PopFontKind()                    { UI_StackPop(FontKind); }
+
 #define UI_BackgroundColor(Value) DeferLoop(UI_PushBackgroundColor(Value), UI_PopBackgroundColor())
 #define UI_TextColor(Value) DeferLoop(UI_PushTextColor(Value), UI_PopTextColor())
 #define UI_BorderColor(Value) DeferLoop(UI_PushBorderColor(Value), UI_PopBorderColor())
@@ -219,9 +239,10 @@ internal void UI_PopHeightPx()                            { UI_StackPop(HeightPx
 #define UI_Softness(Value) DeferLoop(UI_PushSoftness(Value), UI_PopSoftness())
 #define UI_CornerRadii(Value) DeferLoop(UI_PushCornerRadii(Value), UI_PopCornerRadii())
 #define UI_LayoutAxis(Value) DeferLoop(UI_PushLayoutAxis(Value), UI_PopLayoutAxis())
-#define UI_Softness(Value) DeferLoop(UI_PushSoftness(Value), UI_PopSoftness())
 #define UI_SemanticWidth(Value) DeferLoop(UI_PushSemanticWidth(Value), UI_PopSemanticWidth())
 #define UI_SemanticHeight(Value) DeferLoop(UI_PushSemanticHeight(Value), UI_PopSemanticHeight())
 #define UI_HeightPx(Value) DeferLoop(UI_PushHeightPx(Value), UI_PopHeightPx())
+
+#define UI_FontKind(Value) DeferLoop(UI_PushFontKind(Value), UI_PopFontKind())
 
 #endif //EDITOR_UI_H

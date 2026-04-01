@@ -28,13 +28,11 @@ IsNilPanel(panel *Panel)
 global_variable arena *PanelArena = 0;
 global_variable b32 PanelAppendToParent = false;
 global_variable panel *PanelCurrent = 0;
-global_variable panel *PanelRoot = 0;
 global_variable app_state *PanelApp = 0;
 global_variable app_input *PanelInput = 0;
 global_variable panel *PanelDragging = 0;
 
 global_variable s32 PanelDebugIndentation = 0;
-global_variable s32 PanelDebugLevel = 0;
 
 global_variable axis2_stack_node *PanelAxisTop = 0; 
 
@@ -368,7 +366,6 @@ GetWrapPositions(arena *Arena, str8 Text, font_atlas *Atlas, f32 MaxWidth)
     return Result;
 }
 
-
 internal rect_instance *
 DrawRectChar(font_atlas *Atlas, v2 Pos, rune Codepoint, v4 Color)
 {
@@ -409,15 +406,6 @@ DrawRectChar(font_atlas *Atlas, v2 Pos, rune Codepoint, v4 Color)
 #endif
     }
 
-    return Result;
-}
-
-internal rect_instance *
-DrawRectIcon(font_atlas *Atlas, v2 Pos, rune Codepoint, v4 Color)
-{
-    rune Shifted = (Atlas->FirstCodepoint + Atlas->CodepointsCount + 
-                      Codepoint - Atlas->IconsFirstCodepoint);
-    rect_instance *Result = DrawRectChar(Atlas, Pos, Shifted, Color); 
     return Result;
 }
 
@@ -462,7 +450,7 @@ UI_CUSTOM_DRAW(TextComputeAndDraw)
         }
         else if(NewTextLines > Text->Lines)
         {
-            // TODO(luca): What we actually want is that if the last line is visible *and* there is text before that line then  scroll down
+            // TODO(luca): What we actually want is that if the last line is visible *and* there is text before that line then  scroll down, i.e., auto scrolling
 #if 0
             if(Text->Cursor == Text->Count)
             {
@@ -721,6 +709,7 @@ PanelAdd_(arena *Arena, axis2 Axis, panel *Current, b32 AppendToParent, f32 Pare
     panel *New = PanelAlloc(Arena);
     
     New->First = New->Last = New->Next = New->Prev = New->Parent = NilPanel;
+    New->Root = UI_NilBox;
     
     New->ParentPct = ParentPct;
     New->Axis = (s32)Axis;
@@ -752,6 +741,13 @@ PanelAdd_(arena *Arena, axis2 Axis, panel *Current, b32 AppendToParent, f32 Pare
 #define PanelAxis(Axis) DeferLoop(PanelPushAxis(Axis), PanelPopAxis())
 #define PanelAdd(ParentPct) PanelAdd_(PanelArena, PanelAxisTop->Value, PanelCurrent, PanelAppendToParent, ParentPct)
 
+internal inline b32 
+IsLeafPanel(panel *Panel)
+{
+    b32 Result = IsNilPanel(Panel->First);
+    return Result;
+}
+
 internal panel *
 SplitPanel(arena *Arena, panel *To, s32 Axis, b32 Backwards)
 {
@@ -760,8 +756,10 @@ SplitPanel(arena *Arena, panel *To, s32 Axis, b32 Backwards)
     panel *New = PanelAlloc(Arena);
     panel *Parent = To->Parent;
     
+    if(!IsNilPanel(To))
+    {
     // NOTE(luca): Must be a leaf node.
-    Assert(IsNilPanel(To->First));
+    Assert(IsLeafPanel(To));
     
     if(Axis == Parent->Axis)
     {
@@ -769,7 +767,7 @@ SplitPanel(arena *Arena, panel *To, s32 Axis, b32 Backwards)
         //Other children's ParentPct *= (1-1/n) 
         {        
             s32 ChildrenCount = 0;
-            for EachPanel(Child, Parent)
+            for EachChildPanel(Child, Parent)
             {
                 ChildrenCount += 1;
             }
@@ -780,7 +778,7 @@ SplitPanel(arena *Arena, panel *To, s32 Axis, b32 Backwards)
             
             New->ParentPct = 1.f/(f32)ChildrenCount;;
             
-            for EachPanel(Child, Parent)
+            for EachChildPanel(Child, Parent)
             {
                 Child->ParentPct *= (1.f - New->ParentPct);
             }
@@ -869,6 +867,7 @@ SplitPanel(arena *Arena, panel *To, s32 Axis, b32 Backwards)
         To->ParentPct = 1.f;
         Result = SplitPanel(Arena, To, Axis, Backwards); 
     }
+    }
     
     return Result;
 }
@@ -894,13 +893,6 @@ PanelDebugPrint(panel *Panel)
     {
         PanelDebugPrint(Panel->Next);
     }
-}
-
-internal inline b32 
-IsLeafPanel(panel *Panel)
-{
-    b32 Result = IsNilPanel(Panel->First);
-    return Result;
 }
 
 internal panel *
@@ -941,8 +933,14 @@ PanelNextLeaf(panel *Start, b32 Backwards)
     
     if(IsLeaf)
     { 
-        Assert(!IsNilPanel(Search) || Search == Start);
+        if(IsNilPanel(Search))
+        {
+            Result = Start;
+        }
+        else
+{
         Result = Search;
+}
     }
     
     return Result;
@@ -950,7 +948,7 @@ PanelNextLeaf(panel *Start, b32 Backwards)
 
 // NOTE(luca): Returns the panel that absorbed its size
 internal panel *
-ClosePanel(panel *Panel)
+ClosePanel(app_state *App, panel *Panel)
 {
     // NOTE(luca): The panel which will take over the side of the deleted one.
     panel *Collapse = NilPanel;
@@ -971,8 +969,6 @@ ClosePanel(panel *Panel)
                 Parent->Last = Panel->Prev;
             }
             
-            // TODO(luca): When this becomes the first and last child, should we collapse it together with the parent?
-            
             if(!IsNilPanel(Panel->Next)) 
             {
                 Panel->Next->Prev = Panel->Prev;
@@ -990,13 +986,19 @@ ClosePanel(panel *Panel)
             if(!IsNilPanel(Collapse))
             {
                 Collapse->ParentPct += Panel->ParentPct;
+                
+                // TODO(luca): If this collapsed into 100%, we should collapse it with the parent and overwrite the parent's Axis with ours, this will keep the tree compact.
             }
             else
             {
-                // Last node of its parent, parent should get deleted.  End of the bloodline.
-                Collapse = ClosePanel(Panel->Parent);
+                 // NOTE(luca): Last node of its parent, parent should get deleted.  End of the bloodline.
+                Collapse = ClosePanel(App, Panel->Parent);
             }
             
+            if(Panel == App->FirstPanel)
+            {
+                App->FirstPanel = NilPanel;
+            }
             // TODO(luca): Push onto the free list
         }
         
@@ -1033,7 +1035,10 @@ PanelGetRegionAndInput(panel *Panel, v4 FreeRegion)
                     (FreeRegion.Max.e[Axis] - FreeRegion.Min.e[Axis]));
     Size.e[OtherAxis] = OtherSize;
     
-    Panel->Region = RectFromSize(Pos, Size);
+    
+    if(!IsNilPanel(Panel))
+    {       
+        Panel->Region = RectFromSize(Pos, Size);
     
     if(!IsNilPanel(Panel->First))
     {
@@ -1120,9 +1125,9 @@ PanelGetRegionAndInput(panel *Panel, v4 FreeRegion)
         if(IsInsideBorder)
         {
             Input->Consumed = true;
+            Input->PlatformCursor = (PlatformCursorShape_ResizeHorizontal + Axis);
             
             BorderColor = Color_Blue;
-            Input->PlatformCursor = (PlatformCursorShape_ResizeHorizontal + Axis);
             
             if(IsNilPanel(PanelDragging) && Pressed)
             {                
@@ -1130,9 +1135,11 @@ PanelGetRegionAndInput(panel *Panel, v4 FreeRegion)
             }
         }
         
-        if(PanelDragging == Panel && Down)
+        b32 IsDragging = (PanelDragging == Panel && Down); 
+        if(IsDragging)
         {
             Input->Consumed = true;
+            Input->PlatformCursor = (PlatformCursorShape_ResizeHorizontal + Axis);
             
             BorderColor = Color_Yellow;
             
@@ -1184,10 +1191,54 @@ PanelGetRegionAndInput(panel *Panel, v4 FreeRegion)
         DrawRect(Border, BorderColor, 0.f, 0.f, 0.f);
 #endif
     }
-    
+}
 }
 
-//-
+internal panel_node *
+IsTextPanel(app_state *App, panel *Panel)
+{
+    panel_node *Result = 0;
+    for EachPanel(Node, App->TextPanels)
+    {
+        if(Node->Value == Panel)
+        {
+            Result = Node;
+            break;
+        }
+    }
+    
+    return Result;
+}
+
+internal void
+RemoveTextPanel(app_state *App, panel_node *Node)
+{
+    if(Node)
+{
+    panel_node *PreviousNode = 0;
+    for EachPanel(Previous, App->TextPanels)
+    {
+        if(Previous->Next == Node)
+        {
+            PreviousNode = Previous;
+            break;
+        }
+    }
+    
+    if(PreviousNode)
+    {
+        PreviousNode->Next = Node->Next;
+    }
+    else
+    {
+        Assert(Node == App->TextPanels);
+        App->TextPanels = App->TextPanels->Next;
+    }
+    }
+
+}
+
+//~
 
 C_LINKAGE
 UPDATE_AND_RENDER(UpdateAndRender)
@@ -1223,13 +1274,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         App = PushStruct(PermanentArena, app_state);
         
-        App->Text.Capacity = KB(64);
-        App->Text.Data = PushArray(PermanentArena, rune, App->Text.Capacity);
+        App->TextArena = PushArena(PermanentArena, MB(64), false);
         App->FontAtlasArena = PushArena(PermanentArena, MB(150), false);
         
         App->UIBoxTableSize = 4096;
         App->UIBoxTable = PushArray(PermanentArena, ui_box, App->UIBoxTableSize);
-        App->UIBoxArena = PushArena(PermanentArena, (256*sizeof(ui_box)), false);
+        App->UIBoxArena = PushArena(PermanentArena, MB(64), false);
         
         PanelArena = App->PanelArena = PushArena(PermanentArena, ArenaAllocDefaultSize, false);
     }
@@ -1248,7 +1298,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     f32 WindowBorderSize = 2.f;
     v2 BufferDim = V2S32(Buffer->Width, Buffer->Height);
-    v2 MouseP = V2S32(Input->Mouse.X, Input->Mouse.Y);
     
     if(!Memory->Initialized)
     {
@@ -1287,37 +1336,30 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         // Panels
         {        
-            PanelAxis(Axis2_Y) PanelGroup()
+            PanelAxis(Axis2_X) PanelGroup()
             {
                 panel *RootPanel = PanelAdd(1.f);
                 
-                PanelAxis(Axis2_X) PanelGroup()
-                {
-                    panel *AppPanel = PanelAdd(1.f);
-                    
                     PanelAxis(Axis2_Y) PanelGroup()
                     {
-                        panel *LeftPanel = PanelAdd(.4f);
+                        PanelAdd(.4f);
                         PanelGroup()
                         {            
-                            panel *TopLeftPanel = PanelAdd(.33f);
-                            panel *MiddleLeftPanel = PanelAdd(.33f);
-                            panel *BottomLeftPanel = PanelAdd(.34f);
+                            PanelAdd(.33f);
+                            PanelAdd(.33f);
+                            PanelAdd(.34f);
                         }
-                        panel *RightPanel = PanelAdd(.6f);
+                        PanelAdd(.6f);
                         PanelGroup()
                         {            
-                            panel *DebugPanel = PanelAdd(.6f);
-                            App->DebugPanel = DebugPanel;
-                            App->DebugPanel->Root = UI_BoxAlloc(App->PanelArena);
-                            App->SelectedPanel = App->DebugPanel;
-                            panel *BottomRightPanel = PanelAdd(.4f);
+                            panel *Panel = PanelAdd(.6f);
+                            App->SelectedPanel = Panel;
+                            
+                            PanelAdd(.4f);
                         }
                     }
-                }
                 App->FirstPanel = RootPanel;
-                App->LastPanel = RootPanel;
-            }
+        }
         }
         
         OS_ProfileAndPrint("Memory Init");
@@ -1332,9 +1374,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
     PanelInput = Input;
     PanelApp = App;
     
-    app_text *Text = &App->Text;
-    
+#if 0    
     Text->PrevCursor = Text->Cursor;
+    #endif
+    
+    panel_node *TextPanel = IsTextPanel(App, App->SelectedPanel);
     
     for EachIndex(Idx, Input->Text.Count)
     {
@@ -1357,14 +1401,37 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     //- Panels 
                     case 'p':
                     {
-                        if(App->SelectedPanel == App->DebugPanel)
+                        if(!Shift)
                         {
-                            App->DebugPanel = NilPanel;
+                            App->SelectedPanel = SplitPanel(PanelArena, App->SelectedPanel, Axis2_X, false);
                         }
-                        App->SelectedPanel = (!Shift ?
-                                              SplitPanel(PanelArena, App->SelectedPanel, Axis2_X, false) :
-                                              ClosePanel(App->SelectedPanel));
+                        else
+                        {
+                            RemoveTextPanel(App, TextPanel);
+
+                        App->SelectedPanel = ClosePanel(App, App->SelectedPanel);
+                        }
                     } break;
+                    
+                    case 'n':
+                    {
+                        panel *Panel = App->SelectedPanel;
+                        
+                        if(!IsNilPanel(Panel) && !IsTextPanel(App, Panel))
+{                        
+                        panel_node *New =  PushStructZero(PanelArena, panel_node);
+                            
+                            New->Text = PushStructZero(App->TextArena, app_text);
+                            New->Text->Capacity = KB(64);
+                            New->Text->Data = PushArray(App->TextArena, rune, New->Text->Capacity);
+                            
+                        New->Next = App->TextPanels;
+                        App->TextPanels = New;
+                        
+                        New->Value = Panel;
+                        }
+
+                        } break;
                     
                     case '-':
                     {
@@ -1376,9 +1443,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     
                     case ',':
                     {
-                        App->SelectedPanel = (!Shift ?
+                        App->SelectedPanel = (IsNilPanel(App->SelectedPanel) ?
+                                              PanelNextLeaf(App->FirstPanel, true) :
+                                              (!Shift ?
                                               PanelNextLeaf(App->SelectedPanel, false) :
-                                              PanelNextLeaf(App->SelectedPanel, true));
+                                               PanelNextLeaf(App->SelectedPanel, true)));
                     } break;
                 }
             }
@@ -1392,8 +1461,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
         
         //- Text Input
-        if(App->SelectedPanel == App->DebugPanel)
+        
+        if(TextPanel)
         {
+            app_text *Text = TextPanel->Text;
+            
             if(!Key.IsSymbol)
             {
                 if(ModifiersShiftIgnored == PlatformKeyModifier_None)
@@ -1413,25 +1485,25 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         
                         case 'c':
                         {
-                            CopySelection(&App->Text, Input);
+                            CopySelection(Text, Input);
                         } break;
                         
                         case 'x':
                         {
-                            CopySelection(&App->Text, Input);
-                            DeleteSelection(&App->Text);
+                            CopySelection(Text, Input);
+                            DeleteSelection(Text);
                         } break; 
                         
                         case 'v':
                         {
                             str8 Clip = Input->PlatformClipboard;
-                            DeleteSelection(&App->Text);
+                            DeleteSelection(Text);
                             
                             u64 Cursor = Text->Cursor;
                             
                             for EachIndex(Idx, Input->PlatformClipboard.Size)
                             {
-                                AppendChar(&App->Text, (rune)Clip.Data[Idx]);
+                                AppendChar(Text, (rune)Clip.Data[Idx]);
                             }
                             
                             Text->Cursor = Text->Trail = Cursor + Input->PlatformClipboard.Size;
@@ -1668,7 +1740,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
     }
     
-    // NOTE(luca): Covers all movement, deletion is handled in place.
+    // NOTE(luca): Covers scrolling in case movement brought us on a different line.
+    if(TextPanel)
+    {    
+        app_text *Text = TextPanel->Text;
+        
     UpdateCursorRelLine(Text);
     
     if(Text->Lines != 0)
@@ -1682,7 +1758,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
     {
         Text->CurRelLine = 0;
     }
-    
+    }
+
     OS_ProfileAndPrint("Input");
     
     glViewport(0, 0, Buffer->Width, Buffer->Height);
@@ -1696,11 +1773,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
     else WindowBorderColor = Color_Black;
     
     //- Prepare rects rendering 
-    u64 MaxRectsCount = 1024;
+    u64 MaxRectsCount = KB(64);
     GlobalRectsCount = 0;
     GlobalRectsInstances = PushArray(FrameArena, rect_instance, MaxRectsCount);
     
     OS_ProfileAndPrint("Misc setup");
+    
+    App->HeightPx = 24.f;
     
     //- Draw text
         if(App->PreviousHeightPx != App->HeightPx)
@@ -1713,27 +1792,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
             app_font *Font = &App->Font;
             f32 HeightPx = App->HeightPx;
             arena *Arena = App->FontAtlasArena;
-            
-            // TODO(luca): Display icons.
-            // There are three options:
-            
-            // 1) Add icons to the font and render from there.
-            //    - If we use PUA that means we need to create a very big atlas?
-            //      - We could create the cached glyph table version of our atlas for this instead.
-            //    + This is good because we will eventually need this.
-            
-            // 2) Use multiple fonts
-            
-            //    2.1) Use a megatexture that is all atlases concatenated, have atlas store an offset?
-            //         - This sounds hard, because this has to play nice with stbtt for creating correct Alignedquads
-            //         - NOTE(luca): this can end up being easier if we can pack multiple fonts into the same atlas with stbtt_PackFontRange() 
-            
-            //    2.2) Have an option to specify a texture per list of items, grouping the draw calls by texture.
-            //         - This sounds like the easiest.
-            //         + A similar system will probably be needed in the future i.e., specifying different rendering properties for an array of elements to draw whilst having the API have a single path for adding elements.
-            
-            //    2.3) Specify a second texture
-            //         - this makes the shader more complex
             
             local_persist app_font IconsFont = {0};
             if(!IconsFont.Initialized)
@@ -1776,8 +1834,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                     Atlas->PackedChars);
                     
                     // Icons
-{                    
-                    stbtt_PackFontRange(&Ctx, IconsFont.Info.data, 0, HeightPx, 
+                    {
+                        // NOTE(luca): We need to scale this so that it matches our font.
+                        f32 TextEmHeight = (f32)(App->Font.Ascent - App->Font.Descent);
+                        f32 IconsEmHeight = (f32)(IconsFont.Ascent - IconsFont.Descent);
+                        f32 ScaledHeight = App->HeightPx*(IconsEmHeight/TextEmHeight);
+                            
+                    stbtt_PackFontRange(&Ctx, IconsFont.Info.data, 0, ScaledHeight, 
                                         Atlas->IconsFirstCodepoint, Atlas->IconsCodepointsCount, 
                                         Atlas->PackedChars + Atlas->CodepointsCount);
                     }
@@ -1817,9 +1880,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
                  UI_BoxFlag_CenterTextHorizontally | UI_BoxFlag_CenterTextVertically |
                  UI_BoxFlag_Clip);
     s32 ButtonFlags = (Flags | UI_BoxFlag_MouseClickability);
-    s32 TitlebarFlags = (Flags ^ 
-                         UI_BoxFlag_DrawDisplayString ^ 
-                         UI_BoxFlag_DrawBackground);
     
     OS_ProfileAndPrint("UI setup");
     
@@ -1837,17 +1897,24 @@ UPDATE_AND_RENDER(UpdateAndRender)
     {
         PanelGetRegionAndInput(App->FirstPanel, FreeRegion);
         
-        if(!IsNilPanel(App->DebugPanel))
+        for EachNode(Node, panel_node, App->TextPanels)
         {
-            panel *Panel = App->DebugPanel;
-            ui_box *Root = Panel->Root;
+            panel *Panel = Node->Value;
+            app_text *Text = Node->Text;
             
+            ui_box *Root = 0;
+            if(UI_IsNilBox(Panel->Root))
+            {
+                Panel->Root = UI_BoxAlloc(App->UIBoxArena);
+            }
+            Root = Panel->Root;
+                
             Root->FixedPosition = Panel->Region.Min;
             Root->FixedSize = SizeFromRect(Panel->Region);
             Root->Rec = RectFromSize(Root->FixedPosition, Root->FixedSize);
             
             UI_State = PushStructZero(FrameArena, ui_state);
-            UI_InitState(App->DebugPanel->Root, Input, App);
+            UI_InitState(Root, Input, App);
             
             s32 Flags = (UI_BoxFlag_Clip |
                          UI_BoxFlag_DrawBorders |
@@ -1868,11 +1935,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 UI_SemanticWidth(UI_SizeParent(1.f, 1.f)) 
                     UI_SemanticHeight(UI_SizeText(2.f, 1.f))
                 {
-                    local_persist f64 StartTime; 
-                    DoOnce StartTime = OS_GetWallClock();
-                    
                     UI_SemanticHeight(UI_SizeChildren(1.f))
-                        UI_AddBox(S8(""), UI_BoxFlag_Clip);
+                        UI_AddBox(Str8Fmt("%p", Root), UI_BoxFlag_Clip);
                     
                     UI_Push()
                     {
@@ -1882,7 +1946,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         {
                             // Background
                             UI_SemanticWidth(UI_SizeParent(1.f, 1.f))
-                                UI_AddBox(S8(""), (UI_BoxFlag_DrawBackground|UI_BoxFlag_DrawBorders|
+                                UI_AddBox(S8("background"), (UI_BoxFlag_DrawBackground|UI_BoxFlag_DrawBorders|
                                                    UI_BoxFlag_FloatingX|UI_BoxFlag_Clip));
                             
                             if(UI_AddBox(S8("Open"), ButtonFlags)->Clicked)
@@ -1904,18 +1968,38 @@ UPDATE_AND_RENDER(UpdateAndRender)
                             }
                             
                             UI_SemanticWidth(UI_SizeParent(1.f, 0.f))
-                                UI_AddBox(S8(""), UI_BoxFlag_Clip);
+                                UI_AddBox(S8("spacer"), UI_BoxFlag_Clip);
                             
-                            if(UI_AddBox(S8("Close"), ButtonFlags)->Clicked)
+                            // Close panel button
+{                            
+                            b32 ShouldClosePanel = false;
+                            
+                            UI_SemanticWidth(UI_SizeText(2.f, 1.f))
+                                UI_TextColor(Color_Black)
+                                UI_FontKind(FontKind_Icon) 
+                                    
+                                    if(UI_AddBox(S8("b##close"), (UI_BoxFlag_Clip|
+                                                    UI_BoxFlag_DrawBackground|
+                                                    UI_BoxFlag_DrawDisplayString|
+                                                                              UI_BoxFlag_DrawBorders|
+                                                                              UI_BoxFlag_CenterTextHorizontally|
+                                                                              UI_BoxFlag_CenterTextVertically|
+                                                                       UI_BoxFlag_MouseClickability))->Clicked)
+                                {
+                                    ShouldClosePanel = true;
+                                }
+                                
+                            if(ShouldClosePanel)
                             {
-                                App->SelectedPanel = ClosePanel(App->DebugPanel);
-                                App->DebugPanel = NilPanel;
-                            }
+                                App->SelectedPanel = ClosePanel(App, Panel);
+                                    RemoveTextPanel(App, Node);
+                                }
+}
                         }
                     }
                     
                     UI_SemanticHeight(UI_SizeChildren(1.f)) 
-                        UI_AddBox(S8(""), UI_BoxFlag_Clip);
+                        UI_AddBox(S8("debug info"), UI_BoxFlag_Clip);
                     UI_Push() UI_SemanticWidth(UI_SizeText(4.f, 1.f)) UI_BorderThickness(1.f)
                     {
                         UI_AddBox(Str8Fmt("Rel:%lu/%lu###Line pos", Text->CurRelLine, Text->Lines - !!(Text->Lines > 0)), Flags);
@@ -1923,7 +2007,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         UI_AddBox(Str8Fmt("Cur:%lu/%lu###Text cursor pos", Text->Cursor, Text->Trail), Flags);
                         
                         UI_SemanticWidth(UI_SizeParent(1.f, 0.f)) UI_CornerRadii(V4(0.f, 0.f, 0.f, 0.f))
-                            UI_AddBox(S8(""), UI_BoxFlag_Clip|UI_BoxFlag_DrawBackground|UI_BoxFlag_DrawBorders);
+                            UI_AddBox(S8("remaining spacer"), UI_BoxFlag_Clip|UI_BoxFlag_DrawBackground|UI_BoxFlag_DrawBorders);
                     }
                     
                     // Text
@@ -1943,10 +2027,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     }
                 }
             }
-            
             UI_ResolveLayout(Root->First);
             
-            DrawRectIcon(&App->FontAtlas, V2(845.f, 8.f), 'b', Color_ButtonText); 
         }
     }
     
@@ -1954,7 +2036,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
     for EachIndex(Idx, App->UIBoxTableSize)
     {
         ui_box *First = App->UIBoxTable + Idx;
-        for(ui_box *Node = First; !UI_IsNilBox(Node); Node = Node->HashNext)
+        
+        for UI_EachHashBox(Node, First)
         {
             if(App->FrameIndex > Node->LastTouchedFrameIndex)
             {
@@ -2031,6 +2114,17 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     // NOTE(luca): This is so that we can split our initialization code if we want.
     Memory->Initialized = true;
+    
+#if 0
+    // NOTE(luca): Useful for profiling startup times.
+    if(App->FrameIndex == 2)
+    ShouldQuit = true;
+#endif
+    
+    if(IsNilPanel(App->FirstPanel))
+    {
+        ShouldQuit = true;
+    }
     
     return ShouldQuit;
 }

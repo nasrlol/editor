@@ -1,5 +1,9 @@
-- Display images through shader
 
+
+- seed on parent and previous sibling
+- prune boxes correctly after closing panel
+
+- Display images through shader
 - Sound
   - when hovering over an item
   - when clicking
@@ -40,6 +44,7 @@ x Clipboard
 sources:
   - https://www.dgtlgrove.com/p/ui-bonus-1-simple-single-line-text
   - https://rxi.github.io/textbox_behaviour.html
+
 
 - popup, lister and command palette
 

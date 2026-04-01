@@ -64,8 +64,6 @@ UI_BoxFlag_CenterTextVertically   = (1 << 7),
 UI_BoxFlag_MouseClickability      = (1 << 8),
 UI_BoxFlag_FloatingX              = (1 << 9),
 UI_BoxFlag_FloatingY              = (1 << 10),
-UI_BoxFlag_TextWrap               = (1 << 11),
-UI_BoxFlag_DrawTextCursor         = (1 << 12),
-UI_BoxFlag_Clip                   = (1 << 13),
+UI_BoxFlag_Clip                   = (1 << 11),
 };
 typedef enum ui_box_flag ui_box_flag;

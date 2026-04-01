@@ -105,10 +105,6 @@ DrawCharacter(app_offscreen_buffer *Buffer,  u8 *FontBitmap,
             
             f32 Alpha = ((f32)Brightness/255.0f);
             
-            f32 DR = (f32)((*Pixel >> 16) & 0xFF);
-            f32 DG = (f32)((*Pixel >> 8) & 0xFF);
-            f32 DB = (f32)((*Pixel >> 0) & 0xFF);
-            
 #if 0
             f32 R = Lerp(Color.R*255.0f, DR, Alpha);
             f32 G = Lerp(Color.G*255.0f, DG, Alpha);

@@ -13,6 +13,8 @@ UI_BoxAlloc(arena *Arena)
 {
     ui_box *Result = PushStructZero(Arena, ui_box);
     Result->First = Result->Last = Result->Next = Result->Prev = Result->Parent = UI_NilBox;
+    Result->HashNext = Result->HashPrev = UI_NilBox;
+    
     return Result;
 }
 
@@ -73,7 +75,6 @@ UI_AddBox(str8 String, s32 Flags)
     
     if(String.Size)
     {
-        u64 HashCutOff = 0;
         for EachIndex(Idx, String.Size - 1)
         {
             if(S8Match(S8From(String, Idx), S8("###"), true))
@@ -90,9 +91,19 @@ UI_AddBox(str8 String, s32 Flags)
             }
         }
         
+        if(S8Match(DisplayString, S8("Open"), false))
+        {
+            //DebugBreak();
+        }
+        
         // TODO(luca): Seed with sibling's hash as well?
         u64 AncestorKey = UI_State->Current->Parent->Key.U64[0];
         Key.U64[0] = U64HashFromSeedStr8(AncestorKey, String);
+        
+        if(Key.U64[0] == 10249263997430826443LLU)
+        {
+            //DebugBreak();
+        }
         
         // Get the box based on key
         {    
@@ -124,7 +135,7 @@ UI_AddBox(str8 String, s32 Flags)
                     }
                     
                     HashLast = HashBox;
-                    HashBox = HashBox->Next;
+                    HashBox = HashBox->HashNext;
                 }
                 
                 if(!UI_IsNilBox(HashBox))
@@ -164,6 +175,7 @@ UI_AddBox(str8 String, s32 Flags)
     Box->SemanticSize[Axis2_X] = UI_State->SemanticWidthTop->Value;
     Box->SemanticSize[Axis2_Y] = UI_State->SemanticHeightTop->Value;
     Box->HeightPx = UI_State->HeightPxTop->Value;
+    Box->FontKind = UI_State->FontKindTop->Value;
     Box->CustomDraw = 0;
     Box->CustomDrawData = 0;
     
@@ -188,6 +200,13 @@ UI_AddBox(str8 String, s32 Flags)
         Box->Clicked = Clicked;
         Box->Hovered = Hovered;
         Box->Pressed = Pressed;
+    }
+    else
+    {
+        // Clear input
+        Box->Clicked = false;
+        Box->Hovered = false;
+        Box->Pressed  = false;
     }
     
     // Add box to the tree
@@ -218,15 +237,44 @@ UI_AddBox(str8 String, s32 Flags)
     return Box;
 }
 
+internal rune 
+UI_GetShiftForFont(font_kind Kind)
+{
+    rune Result = 0;
+    
+    font_atlas *Atlas = UI_State->Atlas;
+    
+    switch(Kind)
+    {        
+        case FontKind_Text:
+        {
+            Result = 0;
+        } break;
+        case FontKind_Icon:
+        {        
+            Result = (Atlas->FirstCodepoint + 
+                     Atlas->CodepointsCount -
+                     Atlas->IconsFirstCodepoint);
+        } break;
+        default: break;
+    }
+    
+    return Result;
+}
+
 internal f32
-UI_MeasureTextWidth(str8 String)
+UI_MeasureTextWidth(str8 String, font_kind FontKind)
 {
     f32 Result = 0.f;
     
+    font_atlas *Atlas = UI_State->Atlas;
+    
+    rune Shift = UI_GetShiftForFont(FontKind) - Atlas->FirstCodepoint;
+    
     for EachIndex(Idx, String.Size)
     {
-        u8 Char = String.Data[Idx];
-        f32 CharWidth = (UI_State->Atlas->PackedChars[Char].xadvance);
+        rune Char = (rune)(String.Data[Idx]) + Shift;
+        f32 CharWidth = (Atlas->PackedChars[Char].xadvance);
         
         Result += CharWidth;
     }
@@ -251,7 +299,7 @@ UI_CalculateStandaloneSizes(ui_box *Box, axis2 Axis)
             // TODO(luca): This is the only part that needs the UI_State variable, if we can rid of it, we could get totally UI_State agnostic layout computation. 
             if(Axis == Axis2_X)
             {
-                Box->FixedSize.e[Axis] = (UI_MeasureTextWidth(Box->DisplayString) + 
+                Box->FixedSize.e[Axis] = (UI_MeasureTextWidth(Box->DisplayString, Box->FontKind) + 
                                           2.f*Box->SemanticSize[Axis].Value);
             }
             else
@@ -470,6 +518,8 @@ UI_DrawBoxes(ui_box *Box)
 {
     ui_box *Parent = Box->Parent;
     
+    font_atlas *Atlas = UI_State->Atlas;
+    
     v4 Dest = Box->Rec;
     
     if(Box->Flags & UI_BoxFlag_Clip)
@@ -522,31 +572,29 @@ UI_DrawBoxes(ui_box *Box)
             
             if(Box->Flags & UI_BoxFlag_CenterTextHorizontally)
             {
-                f32 TextWidth = UI_MeasureTextWidth(Box->DisplayString);
+                f32 TextWidth = UI_MeasureTextWidth(Box->DisplayString, Box->FontKind);
                 Cur.X += .5f*((Box->FixedSize.X - 2.f*Box->BorderThickness) - TextWidth);
             }
             
             if(Box->Flags & UI_BoxFlag_CenterTextVertically)
             {
-                f32 TextHeight = UI_State->Atlas->HeightPx;
+                f32 TextHeight = Atlas->HeightPx;
                 Cur.Y += .5f*((Box->FixedSize.Y - 2.f*Box->BorderThickness) - TextHeight);
             }
             
-            v2 MarkPos = {0};
-            
-            b32 DrawCursor = (Box->Flags & UI_BoxFlag_DrawTextCursor) ;
+            rune Shift = UI_GetShiftForFont(Box->FontKind);
             
             for EachIndex(Idx, Box->DisplayString.Size)
             {
-                rune Char = Box->DisplayString.Data[Idx];
-                f32 CharWidth = (UI_State->Atlas->PackedChars[Char].xadvance);
-                f32 CharHeight = (UI_State->Atlas->HeightPx);
+                rune Char = (rune)(Box->DisplayString.Data[Idx]) + Shift;
+                f32 CharWidth = (Atlas->PackedChars[Char - Atlas->FirstCodepoint].xadvance);
+                f32 CharHeight = (Atlas->HeightPx);
                 
                 v2 CurMax = V2AddV2(Cur, V2(CharWidth, CharHeight));
                 if(IsInsideRectV2(Cur, Dest) &&
                    IsInsideRectV2(CurMax, Dest))
                 {
-                    DrawRectChar(UI_State->Atlas, Cur, Char, Box->TextColor);
+                    DrawRectChar(Atlas, Cur, Char, Box->TextColor);
                     
                     Cur.X += CharWidth;
                 }
@@ -639,6 +687,7 @@ UI_InitState(ui_box *Root, app_input *Input, app_state *App)
     UI_PushSemanticWidth(UI_SizeParent(1.f, 1.f));
     UI_PushSemanticHeight(UI_SizeParent(1.f, 1.f));
     UI_PushHeightPx(App->HeightPx);
+    UI_PushFontKind(FontKind_Text);
     
     // NOTE(luca): This ensures every box has a parent, namely the root box.
     UI_PushBox();
@@ -648,7 +697,9 @@ internal void
 UI_ResolveLayout(ui_box *Root)
 {
     if(!UI_IsNilBox(Root))
-    {        
+    { 
+        Root->LastTouchedFrameIndex = UI_State->FrameIndex;
+        
         for EachIndex(Idx, (s32)Axis2_Count)
         {        
             axis2 Axis = (axis2)Idx;
