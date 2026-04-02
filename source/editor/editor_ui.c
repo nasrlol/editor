@@ -97,13 +97,10 @@ UI_AddBox(str8 String, s32 Flags)
         }
         
         // TODO(luca): Seed with sibling's hash as well?
+        // if parent key is null, you sould find top most parent whose key is not null
+            
         u64 AncestorKey = UI_State->Current->Parent->Key.U64[0];
         Key.U64[0] = U64HashFromSeedStr8(AncestorKey, String);
-        
-        if(Key.U64[0] == 10249263997430826443LLU)
-        {
-            //DebugBreak();
-        }
         
         // Get the box based on key
         {    

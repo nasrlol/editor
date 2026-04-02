@@ -98,7 +98,7 @@ Queues are used to counter interruptions.
 
 A "waiting area" can mitigate latency spikes caused by packets taking more time to being processed.
 
-Whenever customers are waiting we can choose to intepret the system as a queue and apply the insights to queues from there.
+Whenever customers are waiting we can choose to intepret this system as a queue and apply the insights to queues from there.
 Back pressure is when filled up queues stall other queues.
 
 E.g., You can make memory usage go down by processing faster since that will reduce the average amount of customers in the system.
@@ -114,3 +114,6 @@ You want a mechanism for informing the queue is full.
 # Sources
 - linux clipboard:
   https://movq.de/blog/postings/2017-04-02/0/POSTING-en.html
+- text box editing:
+  - https://www.dgtlgrove.com/p/ui-bonus-1-simple-single-line-text
+  - https://rxi.github.io/textbox_behaviour.html

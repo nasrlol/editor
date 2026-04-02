@@ -15,6 +15,9 @@
 #if !defined(EDITOR_FORCE_X11)
 # define EDITOR_FORCE_X11 0
 #endif
+#if !defined(EDITOR_FORCE_SMALL_RESOLUTION)
+# define EDITOR_FORCE_SMALL_RESOLUTION 0
+#endif
 
 #include "editor/editor_random.h"
 

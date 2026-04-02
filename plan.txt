@@ -1,97 +1,70 @@
-
-
-- seed on parent and previous sibling
-- prune boxes correctly after closing panel
-
-- Display images through shader
-- Sound
-  - when hovering over an item
-  - when clicking
-
-- make initialization with permanentarena homogenous
-  ? Poisoning should take care of everything, do the rest manually,  since we are using arena's it's not that much work
-
-- on windows get cling to run ./cling_temp.exe even when "norebuild" since that will be the most up-to-date version of the program.
-
-- Marker in arena's to not have to clear to 0 from freshly allocated pages.
-
-- linux: release clipboard when exiting
-- clipboard: use bool instead of second buffer `PlatftormSetClipboard`
-  x win32
-  - linux
-
-multiline text editing:
-- multiple buffers
-- when selecting with mouse, do not scroll
-- When selecting to the side of the text do select as well.
-- Virtual whitespace
-- Improve text rendering
-  - Check text rendering extensively (xoff & leftsidebearing)
-- Unicode
-  - kb_text_shape()
-  - harfbuzz
-  - implement all movements taking unicode into account
-x Scrolling text
-x Movements
-x Deletions
-x Selections
-x Clipboard
-  x linux
-  x win32
-- Undo/Redo
-- Non contiguous selection (e.g., with control)
-- Have text be clipped at pixel level and not rectangle level
-sources:
-  - https://www.dgtlgrove.com/p/ui-bonus-1-simple-single-line-text
-  - https://rxi.github.io/textbox_behaviour.html
-
-
-- popup, lister and command palette
-
-app:
-- bug when adding the same box twice.
-- panels resizing
-
-misc:
-- unified logs
-		- with date, system, level and stacktraces
-
-platform:
-- fix keyboard input (pressing & holding, vs text)
-  - easier query of keys & modifiers.
-- linux: investigate startup time.
-- window resizing
-- sleep when idle
-- custom borders and titlebar
-
-- Cmdline hash table
-
-- UI Input
-  - UI events as a queue so you can eat them
-- ? Use signal/comm to have all the events with flags
-  since the common case is no signal, it should be optional?
-
-- Implement properties from https://www.dgtlgrove.com/p/ui-part-3-the-widget-building-language
-- inset elements
-- panels
-  - rotate columns
-  - selected panel so that input events only go to one panel
-  - close panel button
-  - better positioned resize border
-- tabs
-- windows
-
-- tick() function?
+- Popup window / Prompt / Command palette
 
 - albedo sample 
 
 - Smooth smooth animations
   - self-correcting exponential animation curves for hot_t & active_t
 
+- Glyph cache for faster atlas creating
+
+- text: Undo/Redo
+- text: Have text be clipped at pixel level and not rectangle level
+
+- Display images through shader
+- Sound
+  - when hovering over an item
+  - when clicking
+
+- ui: Assert when adding the same box twice.
+
+- cling: On windows get cling to run ./cling_temp.exe even when "norebuild" since that will be the most up-to-date version of the program.
+
+- Marker in arena's to not have to clear to 0 from freshly allocated pages.
+
+- platform: linux: release clipboard when exiting
+ 
+- text: when selecting with mouse, do not scroll
+- text: When selecting to the side of the text do select as well.
+- text: Virtual whitespace
+- text: Improve text rendering
+  - Check text rendering extensively (xoff & leftsidebearing)
+- text: Unicode
+  - kb_text_shape()
+  - harfbuzz
+  - implement all movements taking unicode into account
+
+- text: Non contiguous selection (e.g., with control)
+
+- make initialization with permanentarena homogenous
+  ? Poisoning should take care of everything, do the rest manually,  since we are using arena's it's not that much work
+
+- platform: keyboard input (pressing & holding, vs text)
+  - easier query of keys & modifiers.
+  - to have key binds. (WasPressed(Control, 'c')
+- platform: linux: investigate startup time.
+  - choosing visual config ~40ms
+  - atlas = 90ms
+- platform: window resizing
+- platform: sleep when idle
+- platform: custom borders and titlebar
+
+- unified logs
+  - with date, system, level and stacktraces
+- Cmdline hash table
+
+- ui: Implement properties from https://www.dgtlgrove.com/p/ui-part-3-the-widget-building-language
+- ui: inset elements
+- ui: panels
+  - rotate columns
+  - tabs
+- ui: windows
+
+- tick() function?
+
 - win32: repaint and resizing.
   - 24:36
 
-- Shader:
+- shader:
   - group draw calls with those that need the same texture and those that don't without changing draw order (because foreground&background) 
   - find a way to push a texture for a number of rectangles
   - then pop when not adding characters anymore
@@ -144,3 +117,15 @@ x replace X macros
 x Eat up input events, because resizing a pane shouldn't be clicking buttons or selecting text.
   x concept of "selected" to receive key inputs.
 x Implement dragging in the platform layer
+x prune boxes correctly after closing panel
+x panels: resizing
+x panels: selected panel so that input events only go to one panel
+x panels: close panel button
+x panels: better positioned resize border
+x text: Scrolling text
+x text: Movements
+x text: Deletions
+x text: Selections
+x text: Clipboard
+x platform: clipboard: use bool instead of second buffer `PlatftormSetClipboard`
+x text: multiple buffers

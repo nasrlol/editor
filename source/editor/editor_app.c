@@ -588,9 +588,9 @@ UI_CUSTOM_DRAW(TextComputeAndDraw)
             
             if(IsWhiteSpace(Char) && VisualizeWhitespace)
             {
-                if (Char == L' ')       DrawChar = L'\u00B7'; // · Middle Dot
-                if (Char == L'\t')      DrawChar = L'\u2192'; // → Rightwards Arrow
-                if (Char == L'\n')      DrawChar = L'\u0024'; // $ Dollar Sign
+                if(Char == L' ')       DrawChar = L'\u00B7'; // · Middle Dot
+                if(Char == L'\t')      DrawChar = L'\u2192'; // → Rightwards Arrow
+                if(Char == L'\n')      DrawChar = L'\u0024'; // $ Dollar Sign
                 CharColor.A *= 0.2f;
             }
             
@@ -635,10 +635,7 @@ UI_CUSTOM_DRAW(TextComputeAndDraw)
             
             if(cos(Text->CursorAnimTime*Pi32*Ratio) < 0.f)
             {
-                if(0)
-                {
                     CursorColor.A = 0.f;
-                }
             }
             else
             {
@@ -1374,11 +1371,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
     PanelInput = Input;
     PanelApp = App;
     
-#if 0    
-    Text->PrevCursor = Text->Cursor;
-    #endif
-    
     panel_node *TextPanel = IsTextPanel(App, App->SelectedPanel);
+    if(TextPanel)
+    {
+        TextPanel->Text->PrevCursor = TextPanel->Text->Cursor;
+    }
     
     for EachIndex(Idx, Input->Text.Count)
     {
@@ -1902,6 +1899,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
             panel *Panel = Node->Value;
             app_text *Text = Node->Text;
             
+            if(Panel != App->SelectedPanel)
+            {
+                Text->CursorAnimTime = 0.f;
+            }
+            
             ui_box *Root = 0;
             if(UI_IsNilBox(Panel->Root))
             {
@@ -1997,7 +1999,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
 }
                         }
                     }
-                    
+
+#if EDITOR_INTERNAL                    
                     UI_SemanticHeight(UI_SizeChildren(1.f)) 
                         UI_AddBox(S8("debug info"), UI_BoxFlag_Clip);
                     UI_Push() UI_SemanticWidth(UI_SizeText(4.f, 1.f)) UI_BorderThickness(1.f)
@@ -2009,7 +2012,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         UI_SemanticWidth(UI_SizeParent(1.f, 0.f)) UI_CornerRadii(V4(0.f, 0.f, 0.f, 0.f))
                             UI_AddBox(S8("remaining spacer"), UI_BoxFlag_Clip|UI_BoxFlag_DrawBackground|UI_BoxFlag_DrawBorders);
                     }
-                    
+                    #endif
+
                     // Text
                     {                
                         UI_SemanticHeight(UI_SizeParent(1.f, 0.f))
