@@ -139,18 +139,18 @@ ENTRY_POINT(EntryPoint)
     if(LaneIndex() == 0)
     {
         Cng_InitAndRebuildSelf(Params->ArgsCount, Params->Args, Params->Env);
-
-{        
-        str8 Path = Cng_PathFromExe(Params->Args[0], S8(CLING_CODE_PATH CLING_BUILD_PATH));
-        OS_ChangeDirectory((char *)Path.Data);
+        
+        {        
+            str8 Path = Cng_PathFromExe(Params->Args[0], S8(CLING_BUILD_PATH));
+            OS_ChangeDirectory((char *)Path.Data);
         }
-
+        
         // Targets
-        b32 Editor = false;
+        b32 Editor = true;
         
         b32 HaversineProcessor = false;
         b32 HaversineGenerator = false;
-        b32 Sim86 = true;
+        b32 Sim86 = false;
         
         b32 Windows = false;
         b32 Linux = false;
@@ -215,18 +215,18 @@ ENTRY_POINT(EntryPoint)
                             
                             DeferLoop(MD_S8ListPushFmt(GlobalMDArena, &Stream, "enum %S\n{\n", Node->string),
                                       MD_S8ListPushFmt(GlobalMDArena, &Stream, "%S", MD_S8Lit("};\n\n")))
-{                            
-                            int MemberCount = 0;
-                            for(MD_EachNode(Member, TableNode->first_child))
-                            {
-                                MD_Node *MemberNode = MD_NodeAtIndex(Member->first_child, MemberIndex);
-                                
-                                MD_S8ListPushFmt(GlobalMDArena, &Stream, " Flag_%S = (1 << %d),\n", 
-                                                 MemberNode->string, MemberCount);
-                                MemberCount++;
+                            {                            
+                                int MemberCount = 0;
+                                for(MD_EachNode(Member, TableNode->first_child))
+                                {
+                                    MD_Node *MemberNode = MD_NodeAtIndex(Member->first_child, MemberIndex);
+                                    
+                                    MD_S8ListPushFmt(GlobalMDArena, &Stream, " Flag_%S = (1 << %d),\n", 
+                                                     MemberNode->string, MemberCount);
+                                    MemberCount++;
+                                }
                             }
-                            }
-
+                            
                             
                         }
                         
@@ -248,14 +248,14 @@ ENTRY_POINT(EntryPoint)
                             
                             DeferLoop(MD_S8ListPushFmt(GlobalMDArena, &Stream, "%S%S[] =\n{\n", Type, Node->string),
                                       MD_S8ListPushFmt(GlobalMDArena, &Stream, "%S", MD_S8Lit("};\n\n")))
-{                            
-                            for(MD_EachNode(Member, Table->first_child))
-                            {
-                                MD_Node *ValueNode  = MD_NodeAtIndex(Member->first_child, MemberIndex);
-                                MD_S8ListPushFmt(GlobalMDArena, &Stream, " %S,\n", ValueNode->raw_string);
+                            {                            
+                                for(MD_EachNode(Member, Table->first_child))
+                                {
+                                    MD_Node *ValueNode  = MD_NodeAtIndex(Member->first_child, MemberIndex);
+                                    MD_S8ListPushFmt(GlobalMDArena, &Stream, " %S,\n", ValueNode->raw_string);
+                                }
                             }
-                            }
-
+                            
                         }
                         
                         if(MD_NodeHasTag(Node, MD_S8Lit("table_gen_enum"), 0))
@@ -273,24 +273,24 @@ ENTRY_POINT(EntryPoint)
                             
                             DeferLoop(MD_S8ListPushFmt(GlobalMDArena, &Stream, "enum %S\n{\n", Node->raw_string),
                                       MD_S8ListPushFmt(GlobalMDArena, &Stream, "};\n"))
-{                                      
-                            for(MD_EachNode(Member, Table->first_child))
-                            {
-                                MD_Node *ValueNode  = MD_NodeAtIndex(Member->first_child, MemberIndex);
-                                if(Member != Table->first_child)
+                            {                                      
+                                for(MD_EachNode(Member, Table->first_child))
                                 {
-                                    MD_S8ListPushFmt(GlobalMDArena, &Stream, " %S%S,\n", Prefix, ValueNode->raw_string);
-                                }
-                                else
-                                {
-                                    MD_S8ListPushFmt(GlobalMDArena, &Stream, " %S%S = 0,\n", Prefix, ValueNode->raw_string);
+                                    MD_Node *ValueNode  = MD_NodeAtIndex(Member->first_child, MemberIndex);
+                                    if(Member != Table->first_child)
+                                    {
+                                        MD_S8ListPushFmt(GlobalMDArena, &Stream, " %S%S,\n", Prefix, ValueNode->raw_string);
+                                    }
+                                    else
+                                    {
+                                        MD_S8ListPushFmt(GlobalMDArena, &Stream, " %S%S = 0,\n", Prefix, ValueNode->raw_string);
+                                    }
                                 }
                             }
-                            }
-
+                            
                             
                         }
-                        }
+                    }
                     
                     WriteStreamToFile(Stream, "../code/computerenhance/haversine_generator/generated/types.h");
                 }
@@ -299,7 +299,7 @@ ENTRY_POINT(EntryPoint)
             // Haversine generator build
             {
                 str8_array *ExtraFlags = PushStr8Array(256);
-                    Str8ArrayAppendTo(ExtraFlags, S8("-I" CLING_CODE_PATH));
+                Str8ArrayAppendTo(ExtraFlags, S8("-I" CLING_CODE_PATH));
                 
                 LinuxMakeBuildCommand(S8("../code/computerenhance/haversine_generator/haversine_generator.c"), 
                                       S8("haversine_generator"),
@@ -317,19 +317,19 @@ ENTRY_POINT(EntryPoint)
             Log("[haversine processor]\n");
             
             if(Linux)
-{            
-            str8_array *ExtraFlags = PushStr8Array(256);
+            {            
+                str8_array *ExtraFlags = PushStr8Array(256);
                 Str8ArrayAppendTo(ExtraFlags, S8("-I" CLING_CODE_PATH
                                                  " -std=c++11"));
-            
-            LinuxMakeBuildCommand(S8("../code/computerenhance/haversine_processor/haversine_processor.c"), 
-                                  S8("haversine_processor"),
-                                  GCC, Clang, Asan, Debug,
-                                  ExtraFlags,
-                                  false);
-            
-            RunCommand();
-}
+                
+                LinuxMakeBuildCommand(S8("../code/computerenhance/haversine_processor/haversine_processor.c"), 
+                                      S8("haversine_processor"),
+                                      GCC, Clang, Asan, Debug,
+                                      ExtraFlags,
+                                      false);
+                
+                RunCommand();
+            }
         }
         
         if(Sim86)
@@ -357,12 +357,12 @@ ENTRY_POINT(EntryPoint)
         {            
             Log("[editor]\n");
             
-                // Metaprogram
+            // Metaprogram
             {
                 Log("Generating code...\n");
                 
                 GlobalMDArena = MD_ArenaAlloc();
-                MD_String8 FileName = MD_S8Lit("./editor/tables.mdesk");
+                MD_String8 FileName = MD_S8Lit("../code/editor/tables.mdesk");
                 MD_ParseResult Parse = MD_ParseWholeFile(GlobalMDArena, FileName);
                 
                 // Print metadesk errors
@@ -387,21 +387,21 @@ ENTRY_POINT(EntryPoint)
                         
                         DeferLoop(MD_S8ListPush(GlobalMDArena, &CStream, MD_S8Lit("//- Colors begin\n")),
                                   MD_S8ListPush(GlobalMDArena, &CStream, MD_S8Lit("//- Colors end\n")))
-{                            
-                        for(MD_EachNode(Node, ColorsTable->first_child))
-                        {
-                            MD_Node *ColorName = MD_NodeAtIndex(Node->first_child, 0);
-                            MD_Node *ColorValue = MD_NodeAtIndex(Node->first_child, 1);
-                            MD_S8ListPushFmt(GlobalMDArena, &CStream, "const u32 ColorU32_%S = %S;\n", ColorName->string, ColorValue->string);
-                        }
-                        
-                        for(MD_EachNode(Node, ColorsTable->first_child))
-                        {
-                            MD_Node *ColorName = MD_NodeAtIndex(Node->first_child, 0);
-                            MD_Node *ColorValue = MD_NodeAtIndex(Node->first_child, 1);
-                            MD_S8ListPushFmt(GlobalMDArena, &CStream, "v4 Color_%S = {U32ToV4Arg(%S)};\n", ColorName->string, ColorValue->string);
+                        {                            
+                            for(MD_EachNode(Node, ColorsTable->first_child))
+                            {
+                                MD_Node *ColorName = MD_NodeAtIndex(Node->first_child, 0);
+                                MD_Node *ColorValue = MD_NodeAtIndex(Node->first_child, 1);
+                                MD_S8ListPushFmt(GlobalMDArena, &CStream, "const u32 ColorU32_%S = %S;\n", ColorName->string, ColorValue->string);
+                            }
                             
-                        }
+                            for(MD_EachNode(Node, ColorsTable->first_child))
+                            {
+                                MD_Node *ColorName = MD_NodeAtIndex(Node->first_child, 0);
+                                MD_Node *ColorValue = MD_NodeAtIndex(Node->first_child, 1);
+                                MD_S8ListPushFmt(GlobalMDArena, &CStream, "v4 Color_%S = {U32ToV4Arg(%S)};\n", ColorName->string, ColorValue->string);
+                                
+                            }
                         }
                     }
                     
@@ -414,39 +414,39 @@ ENTRY_POINT(EntryPoint)
                         MD_S8ListPush(GlobalMDArena, &VSStream, ShaderPreTable->first_child->string);
                         
                         DeferLoop(MD_S8ListPushFmt(GlobalMDArena, &VSStream, "\n//- Generated code start\n"),
-                        MD_S8ListPushFmt(GlobalMDArena, &VSStream, "\n//- Generated code end\n"))
-{                        
-                        MD_Node *RectPSCodeTable = MD_FirstNodeWithString(Root, MD_S8Lit("RectPSCode"), 0);
-                        MD_S8ListPush(GlobalMDArena, &PSStream, RectPSCodeTable->first_child->string);
+                                  MD_S8ListPushFmt(GlobalMDArena, &VSStream, "\n//- Generated code end\n"))
+                        {                        
+                            MD_Node *RectPSCodeTable = MD_FirstNodeWithString(Root, MD_S8Lit("RectPSCode"), 0);
+                            MD_S8ListPush(GlobalMDArena, &PSStream, RectPSCodeTable->first_child->string);
+                            
+                            DeferLoop(MD_S8ListPushFmt(GlobalMDArena, &CStream,
+                                                       "s32 RectVSAttribOffsets[] =\n{\n"),
+                                      MD_S8ListPushFmt(GlobalMDArena, &CStream, "};\n"))
+                            {                        
+                                s32 Index = 0;
+                                for(MD_EachNode(Node, Table->first_child))
+                                {
+                                    MD_Node *Name = MD_NodeAtIndex(Node->first_child, 0);
+                                    MD_Node *Size = MD_NodeAtIndex(Node->first_child, 1);
+                                    
+                                    MD_String8 TypeName = MD_S8Lit("null");
+                                    
+                                    if(0) {}
+                                    else if(MD_S8Match(Size->string, MD_S8Lit("1"), 0)) TypeName = MD_S8Lit("f32");
+                                    else if(MD_S8Match(Size->string, MD_S8Lit("4"), 0)) TypeName = MD_S8Lit("v4");
+                                    else InvalidPath();
+                                    
+                                    MD_S8ListPushFmt(GlobalMDArena, &VSStream, 
+                                                     "layout (location = %2d) in %3S %S;\n", 
+                                                     Index, TypeName, Name->string);
+                                    MD_S8ListPushFmt(GlobalMDArena, &CStream,
+                                                     "%S,\n", Size->string);
+                                    
+                                    Index += 1;
+                                }
+                            }
+                        }
                         
-                        DeferLoop(MD_S8ListPushFmt(GlobalMDArena, &CStream,
-                                                   "s32 RectVSAttribOffsets[] =\n{\n"),
-                                  MD_S8ListPushFmt(GlobalMDArena, &CStream, "};\n"))
-{                        
-                        s32 Index = 0;
-                        for(MD_EachNode(Node, Table->first_child))
-                        {
-                            MD_Node *Name = MD_NodeAtIndex(Node->first_child, 0);
-                            MD_Node *Size = MD_NodeAtIndex(Node->first_child, 1);
-                            
-                            MD_String8 TypeName = MD_S8Lit("null");
-                            
-                            if(0) {}
-                            else if(MD_S8Match(Size->string, MD_S8Lit("1"), 0)) TypeName = MD_S8Lit("f32");
-                            else if(MD_S8Match(Size->string, MD_S8Lit("4"), 0)) TypeName = MD_S8Lit("v4");
-                            else InvalidPath();
-                            
-                            MD_S8ListPushFmt(GlobalMDArena, &VSStream, 
-                                             "layout (location = %2d) in %3S %S;\n", 
-                                             Index, TypeName, Name->string);
-                            MD_S8ListPushFmt(GlobalMDArena, &CStream,
-                                             "%S,\n", Size->string);
-                            
-                            Index += 1;
-                        }
-                        }
-}
-
                         MD_S8ListPush(GlobalMDArena, &VSStream, ShaderPostTable->first_child->string);
                     }
                     
@@ -459,31 +459,31 @@ ENTRY_POINT(EntryPoint)
                                   MD_S8ListPushFmt(GlobalMDArena, &CStream, 
                                                    "};\n"
                                                    "typedef enum ui_box_flag ui_box_flag;\n"))
-{                        
-                        u64 MaxWidth = 0;
-                        for(MD_EachNode(Node, Table->first_child))
-                        {
-                            MaxWidth = Max(Node->string.size, MaxWidth);
-                        }
-                        
-                        s32 Index = 0;
-                        s32 Value = 0;
-                        
-                        for(MD_EachNode(Node, Table->first_child))
-                        {
-                            if(Index > 0) Value = 1;
-                            MD_S8ListPushFmt(GlobalMDArena, &CStream, 
-                                             "UI_BoxFlag_%-*S = (%d << %d),\n",
-                                             MaxWidth, Node->string, Value, Index);
+                        {                        
+                            u64 MaxWidth = 0;
+                            for(MD_EachNode(Node, Table->first_child))
+                            {
+                                MaxWidth = Max(Node->string.size, MaxWidth);
+                            }
                             
-                            Index += 1;
-                        }
+                            s32 Index = 0;
+                            s32 Value = 0;
+                            
+                            for(MD_EachNode(Node, Table->first_child))
+                            {
+                                if(Index > 0) Value = 1;
+                                MD_S8ListPushFmt(GlobalMDArena, &CStream, 
+                                                 "UI_BoxFlag_%-*S = (%d << %d),\n",
+                                                 MaxWidth, Node->string, Value, Index);
+                                
+                                Index += 1;
+                            }
                         }
                     }
                     
-                    WriteStreamToFile(CStream, "./editor/generated/everything.c");
-                    WriteStreamToFile(VSStream, "./editor/generated/rect_vert.glsl");
-                    WriteStreamToFile(PSStream, "./editor/generated/rect_frag.glsl");
+                    WriteStreamToFile(CStream, "../code/editor/generated/everything.c");
+                    WriteStreamToFile(VSStream, "../code/editor/generated/rect_vert.glsl");
+                    WriteStreamToFile(PSStream, "../code/editor/generated/rect_frag.glsl");
                 }
                 
             }
@@ -492,7 +492,7 @@ ENTRY_POINT(EntryPoint)
             {
                 str8_array *EditorFlags = PushStr8Array(256);
                 Str8ArrayAppendTo(EditorFlags, S8("-I" CLING_CODE_PATH));
-                if(OS_FileExists("base/base_build.h"))
+                if(OS_FileExists(CLING_CODE_PATH "base/base_build.h"))
                 {
                     Personal = true;
                     Str8ArrayAppendTo(EditorFlags, S8("-DEDITOR_PERSONAL=1"));

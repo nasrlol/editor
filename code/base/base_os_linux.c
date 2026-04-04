@@ -322,6 +322,16 @@ LinuxMainEntryPoint(int ArgsCount, char **Args, char **Env)
     Ret = pthread_barrier_init((pthread_barrier_t *)Barrier, 0, (u32)ThreadsCount);
     Assert(Ret == 0);
     
+    char **ArgsParam = PushArray(Arena, char *, (u64)ArgsCount);
+    {            
+        MemoryCopy(ArgsParam, Args, sizeof(char *)*(u64)ArgsCount);
+        char *Path = PushArray(Arena, char, PATH_MAX);
+        smm Size = readlink("/proc/self/exe", Path, (PATH_MAX - 1));
+        Path[Size] = 0;
+        ArgsParam[0] = Path;
+        Arena->Pos -= PATH_MAX - (umm)(Size + 1);
+    }
+    
     for EachIndex(Idx, ThreadsCount)
     {
         entry_point_params *Params = &Threads[Idx].Params;
@@ -329,7 +339,7 @@ LinuxMainEntryPoint(int ArgsCount, char **Args, char **Env)
         Params->Context.LaneCount = ThreadsCount;
         Params->Context.Barrier   = Barrier;
         Params->Context.SharedStorage = &SharedStorage;
-        Params->Args = Args;
+        Params->Args = ArgsParam;
         Params->Env = Env;
         Params->ArgsCount = ArgsCount;
         
