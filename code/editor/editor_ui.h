@@ -43,7 +43,6 @@ struct ui_key
     u64 U64[1];
 }; 
 
-
 #define UI_CUSTOM_DRAW(Name) void Name(void *CustomDrawData)
 typedef UI_CUSTOM_DRAW(ui_custom_draw);
 
@@ -81,13 +80,16 @@ struct ui_box
     f32 HeightPx;
     font_kind FontKind;
     
+    f32 tHot;
+    f32 tActive;
+    
     // Produced from layout resolving
     v2 FixedPosition;
     v2 FixedSize;
     
     // Computed per build
-    b32 Hovered;
     b32 Clicked;
+    b32 Hovered;
     b32 Pressed;
     v4 Rec;
 };
@@ -140,39 +142,45 @@ struct font_kind_stack_node
     font_kind Value;
 };
 
+// TODO(luca): Metaprogram
+#define UI_StateStacks \
+v4_stack_node *BackgroundColorTop; \
+v4_stack_node *BorderColorTop; \
+v4_stack_node *TextColorTop; \
+f32_stack_node *SoftnessTop; \
+f32_stack_node *BorderThicknessTop; \
+v4_stack_node *CornerRadiiTop; \
+axis2_stack_node *LayoutAxisTop; \
+ui_size_stack_node *SemanticHeightTop; \
+ui_size_stack_node *SemanticWidthTop; \
+f32_stack_node *HeightPxTop; \
+font_kind_stack_node *FontKindTop;
+
 //-
 typedef struct ui_state ui_state;
 struct ui_state
 {
-    ui_box *Root;
-    ui_box *Current;
-    b32 AppendToParent;
+    arena *Arena;
+    u64 BoxTableSize;
+    ui_box *BoxTable;
     
+    ui_key Active;
+    ui_key Hot;
+    
+    // Per build information
     app_input *Input;
     font_atlas *Atlas;
     u64 FrameIndex;
     
-    // TODO(luca): Metaprogram
-    v4_stack_node *BackgroundColorTop;
-    v4_stack_node *BorderColorTop;
-    v4_stack_node *TextColorTop;
-    f32_stack_node *SoftnessTop;
-    f32_stack_node *BorderThicknessTop;
-    v4_stack_node *CornerRadiiTop;
-    axis2_stack_node *LayoutAxisTop;
-    ui_size_stack_node *SemanticHeightTop;
-    ui_size_stack_node *SemanticWidthTop;
-    f32_stack_node *HeightPxTop;
-    font_kind_stack_node *FontKindTop;
-    
-    b32 RectDebugMode;
+    b32 AppendToParent;
+    ui_box *Current;
+    struct
+    {
+    UI_StateStacks
+    };
 };
 
 //~ Globals
-global_variable arena *UI_BoxArena = 0;
-global_variable ui_box *UI_BoxTable = 0;
-global_variable u64 UI_BoxTableSize = 0;
-
 global_variable ui_state *UI_State = 0;
 
 global_variable ui_box *UI_NilBox = 0;

@@ -125,10 +125,8 @@ struct app_state
     f32 PreviousHeightPx;
     f32 HeightPx;
     
-    // TODO(luca): Move this over to UI state
-    arena *UIBoxArena;
-    u64 UIBoxTableSize;
-    ui_box *UIBoxTable;
+    // TODO(luca): Move to UI state ?
+    arena *UIArena;
     
     panel *TitlebarPanel;
     

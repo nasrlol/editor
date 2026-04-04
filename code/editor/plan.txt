@@ -1,9 +1,12 @@
-- Popup window / Prompt / Command palette
-
-- albedo sample 
-
 - Smooth smooth animations
   - self-correcting exponential animation curves for hot_t & active_t
+
+- Popup window / Prompt / Command palette
+
+- Common UI button behavior
+  - only "clicked" when button was pressed mouse goes up inside of it
+
+- albedo sample 
 
 - Glyph cache for faster atlas creating
 
@@ -39,6 +42,8 @@
 
 - make initialization with permanentarena homogenous
   ? Poisoning should take care of everything, do the rest manually,  since we are using arena's it's not that much work
+  - We should only be pushing once on PermanentArena.
+    And be able to push onto PermanentArena when !Memory->Initialized
 
 - platform: keyboard input (pressing & holding, vs text)
   - easier query of keys & modifiers.

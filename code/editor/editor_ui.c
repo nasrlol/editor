@@ -65,6 +65,20 @@ UI_KeyMatch(ui_key A, ui_key B)
     return Result;
 }
 
+internal b32
+UI_IsActive(ui_box *Box)
+{
+    b32 Result = UI_KeyMatch(UI_State->Active, Box->Key);
+    return Result;
+}
+
+internal b32
+UI_IsHot(ui_box *Box)
+{
+    b32 Result = UI_KeyMatch(UI_State->Hot, Box->Key);
+    return Result;
+}
+
 internal ui_box *
 UI_AddBox(str8 String, s32 Flags)
 {
@@ -104,8 +118,8 @@ UI_AddBox(str8 String, s32 Flags)
         
         // Get the box based on key
         {    
-            u64 Slot = (Key.U64[0] % UI_BoxTableSize);
-            ui_box *HashBox = UI_BoxTable + Slot;
+            u64 Slot = (Key.U64[0] % UI_State->BoxTableSize);
+            ui_box *HashBox = UI_State->BoxTable + Slot;
             ui_box *HashLast = 0;
             
             // There are three scenarios
@@ -144,7 +158,7 @@ UI_AddBox(str8 String, s32 Flags)
                 else
                 {
                     //2.2
-                    HashLast->HashNext = PushStruct(UI_BoxArena, ui_box);
+                    HashLast->HashNext = PushStruct(UI_State->Arena, ui_box);
                     Box = HashLast->HashNext;
                     Box->HashPrev = HashLast;
                 }
@@ -187,10 +201,42 @@ UI_AddBox(str8 String, s32 Flags)
         {        
             v2 MouseP = V2S32(Input->Mouse.X, Input->Mouse.Y);
             
-            Hovered = IsInsideRectV2(MouseP, RectFromSize(Box->FixedPosition, Box->FixedSize));
-            Clicked = (Hovered && (WasPressed(Input->Mouse.Buttons[PlatformMouseButton_Left]))); 
-            Pressed = (Hovered && Input->Mouse.Buttons[PlatformMouseButton_Left].EndedDown);
+            app_button_state MouseLeft = Input->Mouse.Buttons[PlatformMouseButton_Left];
             
+            Hovered = IsInsideRectV2(MouseP, RectFromSize(Box->FixedPosition, Box->FixedSize));
+            Pressed = (Hovered && MouseLeft.EndedDown);
+            
+            // Set active and hot state
+{            
+                b32 IsActive = UI_IsActive(Box);
+                b32 IsHot = UI_IsHot(Box);
+                b32 MouseWentUp = (!MouseLeft.EndedDown && MouseLeft.HalfTransitionCount > 0);
+                
+                if(IsActive)
+            {
+                    if(MouseWentUp)
+                    {
+                        if(IsHot)
+                        {
+                            Clicked = true;
+                        }
+                        UI_State->Active = UI_KeyNull();
+                    }
+                }
+                else if(IsHot)
+                {
+                    if(WasPressed(MouseLeft))
+                    {
+                        UI_State->Active = Box->Key;
+                    }
+                }
+            
+            if(Hovered)
+            {
+                UI_State->Hot = Box->Key;
+            }
+            }
+
                 Input->Consumed = Hovered;
         }
         
@@ -203,7 +249,7 @@ UI_AddBox(str8 String, s32 Flags)
         // Clear input
         Box->Clicked = false;
         Box->Hovered = false;
-        Box->Pressed  = false;
+        Box->Pressed = false;
     }
     
     // Add box to the tree
@@ -279,7 +325,7 @@ UI_MeasureTextWidth(str8 String, font_kind FontKind)
     return Result;
 }
 
-//- Calculations Start 
+//~ Calculations Start 
 
 internal void
 UI_CalculateStandaloneSizes(ui_box *Box, axis2 Axis)
@@ -615,7 +661,8 @@ UI_DrawBoxes(ui_box *Box)
         }
     }
     
-    if(UI_State->RectDebugMode || Box->Flags & UI_BoxFlag_DrawDebugBorder)
+    b32 RectDebugMode = false;
+    if(RectDebugMode || Box->Flags & UI_BoxFlag_DrawDebugBorder)
     {    
         DrawRect(Dest, V4(1.f, 0.f, 1.f, 1.f), 0.f, 1.f, 0.f);
     }
@@ -657,38 +704,7 @@ UI_DebugPrintBoxes(ui_box *Box)
     }
 }
 
-//- Calculations End
-
-internal void
-UI_InitState(ui_box *Root, app_input *Input, app_state *App)
-{
-    UI_State->Root = Root;
-    UI_State->Current = Root;
-    UI_State->AppendToParent = false;
-    UI_State->Input = Input;
-    UI_State->Atlas = &App->FontAtlas;
-    UI_State->FrameIndex = App->FrameIndex;
-    
-    UI_BoxTableSize = App->UIBoxTableSize;
-    UI_BoxTable = App->UIBoxTable;
-    UI_BoxArena = App->UIBoxArena;
-    
-    // Defaults
-    UI_PushBackgroundColor(Color_ButtonBackground);
-    UI_PushTextColor(Color_ButtonText);
-    UI_PushBorderColor(Color_ButtonBorder);
-    UI_PushSoftness(.5f);
-    UI_PushBorderThickness(2.f);
-    UI_PushCornerRadii(V4(5.f, 5.f, 5.f, 5.f));
-    UI_PushLayoutAxis(Axis2_X);
-    UI_PushSemanticWidth(UI_SizeParent(1.f, 1.f));
-    UI_PushSemanticHeight(UI_SizeParent(1.f, 1.f));
-    UI_PushHeightPx(App->HeightPx);
-    UI_PushFontKind(FontKind_Text);
-    
-    // NOTE(luca): This ensures every box has a parent, namely the root box.
-    UI_PushBox();
-}
+//~ Calculations End
 
 internal void
 UI_ResolveLayout(ui_box *Root)

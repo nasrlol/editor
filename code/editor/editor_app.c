@@ -377,35 +377,35 @@ DrawRectChar(font_atlas *Atlas, v2 Pos, rune Codepoint, v4 Color)
     b32 Supported = (Codepoint >= Atlas->FirstCodepoint && 
                      Codepoint < Atlas->CodepointsCount - Atlas->FirstCodepoint);
     if(1 || Supported)
-{        
-    rune CharIdx = Codepoint - Atlas->FirstCodepoint;
-    stbtt_packedchar *PackedChar = &Atlas->PackedChars[CharIdx];
-    stbtt_aligned_quad *Quad = &Atlas->AlignedQuads[CharIdx];
-    f32 Width = (PackedChar->x1 - PackedChar->x0);
-    f32 Height = (PackedChar->y1 - PackedChar->y0);
-    {    
-        v2 Min = Pos;
-        // TODO(luca): Looks off, maybe rounding is incorrect, investigate...
-        Min.X += (PackedChar->xoff);
-        f32 Baseline = GetBaseline(Atlas->Font, Atlas->FontScale);
-        f32 Descent = (f32)Atlas->Font->Descent*Atlas->FontScale;
-        Min.Y += (PackedChar->yoff) + Baseline + Descent;
+    {        
+        rune CharIdx = Codepoint - Atlas->FirstCodepoint;
+        stbtt_packedchar *PackedChar = &Atlas->PackedChars[CharIdx];
+        stbtt_aligned_quad *Quad = &Atlas->AlignedQuads[CharIdx];
+        f32 Width = (PackedChar->x1 - PackedChar->x0);
+        f32 Height = (PackedChar->y1 - PackedChar->y0);
+        {    
+            v2 Min = Pos;
+            // TODO(luca): Looks off, maybe rounding is incorrect, investigate...
+            Min.X += (PackedChar->xoff);
+            f32 Baseline = GetBaseline(Atlas->Font, Atlas->FontScale);
+            f32 Descent = (f32)Atlas->Font->Descent*Atlas->FontScale;
+            Min.Y += (PackedChar->yoff) + Baseline + Descent;
+            
+            v2 Max = V2(Min.X + Width, Min.Y + Height);
+            
+            Result = DrawRect(Dest, Color, 0.f, 0.f, 0.f);
+            
+            Result->Dest = Rect(Min.X, Min.Y, Max.X, Max.Y);
+            Result->TexSrc = Rect(Quad->s0, Quad->t0, Quad->s1, Quad->t1);
+        }
         
-        v2 Max = V2(Min.X + Width, Min.Y + Height);
+        Result->HasTexture = true;
         
-        Result = DrawRect(Dest, Color, 0.f, 0.f, 0.f);
-        
-        Result->Dest = Rect(Min.X, Min.Y, Max.X, Max.Y);
-        Result->TexSrc = Rect(Quad->s0, Quad->t0, Quad->s1, Quad->t1);
-    }
-    
-    Result->HasTexture = true;
-    
 #if 0
-    DrawRect(Result->Dest, V4(0.f, 0.f, 1.f, 1.f), 0.f, 1.f, 0.f);
+        DrawRect(Result->Dest, V4(0.f, 0.f, 1.f, 1.f), 0.f, 1.f, 0.f);
 #endif
     }
-
+    
     return Result;
 }
 
@@ -506,7 +506,6 @@ UI_CUSTOM_DRAW(TextComputeAndDraw)
             Log("BOL: %lu, Line: %lu, Offset: %lu\n", BeginningOfLineIdx, LineFromCursor, StartOffset);
         }
     }
-    
     
     Pen = TextDim.Min;
     for(u64 Idx = StartOffset; Idx < Text->Count; Idx += 1)
@@ -635,7 +634,7 @@ UI_CUSTOM_DRAW(TextComputeAndDraw)
             
             if(cos(Text->CursorAnimTime*Pi32*Ratio) < 0.f)
             {
-                    CursorColor.A = 0.f;
+                CursorColor.A = 0.f;
             }
             else
             {
@@ -755,115 +754,115 @@ SplitPanel(arena *Arena, panel *To, s32 Axis, b32 Backwards)
     
     if(!IsNilPanel(To))
     {
-    // NOTE(luca): Must be a leaf node.
-    Assert(IsLeafPanel(To));
-    
-    if(Axis == Parent->Axis)
-    {
-        //The new child's ParentPct becomes 1/n where n is the children count
-        //Other children's ParentPct *= (1-1/n) 
-        {        
-            s32 ChildrenCount = 0;
-            for EachChildPanel(Child, Parent)
-            {
-                ChildrenCount += 1;
-            }
-            
-            Assert(ChildrenCount > 0);
-            // The new child
-            ChildrenCount += 1;
-            
-            New->ParentPct = 1.f/(f32)ChildrenCount;;
-            
-            for EachChildPanel(Child, Parent)
-            {
-                Child->ParentPct *= (1.f - New->ParentPct);
-            }
-        }
+        // NOTE(luca): Must be a leaf node.
+        Assert(IsLeafPanel(To));
         
-        New->Parent = Parent;
-        
-        if(!Backwards)
+        if(Axis == Parent->Axis)
         {
-            if(To == Parent->Last)
-            {
-                Parent->Last = New;
+            //The new child's ParentPct becomes 1/n where n is the children count
+            //Other children's ParentPct *= (1-1/n) 
+            {        
+                s32 ChildrenCount = 0;
+                for EachChildPanel(Child, Parent)
+                {
+                    ChildrenCount += 1;
+                }
+                
+                Assert(ChildrenCount > 0);
+                // The new child
+                ChildrenCount += 1;
+                
+                New->ParentPct = 1.f/(f32)ChildrenCount;;
+                
+                for EachChildPanel(Child, Parent)
+                {
+                    Child->ParentPct *= (1.f - New->ParentPct);
+                }
             }
+            
+            New->Parent = Parent;
+            
+            if(!Backwards)
+            {
+                if(To == Parent->Last)
+                {
+                    Parent->Last = New;
+                }
+            }
+            else
+            {
+                if(To == Parent->First)
+                {
+                    Parent->First = New;
+                }
+            }
+            
+            if(!Backwards)
+            {    
+                New->Next = To->Next;
+                
+                if(!IsNilPanel(To->Next)) To->Next->Prev = New;
+                
+                To->Next = New;
+                New->Prev = To;
+            }
+            else
+            {
+                New->Next = To;
+                
+                if(!IsNilPanel(To->Prev)) To->Prev->Next = New;
+                
+                New->Prev = To->Prev;
+                To->Prev = New;
+            }
+            
+            Result = New;
         }
         else
         {
+            //1. Create NewParent replacing Parent
+            //  - update To siblings and Parent child links
+            //2. To becomes child of NewParent
+            //3. Split To
+            
+            panel *NewParent = New;
+            NewParent->Axis = Axis;
+            NewParent->ParentPct = To->ParentPct;
+            NewParent->Parent = Parent;
+            
+            //1.
             if(To == Parent->First)
             {
-                Parent->First = New;
+                Parent->First = NewParent;
             }
-        }
-        
-        if(!Backwards)
-        {    
-            New->Next = To->Next;
             
-            if(!IsNilPanel(To->Next)) To->Next->Prev = New;
+            if(To == Parent->Last)
+            {
+                Parent->Last = NewParent;
+            }
             
-            To->Next = New;
-            New->Prev = To;
-        }
-        else
-        {
-            New->Next = To;
+            if(!IsNilPanel(To->Prev))
+            {
+                To->Prev->Next = NewParent;
+                NewParent->Prev = To->Prev;
+            }
             
-            if(!IsNilPanel(To->Prev)) To->Prev->Next = New;
+            if(!IsNilPanel(To->Next))
+            {
+                To->Next->Prev = NewParent;
+                NewParent->Next = To->Next;
+            }
             
-            New->Prev = To->Prev;
-            To->Prev = New;
+            //2. 
+            To->Parent = NewParent;
+            NewParent->First = To;
+            NewParent->Last = To;
+            To->Next = To->Prev = NilPanel;
+            
+            //3. 
+            To->ParentPct = 1.f;
+            Result = SplitPanel(Arena, To, Axis, Backwards); 
         }
-        
-        Result = New;
-    }
-    else
-    {
-        //1. Create NewParent replacing Parent
-        //  - update To siblings and Parent child links
-        //2. To becomes child of NewParent
-        //3. Split To
-        
-        panel *NewParent = New;
-        NewParent->Axis = Axis;
-        NewParent->ParentPct = To->ParentPct;
-        NewParent->Parent = Parent;
-        
-        //1.
-        if(To == Parent->First)
-        {
-            Parent->First = NewParent;
-        }
-        
-        if(To == Parent->Last)
-        {
-            Parent->Last = NewParent;
-        }
-        
-        if(!IsNilPanel(To->Prev))
-        {
-            To->Prev->Next = NewParent;
-            NewParent->Prev = To->Prev;
-        }
-        
-        if(!IsNilPanel(To->Next))
-        {
-            To->Next->Prev = NewParent;
-            NewParent->Next = To->Next;
-        }
-        
-        //2. 
-        To->Parent = NewParent;
-        NewParent->First = To;
-        NewParent->Last = To;
-        To->Next = To->Prev = NilPanel;
-        
-        //3. 
-        To->ParentPct = 1.f;
-        Result = SplitPanel(Arena, To, Axis, Backwards); 
-    }
     }
     
     return Result;
@@ -935,9 +934,9 @@ PanelNextLeaf(panel *Start, b32 Backwards)
             Result = Start;
         }
         else
-{
-        Result = Search;
-}
+        {
+            Result = Search;
+        }
     }
     
     return Result;
@@ -988,7 +987,7 @@ ClosePanel(app_state *App, panel *Panel)
             }
             else
             {
-                 // NOTE(luca): Last node of its parent, parent should get deleted.  End of the bloodline.
+                // NOTE(luca): Last node of its parent, parent should get deleted.  End of the bloodline.
                 Collapse = ClosePanel(App, Panel->Parent);
             }
             
@@ -1036,159 +1035,159 @@ PanelGetRegionAndInput(panel *Panel, v4 FreeRegion)
     if(!IsNilPanel(Panel))
     {       
         Panel->Region = RectFromSize(Pos, Size);
-    
-    if(!IsNilPanel(Panel->First))
-    {
-        PanelGetRegionAndInput(Panel->First, Panel->Region);
-    }
-    
-    if(!IsNilPanel(Panel->Next))
-    {
-        FreeRegion.Min.e[Axis] = Panel->Region.Max.e[Axis];
-        PanelGetRegionAndInput(Panel->Next, FreeRegion);
-    }
-    
-    app_input *Input = PanelInput;
-    v2 MouseP = V2S32(Input->Mouse.X, Input->Mouse.Y);
-    
-    b32 MouseIsDown = false;
-    b32 MouseWasPressed = false;
-    b32 IsInsidePanel = false;
-    
-    if(1)
-    {    
-        MouseIsDown = Input->Mouse.Buttons[PlatformMouseButton_Left].EndedDown;
-        MouseWasPressed = WasPressed(Input->Mouse.Buttons[PlatformMouseButton_Left]);
-        IsInsidePanel = IsInsideRectV2(MouseP, Panel->Region);
-    }
-    
-    b32 HasResizeBorder = !IsNilPanel(Panel->Next); 
-    
-    v4 PanelBorderColor = Color_Blue;
-    
-    if(Panel == PanelApp->SelectedPanel)
-    {
-        PanelBorderColor = Color_Yellow;
-    }
-    
-    // NOTE(luca): This happens post-order so that the borders are overlaid correctly.
-    b32 HasContents = IsNilPanel(Panel->First);
-    
-    // draw panel rectangle
-    if(HasContents)
-    {
-        if(IsInsidePanel && MouseWasPressed)
+        
+        if(!IsNilPanel(Panel->First))
         {
-            PanelApp->SelectedPanel = Panel;
+            PanelGetRegionAndInput(Panel->First, Panel->Region);
         }
         
-        Panel->Region = RectShrink(Panel->Region, GapSize);
-        DrawRect(Panel->Region, PanelBorderColor, 0.f, PanelBorderSize, 0.f);
-        
-        Panel->Region = RectShrink(Panel->Region, PanelBorderSize);
-    }
-    
-    if(HasResizeBorder)
-    {
-        v4 BorderColor = Color_Red;
-        f32 BorderSize = 8.f;
-        
-        v2 MouseP = V2S32(PanelInput->Mouse.X, PanelInput->Mouse.Y);
-        
-        v4 Border = Panel->Region;
-        
-        Border.Max.e[Axis] += PanelBorderSize;
-        
-        Border.Min.e[Axis] = Border.Max.e[Axis];
-        
-        Border.Min.e[Axis] -= BorderSize; 
-        Border.Max.e[Axis] += BorderSize;
-        
-        b32 Down = false;
-        b32 Pressed = false;
-        b32 IsInsideBorder = false;
-        if(!Input->Consumed && (IsNilPanel(PanelDragging) || Panel == PanelDragging))
+        if(!IsNilPanel(Panel->Next))
         {
-            Pressed = WasPressed(Input->Mouse.Buttons[PlatformMouseButton_Left]);
-            Down = Input->Mouse.Buttons[PlatformMouseButton_Left].EndedDown;
-            IsInsideBorder = IsInsideRectV2(MouseP, Border);
-            
-            if(PanelDragging == Panel && !Down) 
+            FreeRegion.Min.e[Axis] = Panel->Region.Max.e[Axis];
+            PanelGetRegionAndInput(Panel->Next, FreeRegion);
+        }
+        
+        app_input *Input = PanelInput;
+        v2 MouseP = V2S32(Input->Mouse.X, Input->Mouse.Y);
+        
+        b32 MouseIsDown = false;
+        b32 MouseWasPressed = false;
+        b32 IsInsidePanel = false;
+        
+        if(1)
+        {    
+            MouseIsDown = Input->Mouse.Buttons[PlatformMouseButton_Left].EndedDown;
+            MouseWasPressed = WasPressed(Input->Mouse.Buttons[PlatformMouseButton_Left]);
+            IsInsidePanel = IsInsideRectV2(MouseP, Panel->Region);
+        }
+        
+        b32 HasResizeBorder = !IsNilPanel(Panel->Next); 
+        
+        v4 PanelBorderColor = Color_Blue;
+        
+        if(Panel == PanelApp->SelectedPanel)
+        {
+            PanelBorderColor = Color_Yellow;
+        }
+        
+        // NOTE(luca): This happens post-order so that the borders are overlaid correctly.
+        b32 HasContents = IsNilPanel(Panel->First);
+        
+        // draw panel rectangle
+        if(HasContents)
+        {
+            if(IsInsidePanel && MouseWasPressed)
             {
-                PanelDragging = NilPanel;
+                PanelApp->SelectedPanel = Panel;
             }
+            
+            Panel->Region = RectShrink(Panel->Region, GapSize);
+            DrawRect(Panel->Region, PanelBorderColor, 0.f, PanelBorderSize, 0.f);
+            
+            Panel->Region = RectShrink(Panel->Region, PanelBorderSize);
         }
         
-        if(IsInsideBorder)
+        if(HasResizeBorder)
         {
-            Input->Consumed = true;
-            Input->PlatformCursor = (PlatformCursorShape_ResizeHorizontal + Axis);
+            v4 BorderColor = Color_Red;
+            f32 BorderSize = 8.f;
             
-            BorderColor = Color_Blue;
+            v2 MouseP = V2S32(PanelInput->Mouse.X, PanelInput->Mouse.Y);
             
-            if(IsNilPanel(PanelDragging) && Pressed)
-            {                
-                PanelDragging = Panel; 
-            }
-        }
-        
-        b32 IsDragging = (PanelDragging == Panel && Down); 
-        if(IsDragging)
-        {
-            Input->Consumed = true;
-            Input->PlatformCursor = (PlatformCursorShape_ResizeHorizontal + Axis);
+            v4 Border = Panel->Region;
             
-            BorderColor = Color_Yellow;
+            Border.Max.e[Axis] += PanelBorderSize;
             
-            // Resize
+            Border.Min.e[Axis] = Border.Max.e[Axis];
+            
+            Border.Min.e[Axis] -= BorderSize; 
+            Border.Max.e[Axis] += BorderSize;
+            
+            b32 Down = false;
+            b32 Pressed = false;
+            b32 IsInsideBorder = false;
+            if(!Input->Consumed && (IsNilPanel(PanelDragging) || Panel == PanelDragging))
             {
-                panel *Next = Panel->Next;
-                AssertMsg(!IsNilPanel(Next), "Panel should have a next panel since it has a resize border");
+                Pressed = WasPressed(Input->Mouse.Buttons[PlatformMouseButton_Left]);
+                Down = Input->Mouse.Buttons[PlatformMouseButton_Left].EndedDown;
+                IsInsideBorder = IsInsideRectV2(MouseP, Border);
                 
-                f32 Size = SizeOnAxis(PanelApp->FirstPanel->Region, Axis);
-                f32 Pct = MouseP.e[Axis]/Size;
-                
-                // NOTE(luca): Will the calculations be wrong because we don't account for gap size?
-                // no it might create the illusion that we should not be resizing though, but I guess that's fine
-                
-                //1. Position of mouse in the region of the panel
-                //2. Subtra ct all Pcts before 
-                
-                //Dec->ParentPct -= Value;
-                
-                //
-                
-                f32 dPPct = Pct;
-                for(panel *Sibling = Panel; !IsNilPanel(Sibling); Sibling = Sibling->Prev)
+                if(PanelDragging == Panel && !Down) 
                 {
-                    dPPct -= Sibling->ParentPct;
+                    PanelDragging = NilPanel;
                 }
+            }
+            
+            if(IsInsideBorder)
+            {
+                Input->Consumed = true;
+                Input->PlatformCursor = (PlatformCursorShape_ResizeHorizontal + Axis);
                 
-                f32 AbsMin = .05f;
+                BorderColor = Color_Blue;
                 
-                panel *Inc = Panel;
-                panel *Dec = Next;
-                if(dPPct < 0.f)
+                if(IsNilPanel(PanelDragging) && Pressed)
+                {                
+                    PanelDragging = Panel; 
+                }
+            }
+            
+            b32 IsDragging = (PanelDragging == Panel && Down); 
+            if(IsDragging)
+            {
+                Input->Consumed = true;
+                Input->PlatformCursor = (PlatformCursorShape_ResizeHorizontal + Axis);
+                
+                BorderColor = Color_Yellow;
+                
+                // Resize
                 {
-                    Swap(Inc, Dec);
-                    dPPct = -dPPct;
-                }
-                
-                if(Dec->ParentPct - dPPct >= AbsMin)
-                {                    
-                    Inc->ParentPct += dPPct;
-                    Dec->ParentPct -= dPPct;
+                    panel *Next = Panel->Next;
+                    AssertMsg(!IsNilPanel(Next), "Panel should have a next panel since it has a resize border");
+                    
+                    f32 Size = SizeOnAxis(PanelApp->FirstPanel->Region, Axis);
+                    f32 Pct = MouseP.e[Axis]/Size;
+                    
+                    // NOTE(luca): Will the calculations be wrong because we don't account for gap size?
+                    // no it might create the illusion that we should not be resizing though, but I guess that's fine
+                    
+                    //1. Position of mouse in the region of the panel
+                    //2. Subtra ct all Pcts before 
+                    
+                    //Dec->ParentPct -= Value;
+                    
+                    //
+                    
+                    f32 dPPct = Pct;
+                    for(panel *Sibling = Panel; !IsNilPanel(Sibling); Sibling = Sibling->Prev)
+                    {
+                        dPPct -= Sibling->ParentPct;
+                    }
+                    
+                    f32 AbsMin = .05f;
+                    
+                    panel *Inc = Panel;
+                    panel *Dec = Next;
+                    if(dPPct < 0.f)
+                    {
+                        Swap(Inc, Dec);
+                        dPPct = -dPPct;
+                    }
+                    
+                    if(Dec->ParentPct - dPPct >= AbsMin)
+                    {                    
+                        Inc->ParentPct += dPPct;
+                        Dec->ParentPct -= dPPct;
+                    }
+                    
                 }
                 
             }
             
-        }
-        
 #if 0
-        DrawRect(Border, BorderColor, 0.f, 0.f, 0.f);
+            DrawRect(Border, BorderColor, 0.f, 0.f, 0.f);
 #endif
+        }
     }
-}
 }
 
 internal panel_node *
@@ -1211,28 +1210,28 @@ internal void
 RemoveTextPanel(app_state *App, panel_node *Node)
 {
     if(Node)
-{
-    panel_node *PreviousNode = 0;
-    for EachPanel(Previous, App->TextPanels)
     {
-        if(Previous->Next == Node)
+        panel_node *PreviousNode = 0;
+        for EachPanel(Previous, App->TextPanels)
         {
-            PreviousNode = Previous;
-            break;
+            if(Previous->Next == Node)
+            {
+                PreviousNode = Previous;
+                break;
+            }
+        }
+        
+        if(PreviousNode)
+        {
+            PreviousNode->Next = Node->Next;
+        }
+        else
+        {
+            Assert(Node == App->TextPanels);
+            App->TextPanels = App->TextPanels->Next;
         }
     }
     
-    if(PreviousNode)
-    {
-        PreviousNode->Next = Node->Next;
-    }
-    else
-    {
-        Assert(Node == App->TextPanels);
-        App->TextPanels = App->TextPanels->Next;
-    }
-    }
-
 }
 
 //~
@@ -1274,9 +1273,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         App->TextArena = PushArena(PermanentArena, MB(64), false);
         App->FontAtlasArena = PushArena(PermanentArena, MB(150), false);
         
-        App->UIBoxTableSize = 4096;
-        App->UIBoxTable = PushArray(PermanentArena, ui_box, App->UIBoxTableSize);
-        App->UIBoxArena = PushArena(PermanentArena, MB(64), false);
+        App->UIArena = PushArena(PermanentArena, MB(64), false);
         
         PanelArena = App->PanelArena = PushArena(PermanentArena, ArenaAllocDefaultSize, false);
     }
@@ -1337,27 +1334,16 @@ UPDATE_AND_RENDER(UpdateAndRender)
             {
                 panel *RootPanel = PanelAdd(1.f);
                 
-                    PanelAxis(Axis2_Y) PanelGroup()
-                    {
-                        PanelAdd(.4f);
-                        PanelGroup()
-                        {            
-                            PanelAdd(.33f);
-                            PanelAdd(.33f);
-                            PanelAdd(.34f);
-                        }
-                        PanelAdd(.6f);
-                        PanelGroup()
-                        {            
-                            panel *Panel = PanelAdd(.6f);
-                            App->SelectedPanel = Panel;
-                            
-                            PanelAdd(.4f);
-                        }
-                    }
+                PanelAxis(Axis2_Y) PanelGroup()
+                {
+                    PanelAdd(.4f);
+                    PanelAdd(.6f);
+                }
                 App->FirstPanel = RootPanel;
+            }
         }
-        }
+        
+        App->SelectedPanel = PanelNextLeaf(App->FirstPanel, false);
         
         OS_ProfileAndPrint("Memory Init");
     }
@@ -1405,8 +1391,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         else
                         {
                             RemoveTextPanel(App, TextPanel);
-
-                        App->SelectedPanel = ClosePanel(App, App->SelectedPanel);
+                            
+                            App->SelectedPanel = ClosePanel(App, App->SelectedPanel);
                         }
                     } break;
                     
@@ -1415,20 +1401,20 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         panel *Panel = App->SelectedPanel;
                         
                         if(!IsNilPanel(Panel) && !IsTextPanel(App, Panel))
-{                        
-                        panel_node *New =  PushStructZero(PanelArena, panel_node);
+                        {                        
+                            panel_node *New =  PushStructZero(PanelArena, panel_node);
                             
                             New->Text = PushStructZero(App->TextArena, app_text);
                             New->Text->Capacity = KB(64);
                             New->Text->Data = PushArray(App->TextArena, rune, New->Text->Capacity);
                             
-                        New->Next = App->TextPanels;
-                        App->TextPanels = New;
-                        
-                        New->Value = Panel;
+                            New->Next = App->TextPanels;
+                            App->TextPanels = New;
+                            
+                            New->Value = Panel;
                         }
-
-                        } break;
+                        
+                    } break;
                     
                     case '-':
                     {
@@ -1443,7 +1429,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         App->SelectedPanel = (IsNilPanel(App->SelectedPanel) ?
                                               PanelNextLeaf(App->FirstPanel, true) :
                                               (!Shift ?
-                                              PanelNextLeaf(App->SelectedPanel, false) :
+                                               PanelNextLeaf(App->SelectedPanel, false) :
                                                PanelNextLeaf(App->SelectedPanel, true)));
                     } break;
                 }
@@ -1742,21 +1728,21 @@ UPDATE_AND_RENDER(UpdateAndRender)
     {    
         app_text *Text = TextPanel->Text;
         
-    UpdateCursorRelLine(Text);
-    
-    if(Text->Lines != 0)
-    {        
-        if(Text->CurRelLine != 0)
+        UpdateCursorRelLine(Text);
+        
+        if(Text->Lines != 0)
+        {        
+            if(Text->CurRelLine != 0)
+            {
+                Text->CurRelLine %= Text->Lines;
+            }
+        }
+        else
         {
-            Text->CurRelLine %= Text->Lines;
+            Text->CurRelLine = 0;
         }
     }
-    else
-    {
-        Text->CurRelLine = 0;
-    }
-    }
-
+    
     OS_ProfileAndPrint("Input");
     
     glViewport(0, 0, Buffer->Width, Buffer->Height);
@@ -1779,9 +1765,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     App->HeightPx = 24.f;
     
     //- Draw text
-        if(App->PreviousHeightPx != App->HeightPx)
-        {
-            App->PreviousHeightPx = App->HeightPx;
+    if(App->PreviousHeightPx != App->HeightPx)
+    {
+        App->PreviousHeightPx = App->HeightPx;
         
         // Init atlas
         { 
@@ -1800,35 +1786,35 @@ UPDATE_AND_RENDER(UpdateAndRender)
             if(Font->Initialized)
             {
                 Atlas->FirstCodepoint = ' ';
-            // NOTE(luca): 2 bytes =>small alphabets.
-            Atlas->CodepointsCount = ((0xFFFF - 1) - Atlas->FirstCodepoint);
+                // NOTE(luca): 2 bytes =>small alphabets.
+                Atlas->CodepointsCount = ((0xFFFF - 1) - Atlas->FirstCodepoint);
                 Atlas->IconsFirstCodepoint = 'a';
                 Atlas->IconsCodepointsCount = 2;
                 
                 Atlas->Width = KB(1);
                 Atlas->Height = KB(2);
-            u64 Size = (u64)(Atlas->Width*Atlas->Height);
-            
-            Arena->Pos = 0;
+                u64 Size = (u64)(Atlas->Width*Atlas->Height);
+                
+                Arena->Pos = 0;
                 Atlas->Data = PushArray(Arena, u8, Size);
                 s32 CodepointsCount = (Atlas->CodepointsCount + Atlas->IconsCodepointsCount);
                 Atlas->PackedChars = PushArray(Arena, stbtt_packedchar, (u64)CodepointsCount);
                 Atlas->AlignedQuads = PushArray(Arena, stbtt_aligned_quad, (u64)CodepointsCount);
-            
-            Atlas->HeightPx = HeightPx;
-            Atlas->FontScale = stbtt_ScaleForPixelHeight(&Font->Info, HeightPx);
-            Atlas->Font = Font;
-            
-            stbtt_pack_context Ctx;
-            {
-                stbtt_PackBegin(&Ctx, 
-                                Atlas->Data,
-                                Atlas->Width, Atlas->Height,
-                                0, 1, 0);
                 
-                stbtt_PackFontRange(&Ctx, Font->Info.data, 0, HeightPx, 
-                                    Atlas->FirstCodepoint, Atlas->CodepointsCount, 
-                                    Atlas->PackedChars);
+                Atlas->HeightPx = HeightPx;
+                Atlas->FontScale = stbtt_ScaleForPixelHeight(&Font->Info, HeightPx);
+                Atlas->Font = Font;
+                
+                stbtt_pack_context Ctx;
+                {
+                    stbtt_PackBegin(&Ctx, 
+                                    Atlas->Data,
+                                    Atlas->Width, Atlas->Height,
+                                    0, 1, 0);
+                    
+                    stbtt_PackFontRange(&Ctx, Font->Info.data, 0, HeightPx, 
+                                        Atlas->FirstCodepoint, Atlas->CodepointsCount, 
+                                        Atlas->PackedChars);
                     
                     // Icons
                     {
@@ -1836,28 +1822,37 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         f32 TextEmHeight = (f32)(App->Font.Ascent - App->Font.Descent);
                         f32 IconsEmHeight = (f32)(IconsFont.Ascent - IconsFont.Descent);
                         f32 ScaledHeight = App->HeightPx*(IconsEmHeight/TextEmHeight);
-                            
-                    stbtt_PackFontRange(&Ctx, IconsFont.Info.data, 0, ScaledHeight, 
-                                        Atlas->IconsFirstCodepoint, Atlas->IconsCodepointsCount, 
-                                        Atlas->PackedChars + Atlas->CodepointsCount);
+                        
+                        stbtt_PackFontRange(&Ctx, IconsFont.Info.data, 0, ScaledHeight, 
+                                            Atlas->IconsFirstCodepoint, Atlas->IconsCodepointsCount, 
+                                            Atlas->PackedChars + Atlas->CodepointsCount);
                     }
-
+                    
                     stbtt_PackEnd(&Ctx);
-            }
-            
+                }
+                
                 for EachIndex(Idx, CodepointsCount)
                 {
-                float UnusedX, UnusedY;
-                stbtt_GetPackedQuad(Atlas->PackedChars, Atlas->Width, Atlas->Height, 
-                                    Idx,
-                                    &UnusedX, &UnusedY,
+                    float UnusedX, UnusedY;
+                    stbtt_GetPackedQuad(Atlas->PackedChars, Atlas->Width, Atlas->Height, 
+                                        Idx,
+                                        &UnusedX, &UnusedY,
                                         &Atlas->AlignedQuads[Idx], 0);
+                }
             }
-            }
-}
         }
+    }
     
     OS_ProfileAndPrint("Atlas");
+    
+    if(!UI_State)
+    {
+        UI_State = PushStructZero(App->UIArena, ui_state);
+        
+        UI_State->Arena = App->UIArena;
+        UI_State->BoxTableSize = 4096;
+        UI_State->BoxTable = PushArray(UI_State->Arena, ui_box, UI_State->BoxTableSize);
+    }
     
     // Draw rectangles 
     {
@@ -1881,14 +1876,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
     OS_ProfileAndPrint("UI setup");
     
     v4 FreeRegion;
-{    
-    v2 Pos = V2(0.f, 0.f);
-    v2 Size = BufferDim;
-    Pos = V2AddF32(Pos, WindowBorderSize);
-    Size = V2SubF32(Size, 2.f*WindowBorderSize);
-    FreeRegion = RectFromSize(Pos, Size);
+    {    
+        v2 Pos = V2(0.f, 0.f);
+        v2 Size = BufferDim;
+        Pos = V2AddF32(Pos, WindowBorderSize);
+        Size = V2SubF32(Size, 2.f*WindowBorderSize);
+        FreeRegion = RectFromSize(Pos, Size);
     }
-
+    
     // UI Panels
     
     {
@@ -1907,16 +1902,37 @@ UPDATE_AND_RENDER(UpdateAndRender)
             ui_box *Root = 0;
             if(UI_IsNilBox(Panel->Root))
             {
-                Panel->Root = UI_BoxAlloc(App->UIBoxArena);
+                Panel->Root = UI_BoxAlloc(App->UIArena);
             }
             Root = Panel->Root;
-                
+            
             Root->FixedPosition = Panel->Region.Min;
             Root->FixedSize = SizeFromRect(Panel->Region);
             Root->Rec = RectFromSize(Root->FixedPosition, Root->FixedSize);
             
-            UI_State = PushStructZero(FrameArena, ui_state);
-            UI_InitState(Root, Input, App);
+            // Init state
+            {
+                UI_State->Atlas = &App->FontAtlas;
+                UI_State->FrameIndex = App->FrameIndex;
+                UI_State->Input = Input;
+                
+                UI_State->Current = Root;
+                UI_State->AppendToParent = true;
+                
+                // Defaults
+                // NOTE(luca): This is slightly since what we should be doing here is *setting* and not *pushing*.  But since we don't modify the top item this shouldn't be a problem in practice.t
+                UI_PushBackgroundColor(Color_ButtonBackground);
+                UI_PushTextColor(Color_ButtonText);
+                UI_PushBorderColor(Color_ButtonBorder);
+                UI_PushSoftness(.5f);
+                UI_PushBorderThickness(2.f);
+                UI_PushCornerRadii(V4(5.f, 5.f, 5.f, 5.f));
+                UI_PushLayoutAxis(Axis2_X);
+                UI_PushSemanticWidth(UI_SizeParent(1.f, 1.f));
+                UI_PushSemanticHeight(UI_SizeParent(1.f, 1.f));
+                UI_PushHeightPx(App->HeightPx);
+                UI_PushFontKind(FontKind_Text);
+}
             
             s32 Flags = (UI_BoxFlag_Clip |
                          UI_BoxFlag_DrawBorders |
@@ -1949,7 +1965,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                             // Background
                             UI_SemanticWidth(UI_SizeParent(1.f, 1.f))
                                 UI_AddBox(S8("background"), (UI_BoxFlag_DrawBackground|UI_BoxFlag_DrawBorders|
-                                                   UI_BoxFlag_FloatingX|UI_BoxFlag_Clip));
+                                                             UI_BoxFlag_FloatingX|UI_BoxFlag_Clip));
                             
                             if(UI_AddBox(S8("Open"), ButtonFlags)->Clicked)
                             {
@@ -1973,33 +1989,33 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                 UI_AddBox(S8("spacer"), UI_BoxFlag_Clip);
                             
                             // Close panel button
-{                            
-                            b32 ShouldClosePanel = false;
-                            
-                            UI_SemanticWidth(UI_SizeText(2.f, 1.f))
-                                UI_TextColor(Color_Black)
-                                UI_FontKind(FontKind_Icon) 
+                            {                            
+                                b32 ShouldClosePanel = false;
+                                
+                                UI_SemanticWidth(UI_SizeText(2.f, 1.f))
+                                    UI_TextColor(Color_Black)
+                                    UI_FontKind(FontKind_Icon) 
                                     
                                     if(UI_AddBox(S8("b##close"), (UI_BoxFlag_Clip|
-                                                    UI_BoxFlag_DrawBackground|
-                                                    UI_BoxFlag_DrawDisplayString|
-                                                                              UI_BoxFlag_DrawBorders|
-                                                                              UI_BoxFlag_CenterTextHorizontally|
-                                                                              UI_BoxFlag_CenterTextVertically|
-                                                                       UI_BoxFlag_MouseClickability))->Clicked)
+                                                                  UI_BoxFlag_DrawBackground|
+                                                                  UI_BoxFlag_DrawDisplayString|
+                                                                  UI_BoxFlag_DrawBorders|
+                                                                  UI_BoxFlag_CenterTextHorizontally|
+                                                                  UI_BoxFlag_CenterTextVertically|
+                                                                  UI_BoxFlag_MouseClickability))->Clicked)
                                 {
                                     ShouldClosePanel = true;
                                 }
                                 
-                            if(ShouldClosePanel)
-                            {
-                                App->SelectedPanel = ClosePanel(App, Panel);
+                                if(ShouldClosePanel)
+                                {
+                                    App->SelectedPanel = ClosePanel(App, Panel);
                                     RemoveTextPanel(App, Node);
                                 }
-}
+                            }
                         }
                     }
-
+                    
 #if EDITOR_INTERNAL                    
                     UI_SemanticHeight(UI_SizeChildren(1.f)) 
                         UI_AddBox(S8("debug info"), UI_BoxFlag_Clip);
@@ -2012,8 +2028,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         UI_SemanticWidth(UI_SizeParent(1.f, 0.f)) UI_CornerRadii(V4(0.f, 0.f, 0.f, 0.f))
                             UI_AddBox(S8("remaining spacer"), UI_BoxFlag_Clip|UI_BoxFlag_DrawBackground|UI_BoxFlag_DrawBorders);
                     }
-                    #endif
-
+#endif
+                    
                     // Text
                     {                
                         UI_SemanticHeight(UI_SizeParent(1.f, 0.f))
@@ -2037,9 +2053,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     
     // Prune unused boxes
-    for EachIndex(Idx, App->UIBoxTableSize)
+    for EachIndex(Idx, UI_State->BoxTableSize)
     {
-        ui_box *First = App->UIBoxTable + Idx;
+        ui_box *First = UI_State->BoxTable + Idx;
         
         for UI_EachHashBox(Node, First)
         {
@@ -2122,7 +2138,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
 #if 0
     // NOTE(luca): Useful for profiling startup times.
     if(App->FrameIndex == 2)
-    ShouldQuit = true;
+        ShouldQuit = true;
 #endif
     
     if(IsNilPanel(App->FirstPanel))

@@ -41,13 +41,13 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
         *Running = true;
         
         app_offscreen_buffer Buffer = {0};
-        #if EDITOR_FORCE_SMALL_RESOLUTION
+#if EDITOR_FORCE_SMALL_RESOLUTION
         Buffer.Width = 1920/2;
         Buffer.Height = 1080/2;
 #else
         Buffer.Width = 1920;
         Buffer.Height = 1080;
-        #endif
+#endif
         Buffer.BytesPerPixel = 4;
         Buffer.Pitch = Buffer.BytesPerPixel*Buffer.Width;
         Buffer.Pixels = PushArray(PermanentArena, u8, (u64)(Buffer.Pitch*Buffer.Height));
