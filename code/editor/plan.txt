@@ -1,6 +1,14 @@
 - Smooth smooth animations
   - self-correcting exponential animation curves for hot_t & active_t
 
+- Platorm replay improvements
+  - Separate renderer such that we can also render some debug UI from the platform. (Overlay debug info)
+  - Forward/Backward 1 frame
+  - Multiple slots
+  - Save/Load replay to/from file
+
+- Fat panel struct instead of text panel nodes.
+
 - Popup window / Prompt / Command palette
 
 - Common UI button behavior

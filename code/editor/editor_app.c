@@ -529,10 +529,10 @@ UI_CUSTOM_DRAW(TextComputeAndDraw)
         {
             b32 IsInSelection = false;
             
+            v4 CharRect = RectFromSize(Pen, V2(CharWidth, Box->HeightPx));
+            
             range_u64 Selection = GetSelection(Text);
             IsInSelection = (Idx >= Selection.Min && Idx < Selection.Max); 
-            
-            v4 CharRect = RectFromSize(Pen, V2(CharWidth, Box->HeightPx));
             
             if(IsInSelection)
             {
@@ -541,7 +541,7 @@ UI_CUSTOM_DRAW(TextComputeAndDraw)
                 DrawRect(CharRect, SelectionColor, 0.f, 0.f, 0.f);
             }
             
-            // Mouse text input
+            
             app_input *Input = UI_State->Input;
             if(!Input->Consumed)
             {                
@@ -551,19 +551,24 @@ UI_CUSTOM_DRAW(TextComputeAndDraw)
                 {
                     b32 OnRightSide = !!(((CharRect.Max.X - MouseP.X)/CharWidth) < .5f); 
                     
-                    app_button_state *LeftButton = &Input->Mouse.Buttons[PlatformMouseButton_Left];
-                    b32 Shift = (LeftButton->Modifiers & PlatformKeyModifier_Shift);
+                    app_button_state LeftButton = Input->Mouse.Buttons[PlatformMouseButton_Left];
+                    b32 Shift = (LeftButton.Modifiers & PlatformKeyModifier_Shift);
                     
-                    if(LeftButton->EndedDown)
-                    {
-                        Text->Trail = Idx + (u64)OnRightSide;
-                        if(WasPressed(*LeftButton))
+                    if(LeftButton.EndedDown)
                         {
+                            if(UI_IsActive(UI_NilBox))
+                            {
+                            Text->Trail = Idx + (u64)OnRightSide;
+                        Log("Here: %lu.\n", Text->Trail);
+                        if(WasPressed(LeftButton))
+                        {
+                        Log("Pressed.\n");
                             if(!Shift)
                             {
                                 Text->Cursor = Text->Trail;
                                 Text->CursorAnimTime = 0.f;
                             }
+                }
                             
                             Input->Consumed = true;
                         }
@@ -573,15 +578,13 @@ UI_CUSTOM_DRAW(TextComputeAndDraw)
                     {
                         DrawRect(CharRect, Color_Red, 0.f, 1.f, 0.f); 
                     }
-                }
-                
                 
                 if(0 && Idx == BeginningOfLineIdx)
                 {
                     DrawRect(CharRect, Color_Green, 0.f, 1.f, 0.f);
                 }
-                
             }
+}
             
             b32 VisualizeWhitespace = true;
             
@@ -1329,17 +1332,26 @@ UPDATE_AND_RENDER(UpdateAndRender)
         gl_InitState(&App->Render);
         
         // Panels
-        {        
+        { 
+            // TODO(luca): Invert axis on group.
             PanelAxis(Axis2_X) PanelGroup()
             {
-                panel *RootPanel = PanelAdd(1.f);
+                App->FirstPanel = PanelAdd(1.f);
                 
                 PanelAxis(Axis2_Y) PanelGroup()
                 {
                     PanelAdd(.4f);
                     PanelAdd(.6f);
+                        if(IsEditorBuildInternal)
+{
+                    PanelAxis(Axis2_X) PanelGroup()
+                    {
+                        PanelAdd(.5f);
+                        App->DebugPanel = PanelAdd(.5f);
+                        App->DebugPanel->CannotClose = true;
+                        }
+                    }
                 }
-                App->FirstPanel = RootPanel;
             }
         }
         
@@ -1400,9 +1412,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     {
                         panel *Panel = App->SelectedPanel;
                         
-                        if(!IsNilPanel(Panel) && !IsTextPanel(App, Panel))
+                        b32 IsFreePanel = (!IsNilPanel(Panel) && 
+                                           !IsTextPanel(App, Panel) &&
+                                           !Panel->CannotClose);
+                        if(IsFreePanel)
                         {                        
-                            panel_node *New =  PushStructZero(PanelArena, panel_node);
+                            panel_node *New = PushStructZero(PanelArena, panel_node);
                             
                             New->Text = PushStructZero(App->TextArena, app_text);
                             New->Text->Capacity = KB(64);
@@ -1444,7 +1459,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
         
         //- Text Input
-        
         if(TextPanel)
         {
             app_text *Text = TextPanel->Text;
@@ -1845,13 +1859,21 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     OS_ProfileAndPrint("Atlas");
     
-    if(!UI_State)
+        UI_State = PushStruct(PermanentArena, ui_state);
+    if(!Memory->Initialized)
     {
-        UI_State = PushStructZero(App->UIArena, ui_state);
-        
+        MemoryZero(UI_State);
         UI_State->Arena = App->UIArena;
         UI_State->BoxTableSize = 4096;
         UI_State->BoxTable = PushArray(UI_State->Arena, ui_box, UI_State->BoxTableSize);
+    }
+    
+    UI_State->Atlas = &App->FontAtlas;
+    UI_State->FrameIndex = App->FrameIndex;
+    UI_State->Input = Input;
+    if(UI_IsActive(UI_NilBox))
+    {
+        UI_State->Hot = UI_KeyNull();
     }
     
     // Draw rectangles 
@@ -1867,26 +1889,20 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
     }
     
-    s32 Flags = (UI_BoxFlag_DrawBorders | UI_BoxFlag_DrawBackground |
-                 UI_BoxFlag_DrawDisplayString |
-                 UI_BoxFlag_CenterTextHorizontally | UI_BoxFlag_CenterTextVertically |
-                 UI_BoxFlag_Clip);
-    s32 ButtonFlags = (Flags | UI_BoxFlag_MouseClickability);
     
     OS_ProfileAndPrint("UI setup");
     
-    v4 FreeRegion;
-    {    
-        v2 Pos = V2(0.f, 0.f);
-        v2 Size = BufferDim;
-        Pos = V2AddF32(Pos, WindowBorderSize);
-        Size = V2SubF32(Size, 2.f*WindowBorderSize);
-        FreeRegion = RectFromSize(Pos, Size);
-    }
-    
     // UI Panels
-    
     {
+        v4 FreeRegion;
+        {    
+            v2 Pos = V2(0.f, 0.f);
+            v2 Size = BufferDim;
+            Pos = V2AddF32(Pos, WindowBorderSize);
+            Size = V2SubF32(Size, 2.f*WindowBorderSize);
+            FreeRegion = RectFromSize(Pos, Size);
+        }
+        
         PanelGetRegionAndInput(App->FirstPanel, FreeRegion);
         
         for EachNode(Node, panel_node, App->TextPanels)
@@ -1910,29 +1926,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             Root->FixedSize = SizeFromRect(Panel->Region);
             Root->Rec = RectFromSize(Root->FixedPosition, Root->FixedSize);
             
-            // Init state
-            {
-                UI_State->Atlas = &App->FontAtlas;
-                UI_State->FrameIndex = App->FrameIndex;
-                UI_State->Input = Input;
-                
-                UI_State->Current = Root;
-                UI_State->AppendToParent = true;
-                
-                // Defaults
-                // NOTE(luca): This is slightly since what we should be doing here is *setting* and not *pushing*.  But since we don't modify the top item this shouldn't be a problem in practice.t
-                UI_PushBackgroundColor(Color_ButtonBackground);
-                UI_PushTextColor(Color_ButtonText);
-                UI_PushBorderColor(Color_ButtonBorder);
-                UI_PushSoftness(.5f);
-                UI_PushBorderThickness(2.f);
-                UI_PushCornerRadii(V4(5.f, 5.f, 5.f, 5.f));
-                UI_PushLayoutAxis(Axis2_X);
-                UI_PushSemanticWidth(UI_SizeParent(1.f, 1.f));
-                UI_PushSemanticHeight(UI_SizeParent(1.f, 1.f));
-                UI_PushHeightPx(App->HeightPx);
-                UI_PushFontKind(FontKind_Text);
-}
+            UI_DefaultState(Root, App->HeightPx);
             
             s32 Flags = (UI_BoxFlag_Clip |
                          UI_BoxFlag_DrawBorders |
@@ -1940,14 +1934,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
                          UI_BoxFlag_DrawDisplayString |
                          UI_BoxFlag_CenterTextVertically |
                          UI_BoxFlag_CenterTextHorizontally);
+            s32 ButtonFlags = (Flags | UI_BoxFlag_MouseClickability);
             
             // NOTE(luca): Adding an extra parent like this makes it easy to override defaults
             UI_LayoutAxis(Axis2_Y) 
-                UI_SemanticWidth(UI_SizeParent(1.f, 1.f))
+                UI_SemanticFull()
                 UI_AddBox(S8(""), UI_BoxFlag_Clip);
             
             UI_BorderThickness(1.f)
-                UI_CornerRadii(V4(0.f, 0.f, 0.f, 0.f))
                 UI_Push()
             {
                 UI_SemanticWidth(UI_SizeParent(1.f, 1.f)) 
@@ -1996,13 +1990,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                     UI_TextColor(Color_Black)
                                     UI_FontKind(FontKind_Icon) 
                                     
-                                    if(UI_AddBox(S8("b##close"), (UI_BoxFlag_Clip|
-                                                                  UI_BoxFlag_DrawBackground|
-                                                                  UI_BoxFlag_DrawDisplayString|
-                                                                  UI_BoxFlag_DrawBorders|
-                                                                  UI_BoxFlag_CenterTextHorizontally|
-                                                                  UI_BoxFlag_CenterTextVertically|
-                                                                  UI_BoxFlag_MouseClickability))->Clicked)
+                                    if(UI_AddBox(S8("b##close"), ButtonFlags)->Clicked)
                                 {
                                     ShouldClosePanel = true;
                                 }
@@ -2025,7 +2013,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         UI_AddBox(Str8Fmt("#%lu###Text count", Text->Count), Flags);
                         UI_AddBox(Str8Fmt("Cur:%lu/%lu###Text cursor pos", Text->Cursor, Text->Trail), Flags);
                         
-                        UI_SemanticWidth(UI_SizeParent(1.f, 0.f)) UI_CornerRadii(V4(0.f, 0.f, 0.f, 0.f))
+                        UI_SemanticWidth(UI_SizeParent(1.f, 0.f))
                             UI_AddBox(S8("remaining spacer"), UI_BoxFlag_Clip|UI_BoxFlag_DrawBackground|UI_BoxFlag_DrawBorders);
                     }
 #endif
@@ -2048,7 +2036,56 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 }
             }
             UI_ResolveLayout(Root->First);
+        }
+        
+        // Debug Panel
+        if(IsEditorBuildInternal)
+        {
+            panel *Panel = App->DebugPanel;
+            ui_box *Root = 0;
+            if(UI_IsNilBox(Panel->Root))
+            {
+                Panel->Root = UI_BoxAlloc(App->UIArena);
+            }
+            Root = Panel->Root;
             
+            Root->FixedPosition = Panel->Region.Min;
+            Root->FixedSize = SizeFromRect(Panel->Region);
+            Root->Rec = RectFromSize(Root->FixedPosition, Root->FixedSize);
+            
+            UI_DefaultState(Root, App->HeightPx);
+            
+            ui_box *Hot = UI_BoxFromKey(UI_State->Hot);
+            ui_box *Active = UI_BoxFromKey(UI_State->Active);
+            str8 ActiveDisplayString = Active->DisplayString;
+            str8 HotDisplayString = Hot->DisplayString;
+            if(ActiveDisplayString.Size == 0) ActiveDisplayString = S8("null");
+            if(HotDisplayString.Size == 0) HotDisplayString = S8("null");
+            
+            s32 Flags = (UI_BoxFlag_Clip |
+                         UI_BoxFlag_DrawBackground |
+                         UI_BoxFlag_DrawDisplayString |
+                         UI_BoxFlag_CenterTextVertically);
+            s32 ButtonFlags = (Flags | UI_BoxFlag_MouseClickability);
+            
+            UI_LayoutAxis(Axis2_Y)
+                UI_SemanticFull()
+                UI_AddBox(S8("Debug panel parent"), UI_BoxFlag_Clip);
+            UI_Push() 
+                UI_SemanticWidth(UI_SizeParent(1.f, 1.f))
+                UI_SemanticHeight(UI_SizeText(2.f, 1.f))
+            {
+                UI_AddBox(Str8Fmt("Active: " S8Fmt, S8Arg(ActiveDisplayString)), Flags);
+                UI_AddBox(Str8Fmt("Hot: " S8Fmt, S8Arg(HotDisplayString)), Flags);
+                
+                UI_AddBox(Str8Fmt("Active->tHot = %.2f", Active->tHot), Flags);
+                UI_AddBox(Str8Fmt("Active->tActive = %.2f", Active->tActive), Flags);
+                UI_AddBox(Str8Fmt("Hot->tHot = %.2f", Hot->tHot), Flags);
+                UI_AddBox(Str8Fmt("Hot->tActive = %.2f", Hot->tActive), Flags);
+                
+            }
+
+            UI_ResolveLayout(Root->First);
         }
     }
     

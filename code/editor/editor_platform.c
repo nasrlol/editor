@@ -328,6 +328,8 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                 f64 WorkCounter = OS_GetWallClock();
                 f64 WorkMSPerFrame = OS_MSElapsed(LastCounter, WorkCounter);
                 // Sleep
+                // TODO(luca): Think about framerate.
+                if(1)
                 {            
                     f64 SecondsElapsedForFrame = OS_SecondsElapsed(LastCounter, WorkCounter);
                     if(SecondsElapsedForFrame < TargetSecondsPerFrame)
@@ -359,9 +361,9 @@ C_LINKAGE ENTRY_POINT(EntryPoint)
                     {
                         // TODO(luca): Log missed frame rate!
                     }
-                    
-                    LastCounter = OS_GetWallClock();
                 }
+                
+                    LastCounter = OS_GetWallClock();
                 
                 NewInput->Text.Buffer[NewInput->Text.Count].Codepoint = 0;
                 

@@ -137,6 +137,7 @@ struct app_state
     panel *FirstPanel;
     panel_node *FreePanel;
     arena *PanelArena;
+    panel *DebugPanel;
     
     u64 FrameIndex;
     

@@ -89,8 +89,6 @@ struct ui_box
     
     // Computed per build
     b32 Clicked;
-    b32 Hovered;
-    b32 Pressed;
     v4 Rec;
 };
 #define UI_EachBox(Node, First) \
@@ -250,5 +248,11 @@ internal void UI_PopFontKind()                    { UI_StackPop(FontKind); }
 #define UI_HeightPx(Value) DeferLoop(UI_PushHeightPx(Value), UI_PopHeightPx())
 
 #define UI_FontKind(Value) DeferLoop(UI_PushFontKind(Value), UI_PopFontKind())
+
+#define UI_SemanticFull() \
+UI_SemanticHeight(UI_SizeParent(1.f, 1.f)) \
+UI_SemanticWidth(UI_SizeParent(1.f, 1.f))
+
+#define UI_
 
 #endif //EDITOR_UI_H

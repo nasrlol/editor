@@ -19,6 +19,12 @@
 # define EDITOR_FORCE_SMALL_RESOLUTION 0
 #endif
 
+#if EDITOR_INTERNAL
+global_variable b32 IsEditorBuildInternal = true;
+#else
+global_variable b32 IsEditorBuildInternal = false;
+#endif
+
 #include "editor/editor_random.h"
 
 typedef struct app_offscreen_buffer app_offscreen_buffer;

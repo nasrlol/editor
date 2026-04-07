@@ -163,6 +163,17 @@ V4(f32 X, f32 Y, f32 Z, f32 W)
     return Result;
 }
 
+internal inline v4
+V4F32(f32 A)
+{
+        v4 Result = {0};
+        Result.X = A;
+        Result.Y = A;
+        Result.Z = A;
+        Result.W = A;
+        return Result;
+}
+
 internal inline b32
 InBounds(v2 A, v2 Min, v2 Max)
 {

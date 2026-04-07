@@ -80,6 +80,21 @@ UI_IsHot(ui_box *Box)
 }
 
 internal ui_box *
+UI_BoxFromKey(ui_key Key)
+{
+    u64 Slot = (Key.U64[0] % UI_State->BoxTableSize);
+    ui_box *HashBox = UI_State->BoxTable + Slot;
+    
+    while(!UI_KeyMatch(HashBox->Key, Key) &&
+          !UI_IsNilBox(HashBox))
+    {
+        HashBox = HashBox->Next;
+    }
+    
+    return HashBox;
+}
+
+internal ui_box *
 UI_AddBox(str8 String, s32 Flags)
 {
     str8 DisplayString = String;
@@ -189,6 +204,7 @@ UI_AddBox(str8 String, s32 Flags)
     Box->FontKind = UI_State->FontKindTop->Value;
     Box->CustomDraw = 0;
     Box->CustomDrawData = 0;
+    Box->Clicked = false;
     
     if(!FirstTime)
     {
@@ -197,59 +213,62 @@ UI_AddBox(str8 String, s32 Flags)
         b32 Pressed = false;
         
         app_input *Input = UI_State->Input;
+        
         if(!Input->Consumed && Box->Flags & UI_BoxFlag_MouseClickability)
         {        
             v2 MouseP = V2S32(Input->Mouse.X, Input->Mouse.Y);
             
             app_button_state MouseLeft = Input->Mouse.Buttons[PlatformMouseButton_Left];
             
-            Hovered = IsInsideRectV2(MouseP, RectFromSize(Box->FixedPosition, Box->FixedSize));
+            Hovered = IsInsideRectV2(MouseP, Box->Rec);
             Pressed = (Hovered && MouseLeft.EndedDown);
             
             // Set active and hot state
 {            
-                b32 IsActive = UI_IsActive(Box);
-                b32 IsHot = UI_IsHot(Box);
-                b32 MouseWentUp = (!MouseLeft.EndedDown && MouseLeft.HalfTransitionCount > 0);
+                b32 MouseWentUp = (!MouseLeft.EndedDown);
                 
-                if(IsActive)
+                if(Hovered)
+                    {
+                    if(UI_IsActive(UI_NilBox) ||
+                       UI_IsActive(Box)) 
+{
+                        UI_State->Hot = Box->Key;
+}
+                }
+                else if(UI_IsHot(Box))
+                {
+                    UI_State->Hot = UI_KeyNull();
+                }
+                
+                if(UI_IsActive(Box))
             {
                     if(MouseWentUp)
                     {
-                        if(IsHot)
+                        if(UI_IsHot(Box))
                         {
                             Clicked = true;
                         }
                         UI_State->Active = UI_KeyNull();
                     }
                 }
-                else if(IsHot)
+                else if(UI_IsHot(Box))
                 {
-                    if(WasPressed(MouseLeft))
+                    if(MouseLeft.EndedDown)
                     {
                         UI_State->Active = Box->Key;
                     }
                 }
-            
-            if(Hovered)
-            {
-                UI_State->Hot = Box->Key;
+                
             }
-            }
-
-                Input->Consumed = Hovered;
         }
         
         Box->Clicked = Clicked;
-        Box->Hovered = Hovered;
-        Box->Pressed = Pressed;
-    }
-    else
-    {
-        // Clear input
-        Box->Clicked = false;
-        Box->Hovered = false;
-        Box->Pressed = false;
+        
+        f32 Speed = 20.f;
+        f32 HotTarget    = UI_IsHot(Box)    ? 1.f : 0.f;
+        f32 ActiveTarget = UI_IsActive(Box) ? 1.f : 0.f;
+            Box->tActive += (ActiveTarget - Box->tActive) * Speed * Input->dtForFrame;
+        Box->tHot += (HotTarget - Box->tHot) * Speed * Input->dtForFrame;
     }
     
     // Add box to the tree
@@ -323,6 +342,27 @@ UI_MeasureTextWidth(str8 String, font_kind FontKind)
     }
     
     return Result;
+}
+
+internal void
+UI_DefaultState(ui_box *Root, f32 HeightPx)
+{
+UI_State->Current = Root;
+UI_State->AppendToParent = true;
+
+// Defaults
+// NOTE(luca): This is slightly since what we should be doing here is *setting* and not *pushing*.  But since we don't modify the top item this shouldn't be a problem in practice.t
+UI_PushBackgroundColor(Color_ButtonBackground);
+UI_PushTextColor(Color_ButtonText);
+UI_PushBorderColor(Color_ButtonBorder);
+UI_PushSoftness(.5f);
+UI_PushBorderThickness(2.f);
+    UI_PushCornerRadii(V4F32(0.f));
+UI_PushLayoutAxis(Axis2_X);
+UI_PushSemanticWidth(UI_SizeParent(1.f, 1.f));
+UI_PushSemanticHeight(UI_SizeParent(1.f, 1.f));
+UI_PushHeightPx(HeightPx);
+UI_PushFontKind(FontKind_Text);
 }
 
 //~ Calculations Start 
@@ -589,21 +629,17 @@ UI_DrawBoxes(ui_box *Box)
             
             if(Box->Flags & UI_BoxFlag_MouseClickability)
             {
-                if(Box->Hovered)
-                {
-                    if(Box->Pressed)
-                    {
-                        V3Math Inst->Color2.E *= .6f;
-                        V3Math Inst->Color3.E *= .6f;
-                    }
-                    else
-                    {                    
-                        V3Math Inst->Color0.E *= .7f;
-                        V3Math Inst->Color1.E *= .7f;
-                    }
+#if 1
+                V3Math Inst->Color2.E *= 1.f - .4f*(Box->tActive);
+                V3Math Inst->Color3.E *= 1.f - .4f*(Box->tActive);
+                
+                V3Math Inst->Color0.E *= 1.f - .4f*(Box->tHot - Box->tActive);
+                V3Math Inst->Color1.E *= 1.f - .4f*(Box->tHot - Box->tActive);
+#else
+                
+#endif
                 }
             }
-        }
         
         if(Box->Flags & UI_BoxFlag_DrawDisplayString)
         {
@@ -646,7 +682,8 @@ UI_DrawBoxes(ui_box *Box)
         
         if(Box->Flags & UI_BoxFlag_DrawBorders)
         {    
-            if(Box->Flags & UI_BoxFlag_MouseClickability && Box->Hovered)
+            if(Box->Flags & UI_BoxFlag_MouseClickability && 
+               (UI_IsHot(Box) || UI_IsActive(Box)))
             {
                 Box->BorderColor = Color_Snow2;
             }
