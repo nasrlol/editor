@@ -128,7 +128,8 @@ OS_PrintFormat(char *Format, ...)
     smm BytesWritten = write(STDOUT_FILENO, LogBuffer, Length);
     AssertErrno(BytesWritten == Length);
 #else
-    vprintf(Format, Args);
+    // NOTE(luca): Writing to stderr is a workaround for 4coder because it does not seem to do line buffering. 
+    vfprintf(stderr, Format, Args);
 #endif
 }
 
@@ -162,6 +163,13 @@ OS_Allocate(u64 Size)
 {
     void *Result = OS_AllocateAtOffset(Size, 0);
     return Result;
+}
+
+internal void
+OS_MarkReadonly(void *Memory, u64 Size)
+{
+    s32 Ret = mprotect(Memory, Size, PROT_READ);
+    AssertErrno(Ret == 0);
 }
 
 internal f64 

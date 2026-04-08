@@ -42,6 +42,19 @@ IsAlpha(u8 Char)
     return Result;
 }
 
+internal u8
+ToLowercase(u8 Char)
+{
+    u8 Result = Char;
+    
+    if(Char >= 'A' && Char <= 'Z')
+{
+        Result = (Char - (u8)('A' - 'a'));
+    }
+    
+    return Result;
+}
+
 internal str8 
 S8SkipLastSlash(str8 String)
 {

@@ -62,7 +62,7 @@ struct ui_box
     
     // Key and generation info
     ui_key Key;
-    u64 LastTouchedFrameIndex;
+    u64 LastTouchedFrameIdx;
     
     // TODO(luca): Metaprogram
     s32 Flags;
@@ -168,7 +168,7 @@ struct ui_state
     // Per build information
     app_input *Input;
     font_atlas *Atlas;
-    u64 FrameIndex;
+    u64 FrameIdx;
     
     b32 AppendToParent;
     ui_box *Current;
@@ -180,8 +180,15 @@ struct ui_state
 
 //~ Globals
 global_variable ui_state *UI_State = 0;
+global_variable arena *UI_FrameArena = 0;
 
 global_variable ui_box *UI_NilBox = 0;
+
+global_variable v4 Color_Background = {U32ToV4Arg(0xff4c566a)};
+global_variable v4 Color_Foreground = {U32ToV4Arg(0xffeceff4)};
+global_variable v4 Color_ButtonBorder = {U32ToV4Arg(0xff3b4252)};
+global_variable v4 Color_ButtonBackground = {U32ToV4Arg(0xFF81A1C1)};
+global_variable v4 Color_ButtonText = {U32ToV4Arg(0xff000000)};
 
 #define UI_SizePx(Value, Strictness) UI_Size(UI_SizeKind_Pixels, Value, Strictness)
 #define UI_SizeText(Value, Strictness) UI_Size(UI_SizeKind_TextContent, Value, Strictness)
@@ -200,7 +207,7 @@ Top = Push;
 #define StackPop(Top) \
 ((Top)->Value, (Top = Top->Prev)->Value)
 
-#define UI_StackPush(t, Name) StackPush(FrameArena, t##_stack_node, Name, UI_State->Name##Top)
+#define UI_StackPush(t, Name) StackPush(UI_FrameArena, t##_stack_node, Name, UI_State->Name##Top)
 #define UI_StackPop(Name) StackPop(UI_State->Name##Top)
 
 internal void UI_PushBackgroundColor(v4 BackgroundColor)  { UI_StackPush(v4, BackgroundColor); }

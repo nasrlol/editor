@@ -355,7 +355,7 @@ ENTRY_POINT(EntryPoint)
         
         if(Editor)
         {            
-            Log("[editor]\n");
+            Log("[editor (" S8Fmt ")]\n", S8Arg(Debug ? S8("debug") : S8("release")));
             
             // Metaprogram
             {
@@ -536,12 +536,16 @@ ENTRY_POINT(EntryPoint)
                     
                     Str8ArrayPushCount(EditorFlags)
                     {
-                        Str8ArrayAppendTo(EditorFlags, S8("-lX11 -lGL -lGLX"));
+                        Str8ArrayAppendTo(EditorFlags, S8("-lX11 -lGL -lGLX "
+                                                                            "-DEDITOR_SLOW_COMPILE=0"));
+                        
                         LinuxMakeBuildCommand(S8("../code/editor/editor_platform.c"),
                                               S8("editor"),
                                               GCC, Clang, Asan, Debug,
                                               EditorFlags,
-                                              true);
+                                              false);
+                        Str8ArrayAppend(S8FromCString(LibsFileName));
+                        RunCommand();
                     }
                 }
                 

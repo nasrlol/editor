@@ -2,13 +2,13 @@
 On **Linux**, use clang.
 
 ```sh
-./source/build.sh
+./code/build.sh
 ```
 
 On **Windows**, use msvc.
 
 ```bat
-.\source\build.bat
+.\code\build.bat
 ```
 
 # Demo 

@@ -185,6 +185,7 @@ do { if(!(Expression)) TrapMsg(Format, ##__VA_ARGS__); } while(0)
 #define MemorySet(Dest, Value, Count)  memset(Dest, Value, Count)
 #define MemoryZero(Value) MemorySet((Value), 0, sizeof((*Value)));
 #define MemoryCopyArray(Dest, Source) MemoryCopy((Dest), (Source), sizeof((Dest)))
+#define MemoryCopyStruct(Dest, Source) MemoryCopy((Dest), (Source), sizeof(*(Dest)))
 
 //~ Attributes
 #define internal static

@@ -3,43 +3,55 @@
 #ifndef EDITOR_GL_H
 #define EDITOR_GL_H
 
+//~ Types
+
 typedef GLuint gl_uint;
 typedef GLint gl_int;
 typedef GLenum gl_enum;
 
-#include "editor/editor_app.h"
+typedef struct gl_render_state gl_render_state;
+struct gl_render_state
+{
+    gl_uint VAOs[1];
+    gl_uint VBOs[1];
+    gl_uint Textures[2];
+    gl_uint RectShader;
+    b32 ShadersCompiled;
+};
 
-//- GL helpers 
+//~ Globals
+global_variable arena *GL_FrameArena = 0;
 
+//~ Functions 
 internal void
 GL_ErrorStatus(gl_uint Handle, b32 IsShader)
 {
-    b32 Success = true;
+    b32 Valid = true;
     
     char InfoLog[KB(2)] = {0};
     if(IsShader)
     {
-        glGetShaderiv(Handle, GL_COMPILE_STATUS, &Success);
+        glGetShaderiv(Handle, GL_COMPILE_STATUS, &Valid);
         glGetShaderInfoLog(Handle, sizeof(InfoLog), NULL, InfoLog);
     }
     else
     {
-        glGetProgramiv(Handle, GL_LINK_STATUS, &Success);
+        glGetProgramiv(Handle, GL_LINK_STATUS, &Valid);
         glGetProgramInfoLog(Handle, sizeof(InfoLog), NULL, InfoLog);
     }
     
-    if(!Success)
+    if(!Valid)
     {
         ErrorLog("%s", InfoLog);
     }
 }
 
 internal gl_uint
-GL_CompileShaderFromSource(arena *Arena, str8 ExeDirPath, str8 FileNameAfterExe, u32 Type)
+GL_CompileShaderFromSource(str8 FileNameAfterExe, u32 Type)
 {
-    gl_uint Shader = glCreateShader(Type);
+    gl_uint Shader = (gl_uint)glCreateShader(Type);
     
-    char *FileName = PathFromExe(Arena, ExeDirPath, FileNameAfterExe);
+    char *FileName = PathFromExe(GL_FrameArena, FileNameAfterExe);
     str8 Source = OS_ReadEntireFileIntoMemory(FileName);
     
     if(Source.Size)
@@ -55,13 +67,13 @@ GL_CompileShaderFromSource(arena *Arena, str8 ExeDirPath, str8 FileNameAfterExe,
 }
 
 internal gl_uint
-GL_ProgramFromShaders(arena *Arena, str8 ExeDirPath, str8 VertPath, str8 FragPath)
+GL_ProgramFromShaders(str8 VertPath, str8 FragPath)
 {
     gl_uint Program = 0;
     
     gl_uint VertexShader, FragmentShader;
-    VertexShader = GL_CompileShaderFromSource(Arena, ExeDirPath, VertPath, GL_VERTEX_SHADER);
-    FragmentShader = GL_CompileShaderFromSource(Arena, ExeDirPath, FragPath, GL_FRAGMENT_SHADER);
+    VertexShader = GL_CompileShaderFromSource(VertPath, GL_VERTEX_SHADER);
+    FragmentShader = GL_CompileShaderFromSource(FragPath, GL_FRAGMENT_SHADER);
     
     Program = glCreateProgram();
     glAttachShader(Program, VertexShader);
@@ -121,15 +133,6 @@ GL_LoadTextureFromImage(gl_uint Texture, s32 Width, s32 Height, u8 *Image, gl_en
     
     gl_int UTexture = glGetUniformLocation(ShaderProgram, TextureHandle); 
     glUniform1i(UTexture, 0);
-}
-
-void
-GL_SetQuadAttribute(gl_uint Index, u64 Count, u64 *Offset)
-{
-    glEnableVertexAttribArray(Index);
-    glVertexAttribDivisor(Index, 1);
-    glVertexAttribPointer(Index, (gl_int)Count, GL_FLOAT, false, sizeof(rect_instance), (void *)((*Offset)*sizeof(f32)));
-    *Offset += Count;
 }
 
 #endif //EDITOR_GL_H

@@ -1,6 +1,6 @@
 #include "base/base.h"
 //- OpenGL 
-#include <GL/gl.h>
+#include "lib/gl_core_3_3_debug.h"
 #include <GL/glx.h>
 #define GLX_CONTEXT_MAJOR_VERSION_ARB 0x2091
 #define GLX_CONTEXT_MINOR_VERSION_ARB 0x2092
@@ -1087,7 +1087,7 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
         if(KeepOldDLLsAllocated)
         {
             str8 TempDLLFileName = Str8Fmt("editor_app_temp_%lu.so", (u64)OS_GetWallClock());
-            char *TempDLLPath = PathFromExe(Arena, Memory->ExeDirPath, TempDLLFileName);
+            char *TempDLLPath = PathFromExe(Arena, TempDLLFileName);
             
             int File = open(Code->LibraryPath, O_RDONLY, 0600);
             if(File != -1)
@@ -1115,7 +1115,7 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
             {
                 Code->Loaded = true;
                 Memory->Reloaded = true;
-                Code->LibraryHandle = (u64 )Library;
+                Code->LibraryHandle = (u64)Library;
                 Log("\nLibrary reloaded.\n");
             }
             else
@@ -1127,6 +1127,7 @@ P_LoadAppCode(arena *Arena, app_code *Code, app_memory *Memory)
         else
         {
             Code->Loaded = false;
+            Code->LibraryHandle = 0;
             ErrorLog("%s", dlerror());
         }
     }

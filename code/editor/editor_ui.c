@@ -1,3 +1,13 @@
+//~ Misc
+internal inline b32
+EqualsWithEpsilon(f32 A, f32 B, f32 Epsilon)
+{
+    b32 Result = (A < (B + Epsilon) && 
+                  A > (B - Epsilon));
+    return Result;
+}
+
+//~ Functions
 internal ui_size
 UI_Size(ui_size_kind Kind, f32 Value, f32 Strictness)
 {
@@ -182,7 +192,7 @@ UI_AddBox(str8 String, s32 Flags)
     }
     else
     {
-        Box = PushStruct(FrameArena, ui_box);
+        Box = PushStruct(UI_FrameArena, ui_box);
     }
     
     Box->First = Box->Last = Box->Next = Box->Prev = Box->Parent = UI_NilBox;
@@ -352,7 +362,7 @@ UI_State->AppendToParent = true;
 
 // Defaults
 // NOTE(luca): This is slightly since what we should be doing here is *setting* and not *pushing*.  But since we don't modify the top item this shouldn't be a problem in practice.t
-UI_PushBackgroundColor(Color_ButtonBackground);
+UI_PushBackgroundColor(Color_Background);
 UI_PushTextColor(Color_ButtonText);
 UI_PushBorderColor(Color_ButtonBorder);
 UI_PushSoftness(.5f);
@@ -457,9 +467,16 @@ UI_CalculateDownwardSizes(ui_box *Box, axis2 Axis)
             {
                 TotalSize += Child->FixedSize.e[Axis];
             }
-            else if(IsAligned && !UI_IsFloatingBox(Child, Axis))
+            else if(!UI_IsFloatingBox(Child, Axis))
             {
+                if(IsAligned)
+{
                 TotalSize += Child->FixedSize.e[Axis];
+                }
+                else
+                {
+                    TotalSize = Max(TotalSize, Child->FixedSize.e[Axis]);
+                }
             }
         }
         
@@ -540,7 +557,7 @@ UI_CalculatePositions(ui_box *Box)
     ui_box *Parent = Box->Parent;
     
     // TODO(luca): This won't work since the root box will never be passed only the first child of that box, so its index will never be set.
-    Box->LastTouchedFrameIndex = UI_State->FrameIndex;
+    Box->LastTouchedFrameIdx = UI_State->FrameIdx;
     
     if(Parent->First == Box)
     {
@@ -748,7 +765,7 @@ UI_ResolveLayout(ui_box *Root)
 {
     if(!UI_IsNilBox(Root))
     { 
-        Root->LastTouchedFrameIndex = UI_State->FrameIndex;
+        Root->LastTouchedFrameIdx = UI_State->FrameIdx;
         
         for EachIndex(Idx, (s32)Axis2_Count)
         {        

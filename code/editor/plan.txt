@@ -1,11 +1,14 @@
-- Smooth smooth animations
-  - self-correcting exponential animation curves for hot_t & active_t
-
 - Platorm replay improvements
-  - Separate renderer such that we can also render some debug UI from the platform. (Overlay debug info)
   - Forward/Backward 1 frame
   - Multiple slots
   - Save/Load replay to/from file
+  - Select a starting state 
+  - Overwrite a recording buffer partially.
+    - Idea: Always load/to Save.Buffer so that we have enough space to eventually get it out.
+  - We could use an arena for permanent memory so that the platform knows exactly how much memory to write to disk to speed up load/save times.  But in the end we might end up being using all that memory or more so does it really matter?
+
+- PlatformLog & AppLog which have FrameIdx attached.
+- Cycle panels
 
 - Fat panel struct instead of text panel nodes.
 
@@ -16,6 +19,7 @@
 
 - albedo sample 
 
+- Speed up atlas creation.
 - Glyph cache for faster atlas creating
 
 - text: Undo/Redo
@@ -144,3 +148,5 @@ x text: Selections
 x text: Clipboard
 x platform: clipboard: use bool instead of second buffer `PlatftormSetClipboard`
 x text: multiple buffers
+x Smooth smooth animations
+x replay: Separate renderer such that we can also render some debug UI from the platform. (Overlay debug info)

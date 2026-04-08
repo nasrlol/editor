@@ -187,6 +187,16 @@ OS_Allocate(u64 Size)
     return Result;
 }
 
+internal void 
+OS_MarkReadonly(void *Memory, u64 Size)
+{
+    DWORD OldProtection = {0};
+    if(VirtualProtect(Memory, Size, PAGE_READONLY, &OldProtection) == 0)
+    {
+        Win32LogIfError();
+    }
+}
+
 internal f64
 OS_GetWallClock(void)
 {

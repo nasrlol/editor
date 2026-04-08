@@ -3,30 +3,41 @@
 #if !defined(PLATFORM_H)
 #define PLATFORM_H
 
+// TODO(luca): So that everyone has the same sense of what the "release" version is of the app maybe the sets of flags set in release mode should be defined?
+
+// NOTE(luca): Adds some debug information and interactions that a normal user shouldn't be able to see.
 #if !defined(EDITOR_INTERNAL)
 # define EDITOR_INTERNAL 0
 #endif
-#if !defined(EDITOR_PROFILE)
-# define EDITOR_PROFILE 0
+
+// NOTE(luca): Toggles the compiliation of the debug GUI in the platform layer, this is separate from EDITOR_INTERNAL because sometimes we want to test the "release" version of our app with our platform debug tools. 
+#if !defined(EDITOR_PLATFORM_DEBUG_UI)
+# define EDITOR_PLATFORM_DEBUG_UI 0
 #endif
+
+// NOTE(luca): For performance (specifically on my laptop).
 #if !defined(EDITOR_HOT_RELOAD_SHADERS)
 # define EDITOR_HOT_RELOAD_SHADERS 0
 #endif
+
 #if !defined(EDITOR_FORCE_X11)
 # define EDITOR_FORCE_X11 0
 #endif
+
 #if !defined(EDITOR_FORCE_SMALL_RESOLUTION)
 # define EDITOR_FORCE_SMALL_RESOLUTION 0
 #endif
 
+//~ Globals
 #if EDITOR_INTERNAL
 global_variable b32 IsEditorBuildInternal = true;
 #else
 global_variable b32 IsEditorBuildInternal = false;
 #endif
 
-#include "editor/editor_random.h"
+global_variable str8 ExeDirPath;
 
+//~ Types
 typedef struct app_offscreen_buffer app_offscreen_buffer;
 struct app_offscreen_buffer
 {
@@ -175,9 +186,11 @@ struct app_input
     
     f32 dtForFrame;
     
+    b32 SkipRendering;
+    
     b32 PlatformWindowIsFocused;
     b32 PlatformIsRecording;
-    b32 PlatformIsPlaying;
+    b32 PlatformIsStepping;
     
     // Communication with the platform layer
     s32 PlatformCursor;
@@ -240,36 +253,8 @@ WasPressed(app_button_state State)
     return Result;
 }
 
-internal inline b32
-CharPressed(app_input *Input, rune Codepoint, s32 Modifiers)
-{
-    b32 Pressed = false;
-    for EachIndex(Idx, Input->Text.Count)
-    {
-        app_text_button Key = Input->Text.Buffer[Idx];
-        b32 ModifiersMatch = ((Modifiers == PlatformKeyModifier_Any) ||
-                              (Key.Modifiers == Modifiers));
-        
-        if((Key.Modifiers & PlatformKeyModifier_Shift) && 
-           (Key.Codepoint >= L'A' && Key.Codepoint <= L'Z'))
-        {
-            Key.Codepoint += 32;
-        }
-        
-        if(Codepoint >= L'A' && Codepoint <= L'Z') Codepoint += 32;
-        
-        
-        if(Key.Codepoint == Codepoint && ModifiersMatch)
-        {
-            Pressed = true;
-            break;
-        }
-    }
-    return Pressed;
-}
-
 internal char *
-PathFromExe(arena *Arena, str8 ExeDirPath, str8 Path)
+PathFromExe(arena *Arena, str8 Path)
 {
     char *Result = 0;
     

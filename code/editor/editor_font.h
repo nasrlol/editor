@@ -3,33 +3,31 @@
 
 #include <stdarg.h>
 #include <stdio.h>
-#include "lib/stb_truetype.h"
-#include "lib/stb_sprintf.h"
 
-// TODO(luca): Better UTF8 handling instead of passing a flag in parameters.
+// TODO(luca): UTF8 handling 
 
-typedef struct app_font app_font;
-struct app_font
-{
-    stbtt_fontinfo Info;
-    s32 Ascent;
-    s32 Descent;
-    s32 LineGap;
-    v2 BoundingBox[2];
-    b32 Initialized; // For debugging.
-};
-
+    typedef struct font font;
+    struct font
+    {
+        stbtt_fontinfo Info;
+        s32 Ascent;
+        s32 Descent;
+        s32 LineGap;
+        v2 BoundingBox[2];
+        b32 Initialized;
+    };
+    
 //~ API
 
 internal f32
-GetBaseline(app_font *Font, f32 Scale)
+GetBaseline(font *Font, f32 Scale)
 {
     f32 Result = Scale*(f32)(Font->Ascent - Font->Descent + Font->LineGap);
     return Result;
 }
 
 internal void
-InitFont(app_font *Font, char *FilePath)
+InitFont(font *Font, char *FilePath)
 {
     str8 File = OS_ReadEntireFileIntoMemory(FilePath);
     
