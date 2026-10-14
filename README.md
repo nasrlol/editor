@@ -31,8 +31,6 @@ A "text editor".
 
 - `[escape]`: quit the application
 
-- `[control]+[n]`: make the selected panel a text panel
-
 ### Text panel key bindings
 
 - `[text input]`: insert a character at the cursor (replaces the selection)
